@@ -2012,6 +2012,55 @@ def test_delete_item(mock_zotero_cls):
     writer = ZoteroWriter(library_id="123", api_key="abc")
     writer.delete_item("K1")
     mock_zot.delete_item.assert_called_once()
+
+
+# --- Error-path tests ---
+
+@patch("zotero_cli_cc.core.writer.zotero.Zotero")
+def test_add_note_network_error(mock_zotero_cls):
+    mock_zot = MagicMock()
+    mock_zotero_cls.return_value = mock_zot
+    mock_zot.item_template.return_value = {"itemType": "note", "note": "", "parentItem": ""}
+    from requests.exceptions import ConnectionError
+    mock_zot.create_items.side_effect = ConnectionError("Network unreachable")
+
+    writer = ZoteroWriter(library_id="123", api_key="abc")
+    with pytest.raises(ZoteroWriteError, match="Network"):
+        writer.add_note("P1", "content")
+
+
+@patch("zotero_cli_cc.core.writer.zotero.Zotero")
+def test_add_note_api_failure(mock_zotero_cls):
+    mock_zot = MagicMock()
+    mock_zotero_cls.return_value = mock_zot
+    mock_zot.item_template.return_value = {"itemType": "note", "note": "", "parentItem": ""}
+    mock_zot.create_items.return_value = {"successful": {}, "failed": {"0": {"message": "Bad request"}}}
+
+    writer = ZoteroWriter(library_id="123", api_key="abc")
+    with pytest.raises(ZoteroWriteError, match="Bad request"):
+        writer.add_note("P1", "content")
+
+
+@patch("zotero_cli_cc.core.writer.zotero.Zotero")
+def test_delete_item_not_found(mock_zotero_cls):
+    from pyzotero.zotero_errors import ResourceNotFound
+    mock_zot = MagicMock()
+    mock_zotero_cls.return_value = mock_zot
+    mock_zot.item.side_effect = ResourceNotFound("Not found")
+
+    writer = ZoteroWriter(library_id="123", api_key="abc")
+    with pytest.raises(ZoteroWriteError, match="not found"):
+        writer.delete_item("NONEXIST")
+```
+
+Note: import `pytest` and `ZoteroWriteError` at top of test file:
+
+```python
+# tests/test_writer.py
+import pytest
+from unittest.mock import MagicMock, patch
+
+from zotero_cli_cc.core.writer import ZoteroWriter, ZoteroWriteError
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -2025,59 +2074,105 @@ Expected: FAIL (ImportError)
 # src/zotero_cli_cc/core/writer.py
 from __future__ import annotations
 
+import logging
+
 from pyzotero import zotero
+from pyzotero.zotero_errors import ResourceNotFound
+from requests.exceptions import ConnectionError as RequestsConnectionError
 
 
 SYNC_REMINDER = "Change saved. Run Zotero sync to update local database."
+
+logger = logging.getLogger(__name__)
+
+
+class ZoteroWriteError(Exception):
+    """Raised when a Zotero write operation fails."""
+    pass
 
 
 class ZoteroWriter:
     def __init__(self, library_id: str, api_key: str) -> None:
         self._zot = zotero.Zotero(library_id, "user", api_key)
 
+    def _check_response(self, resp: dict) -> str:
+        """Check create response, return key or raise error."""
+        if resp.get("successful") and "0" in resp["successful"]:
+            return resp["successful"]["0"]["key"]
+        failed = resp.get("failed", {})
+        if failed:
+            msg = failed.get("0", {}).get("message", "Unknown API error")
+            raise ZoteroWriteError(f"API error: {msg}")
+        raise ZoteroWriteError("Unexpected API response")
+
     def add_note(self, parent_key: str, content: str) -> str:
-        template = self._zot.item_template("note")
-        template["note"] = content
-        template["parentItem"] = parent_key
-        resp = self._zot.create_items([template])
-        return resp["successful"]["0"]["key"]
+        try:
+            template = self._zot.item_template("note")
+            template["note"] = content
+            template["parentItem"] = parent_key
+            resp = self._zot.create_items([template])
+            return self._check_response(resp)
+        except RequestsConnectionError as e:
+            raise ZoteroWriteError(f"Network error: {e}") from e
 
     def update_note(self, note_key: str, content: str) -> None:
-        item = self._zot.item(note_key)
-        item["data"]["note"] = content
-        self._zot.update_item(item)
+        try:
+            item = self._zot.item(note_key)
+            item["data"]["note"] = content
+            self._zot.update_item(item)
+        except ResourceNotFound:
+            raise ZoteroWriteError(f"Note '{note_key}' not found")
+        except RequestsConnectionError as e:
+            raise ZoteroWriteError(f"Network error: {e}") from e
 
     def add_item(self, doi: str | None = None, url: str | None = None) -> str:
-        if doi:
-            # pyzotero can create items from DOI
-            template = self._zot.item_template("journalArticle")
-            template["DOI"] = doi
-            resp = self._zot.create_items([template])
-            return resp["successful"]["0"]["key"]
-        if url:
+        if not doi and not url:
+            raise ValueError("Either doi or url must be provided")
+        try:
+            if doi:
+                template = self._zot.item_template("journalArticle")
+                template["DOI"] = doi
+                resp = self._zot.create_items([template])
+                return self._check_response(resp)
             template = self._zot.item_template("webpage")
             template["url"] = url
             resp = self._zot.create_items([template])
-            return resp["successful"]["0"]["key"]
-        raise ValueError("Either doi or url must be provided")
+            return self._check_response(resp)
+        except RequestsConnectionError as e:
+            raise ZoteroWriteError(f"Network error: {e}") from e
 
     def delete_item(self, key: str) -> None:
-        item = self._zot.item(key)
-        self._zot.delete_item(item)
+        try:
+            item = self._zot.item(key)
+            self._zot.delete_item(item)
+        except ResourceNotFound:
+            raise ZoteroWriteError(f"Item '{key}' not found")
+        except RequestsConnectionError as e:
+            raise ZoteroWriteError(f"Network error: {e}") from e
 
     def add_tags(self, key: str, tags: list[str]) -> None:
-        item = self._zot.item(key)
-        existing = [t["tag"] for t in item["data"].get("tags", [])]
-        new_tags = [{"tag": t} for t in set(existing + tags)]
-        item["data"]["tags"] = new_tags
-        self._zot.update_item(item)
+        try:
+            item = self._zot.item(key)
+            existing = [t["tag"] for t in item["data"].get("tags", [])]
+            new_tags = [{"tag": t} for t in set(existing + tags)]
+            item["data"]["tags"] = new_tags
+            self._zot.update_item(item)
+        except ResourceNotFound:
+            raise ZoteroWriteError(f"Item '{key}' not found")
+        except RequestsConnectionError as e:
+            raise ZoteroWriteError(f"Network error: {e}") from e
 
     def remove_tags(self, key: str, tags: list[str]) -> None:
-        item = self._zot.item(key)
-        item["data"]["tags"] = [
-            t for t in item["data"].get("tags", []) if t["tag"] not in tags
-        ]
-        self._zot.update_item(item)
+        try:
+            item = self._zot.item(key)
+            item["data"]["tags"] = [
+                t for t in item["data"].get("tags", []) if t["tag"] not in tags
+            ]
+            self._zot.update_item(item)
+        except ResourceNotFound:
+            raise ZoteroWriteError(f"Item '{key}' not found")
+        except RequestsConnectionError as e:
+            raise ZoteroWriteError(f"Network error: {e}") from e
 
     def create_collection(self, name: str, parent_key: str | None = None) -> str:
         payload = [{"name": name, "parentCollection": parent_key or False}]
