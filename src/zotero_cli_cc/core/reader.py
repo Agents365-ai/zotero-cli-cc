@@ -32,9 +32,12 @@ class ZoteroReader:
         for attempt in range(MAX_RETRIES):
             try:
                 conn = sqlite3.connect(
-                    f"file:{self._db_path}?mode=ro", uri=True
+                    f"file:{self._db_path}?mode=ro", uri=True,
+                    timeout=5.0,
                 )
                 conn.row_factory = sqlite3.Row
+                # Test that we can actually query
+                conn.execute("SELECT 1 FROM items LIMIT 1")
                 self._conn = conn
                 return conn
             except sqlite3.OperationalError:
@@ -42,18 +45,22 @@ class ZoteroReader:
                     time.sleep(RETRY_DELAY)
                     continue
                 # Fallback: copy DB to temp file
-                tmp = Path(tempfile.mkdtemp()) / "zotero.sqlite"
-                shutil.copy2(self._db_path, tmp)
-                wal = self._db_path.with_suffix(".sqlite-wal")
-                shm = self._db_path.with_suffix(".sqlite-shm")
-                if wal.exists():
-                    shutil.copy2(wal, tmp.with_suffix(".sqlite-wal"))
-                if shm.exists():
-                    shutil.copy2(shm, tmp.with_suffix(".sqlite-shm"))
-                conn = sqlite3.connect(f"file:{tmp}?mode=ro", uri=True)
-                conn.row_factory = sqlite3.Row
-                self._conn = conn
-                return conn
+                return self._connect_from_copy()
+
+    def _connect_from_copy(self) -> sqlite3.Connection:
+        """Copy DB files to temp dir to avoid WAL locks."""
+        tmp = Path(tempfile.mkdtemp()) / "zotero.sqlite"
+        shutil.copy2(self._db_path, tmp)
+        wal = self._db_path.with_suffix(".sqlite-wal")
+        shm = self._db_path.with_suffix(".sqlite-shm")
+        if wal.exists():
+            shutil.copy2(wal, tmp.with_suffix(".sqlite-wal"))
+        if shm.exists():
+            shutil.copy2(shm, tmp.with_suffix(".sqlite-shm"))
+        conn = sqlite3.connect(str(tmp), timeout=5.0)
+        conn.row_factory = sqlite3.Row
+        self._conn = conn
+        return conn
 
     def close(self) -> None:
         if self._conn:
