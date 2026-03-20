@@ -9,6 +9,8 @@
 
 **Package name**: `zotero-cli-cc`
 **CLI entry point**: `zot`
+**Python**: >= 3.10
+**Target Zotero**: Zotero 7 & 8
 
 ## Market Analysis
 
@@ -67,12 +69,13 @@ zot <command> [subcommand] [options]
 - `--json` — JSON output (default: human-readable table)
 - `--limit N` — limit results
 - `--verbose` — verbose output
+- `--version` — show version
 
 ### Commands
 
 | Command | Purpose | Data path | Example |
 |---------|---------|-----------|---------|
-| `zot search <query>` | Full-library search (title/author/tag/fulltext) | SQLite | `zot search "transformer attention"` |
+| `zot search <query>` | Full-library search (title/author/tag/fulltext) | SQLite | `zot search "transformer attention" --collection "ML"` |
 | `zot list` | List items with filters | SQLite | `zot list --collection "ML" --limit 20` |
 | `zot read <key>` | View item details (metadata + abstract + notes) | SQLite | `zot read ABC123` |
 | `zot note <key>` | Note operations | Read: SQLite / Write: Web API | `zot note ABC123 --add "..."` |
@@ -108,12 +111,12 @@ WHERE f.fieldName = 'title'
 ```
 
 Key methods:
-- `search(query, fields=['title','creator','tag','fulltext'])` — cross-table fuzzy search
+- `search(query, fields=['title','creator','tag'], collection=None)` — cross-table fuzzy search using `LIKE` on metadata fields. Full-text content search queries `fulltextItemWords` table (Zotero 7/8 schema).
 - `get_item(key)` → full metadata dict
 - `get_notes(key)` → note list (HTML → Markdown conversion)
 - `get_collections()` → tree structure
-- `get_attachments(key)` → attachment path list
-- `export_citation(key, format)` → generate BibTeX/APA/Nature etc. from metadata
+- `get_attachments(key)` → attachment path list (resolves child attachment items, not parent key)
+- `export_citation(key, format='bibtex')` → BibTeX generation from metadata (P0). Styled citations (APA, Nature, etc.) deferred to P1 via `citeproc-py` + CSL style files.
 
 SQLite path auto-detection:
 1. Config file override
@@ -121,6 +124,13 @@ SQLite path auto-detection:
 3. `%APPDATA%\Zotero\zotero.sqlite` (Windows)
 
 Connection: **read-only** — `sqlite3.connect("file:...?mode=ro", uri=True)`
+
+#### WAL-mode and concurrent access
+
+Zotero uses WAL journal mode. Read-only connections work while Zotero desktop is running, provided the `-wal` and `-shm` files are accessible alongside `zotero.sqlite`. The tool:
+1. Opens with `?mode=ro` (does not create WAL/SHM files)
+2. If the DB is locked (Zotero mid-write), retries up to 3 times (1s interval)
+3. If still locked, falls back to copying the DB to a temp file for reading
 
 ### ZoteroWriter (Web API via pyzotero)
 
@@ -138,18 +148,115 @@ Key methods:
 
 ### PDF Extraction
 
-Read PDF files from `~/Zotero/storage/<key>/`, extract text with `pymupdf`.
+Zotero stores attachments using the **attachment item key** (child item), not the parent item key. Resolution flow:
+
+1. Given parent item key, query `itemAttachments` for child items where `contentType = 'application/pdf'`
+2. Get the child attachment's `key` field
+3. Resolve path: `<data_dir>/storage/<attachment_key>/<filename>.pdf`
 
 ```python
-def extract_pdf(key, pages=None):
-    pdf_path = find_pdf_in_storage(key)
+def extract_pdf(parent_key, pages=None):
+    attachment = reader.get_pdf_attachment(parent_key)  # returns (att_key, filename)
+    pdf_path = data_dir / "storage" / attachment.key / attachment.filename
     doc = pymupdf.open(pdf_path)
     # Extract by page, support page range filtering
 ```
 
+## Data Models
+
+```python
+@dataclass
+class Item:
+    key: str
+    item_type: str          # journalArticle, book, thesis, etc.
+    title: str
+    creators: list[Creator]
+    abstract: str | None
+    date: str | None
+    url: str | None
+    doi: str | None
+    tags: list[str]
+    collections: list[str]  # collection keys
+    date_added: str
+    date_modified: str
+    extra: dict[str, str]   # remaining EAV fields
+
+@dataclass
+class Creator:
+    first_name: str
+    last_name: str
+    creator_type: str       # author, editor, translator
+
+@dataclass
+class Note:
+    key: str
+    parent_key: str
+    content: str            # Markdown (converted from HTML on read)
+    tags: list[str]
+
+@dataclass
+class Collection:
+    key: str
+    name: str
+    parent_key: str | None
+    children: list[Collection]
+
+@dataclass
+class Attachment:
+    key: str
+    parent_key: str
+    filename: str
+    content_type: str
+    path: Path | None       # resolved local path
+
+@dataclass
+class SearchResult:
+    items: list[Item]
+    total: int
+    query: str
+```
+
+## Command Details
+
+### `zot summarize <key>`
+
+Outputs a structured, machine-readable summary designed for Claude Code consumption. Unlike `zot read` (human-oriented detail view), `summarize` outputs a condensed format:
+
+```
+Title: ...
+Authors: ...
+Year: ...
+Key findings: <extracted from abstract>
+Tags: ...
+Notes: <first 500 chars of each note>
+Related: <keys of related items>
+```
+
+This is a local formatting operation, not LLM-generated.
+
+### `zot relate <key>`
+
+Finds related items using two sources:
+1. **Explicit relations**: Zotero's `itemRelations` table (user-defined "related" links)
+2. **Implicit relations**: Items sharing the same collections or 2+ tags
+
+Results are ranked: explicit relations first, then implicit by overlap count.
+
+## Write-Read Consistency
+
+Since reads come from SQLite and writes go through the Web API, there is a consistency window. After a write:
+- The Web API change takes effect immediately on Zotero servers
+- The local SQLite is updated only when Zotero desktop syncs
+- The CLI prints a reminder: "Change saved. Run Zotero sync to update local database."
+
 ## Configuration
 
-### File: `~/.config/zot/config.toml`
+Config location uses `platformdirs.user_config_dir("zot")` for cross-platform support:
+- macOS: `~/Library/Application Support/zot/config.toml`
+- Linux: `~/.config/zot/config.toml`
+- Windows: `%APPDATA%\zot\config.toml`
+
+### Example config
 
 ```toml
 [zotero]
@@ -208,7 +315,8 @@ click          # CLI framework
 pyzotero       # Web API writes
 pymupdf        # PDF text extraction
 rich           # Table/pretty print
-tomli          # Config reading (Python <3.11 compat)
+platformdirs   # Cross-platform config/data paths
+tomli          # Config reading (conditional: Python <3.11 only)
 ```
 
 Package manager: `uv`
@@ -238,3 +346,11 @@ Install: `uv tool install zotero-cli-cc` or `pip install zotero-cli-cc`
 | Duplicate DOI | Detect and warn |
 | Errors in `--json` mode | JSON error format `{"error": "..."}` |
 | DB file not found | Guide user to check data directory config |
+
+## Testing Strategy
+
+- **SQLite reader tests**: Use a fixture `zotero.sqlite` with known data (created via schema SQL from Zotero source). Tests run against this fixture in read-only mode.
+- **Web API writer tests**: Mock `pyzotero.Zotero` calls. No real API calls in unit tests.
+- **CLI integration tests**: Use Click's `CliRunner` to test command parsing and output formatting.
+- **PDF extraction tests**: Include a small test PDF in `tests/fixtures/`.
+- **CI**: `pytest` via GitHub Actions. No Zotero installation required for tests.
