@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-import logging
-
 from pyzotero import zotero
 from pyzotero.zotero_errors import ResourceNotFoundError
 from httpx import ConnectError as HttpxConnectError
 
 
 SYNC_REMINDER = "Change saved. Run Zotero sync to update local database."
-
-logger = logging.getLogger(__name__)
 
 
 class ZoteroWriteError(Exception):

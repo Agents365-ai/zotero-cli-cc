@@ -20,6 +20,16 @@ from zotero_cli_cc.models import (
 MAX_RETRIES = 3
 RETRY_DELAY = 1.0
 
+# Zotero internal item type IDs (excluded from regular item queries)
+ATTACHMENT_TYPE_ID = 26
+NOTE_TYPE_ID = 14
+EXCLUDED_TYPE_IDS = (ATTACHMENT_TYPE_ID, NOTE_TYPE_ID)
+_EXCLUDED_SQL = f"NOT IN ({ATTACHMENT_TYPE_ID}, {NOTE_TYPE_ID})"
+
+# Tested schema version range (Zotero 6–8)
+MIN_SCHEMA_VERSION = 100
+MAX_SCHEMA_VERSION = 200
+
 
 class ZoteroReader:
     def __init__(self, db_path: Path) -> None:
@@ -67,6 +77,12 @@ class ZoteroReader:
             self._conn.close()
             self._conn = None
 
+    def __enter__(self):  # type: () -> ZoteroReader
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):  # type: ignore[override]
+        self.close()
+
     def get_schema_version(self) -> int | None:
         conn = self._connect()
         row = conn.execute(
@@ -76,7 +92,7 @@ class ZoteroReader:
 
     def check_schema_compatibility(self) -> None:
         version = self.get_schema_version()
-        if version and (version < 100 or version > 200):
+        if version and (version < MIN_SCHEMA_VERSION or version > MAX_SCHEMA_VERSION):
             warnings.warn(
                 f"Zotero schema version {version} is outside the tested range (100-200). "
                 "Some queries may not work correctly.",
@@ -87,7 +103,7 @@ class ZoteroReader:
         conn = self._connect()
         row = conn.execute(
             "SELECT itemID, itemTypeID, key, dateAdded, dateModified "
-            "FROM items WHERE key = ? AND itemTypeID NOT IN (26, 14)",
+            "FROM items WHERE key = ? AND itemTypeID " + _EXCLUDED_SQL,
             (key,),
         ).fetchone()
         if row is None:
@@ -134,7 +150,7 @@ class ZoteroReader:
                 "SELECT DISTINCT i.itemID FROM items i "
                 "JOIN itemData id ON i.itemID = id.itemID "
                 "JOIN itemDataValues iv ON id.valueID = iv.valueID "
-                "WHERE iv.value LIKE ? AND i.itemTypeID NOT IN (26, 14)",
+                "WHERE iv.value LIKE ? AND i.itemTypeID " + _EXCLUDED_SQL,
                 (like,),
             ).fetchall()
             item_ids.update(r["itemID"] for r in rows)
@@ -168,7 +184,7 @@ class ZoteroReader:
             item_ids.update(r["parentItemID"] for r in rows)
         else:
             rows = conn.execute(
-                "SELECT itemID FROM items WHERE itemTypeID NOT IN (26, 14)"
+                "SELECT itemID FROM items WHERE itemTypeID " + _EXCLUDED_SQL
             ).fetchall()
             item_ids.update(r["itemID"] for r in rows)
 
@@ -263,7 +279,7 @@ class ZoteroReader:
         rows = conn.execute(
             "SELECT i.key FROM collectionItems ci "
             "JOIN items i ON ci.itemID = i.itemID "
-            "WHERE ci.collectionID = ? AND i.itemTypeID NOT IN (26, 14)",
+            "WHERE ci.collectionID = ? AND i.itemTypeID " + _EXCLUDED_SQL,
             (col_row["collectionID"],),
         ).fetchall()
         items = []
@@ -399,7 +415,7 @@ class ZoteroReader:
             "WHERE ic.itemID = ? ORDER BY ic.orderIndex",
             (item_id,),
         ).fetchall()
-        return [Creator(r["firstName"] or "", r["lastName"], r["creatorType"]) for r in rows]
+        return [Creator(r["firstName"] or "", r["lastName"] or "", r["creatorType"]) for r in rows]
 
     def _get_item_tags(self, conn: sqlite3.Connection, item_id: int) -> list[str]:
         rows = conn.execute(

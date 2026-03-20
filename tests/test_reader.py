@@ -109,6 +109,15 @@ class TestAttachments:
         assert att is None
 
 
+class TestContextManager:
+    def test_context_manager(self, test_db_path: Path):
+        with ZoteroReader(test_db_path) as reader:
+            item = reader.get_item("ATTN001")
+            assert item is not None
+        # Connection should be closed after exiting context
+        assert reader._conn is None
+
+
 class TestSchemaVersion:
     def test_check_schema_version(self, reader: ZoteroReader):
         version = reader.get_schema_version()

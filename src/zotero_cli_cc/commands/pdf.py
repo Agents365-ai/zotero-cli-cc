@@ -18,6 +18,18 @@ def pdf_cmd(ctx: click.Context, key: str, pages: str | None) -> None:
     """Extract text from the PDF attachment."""
     cfg = load_config()
     json_out = ctx.obj.get("json", False)
+    page_range = None
+    if pages:
+        try:
+            parts = pages.split("-")
+            start = int(parts[0])
+            end = int(parts[1]) if len(parts) > 1 else start
+            if start < 1 or end < start:
+                raise ValueError(f"invalid range: start={start}, end={end}")
+            page_range = (start, end)
+        except ValueError:
+            click.echo(format_error(f"Invalid page range '{pages}'. Use e.g. '1-5'", output_json=json_out))
+            return
     data_dir = get_data_dir(cfg)
     db_path = data_dir / "zotero.sqlite"
     reader = ZoteroReader(db_path)
@@ -30,12 +42,6 @@ def pdf_cmd(ctx: click.Context, key: str, pages: str | None) -> None:
         if not pdf_path.exists():
             click.echo(format_error(f"PDF file not found at {pdf_path}", output_json=json_out))
             return
-        page_range = None
-        if pages:
-            parts = pages.split("-")
-            start = int(parts[0])
-            end = int(parts[1]) if len(parts) > 1 else start
-            page_range = (start, end)
         text = extract_text_from_pdf(pdf_path, pages=page_range)
         if json_out:
             click.echo(json.dumps({"key": key, "pages": pages, "text": text}, ensure_ascii=False))

@@ -49,3 +49,19 @@ def test_config_has_write_credentials():
     assert cfg.has_write_credentials is True
     cfg2 = AppConfig()
     assert cfg2.has_write_credentials is False
+
+
+def test_get_data_dir_env_override(tmp_path, monkeypatch):
+    from zotero_cli_cc.config import get_data_dir
+    monkeypatch.setenv("ZOT_DATA_DIR", str(tmp_path))
+    cfg = AppConfig(data_dir="/some/other/path")
+    result = get_data_dir(cfg)
+    assert result == tmp_path
+
+
+def test_get_data_dir_falls_back_to_config(monkeypatch, tmp_path):
+    from zotero_cli_cc.config import get_data_dir
+    monkeypatch.delenv("ZOT_DATA_DIR", raising=False)
+    cfg = AppConfig(data_dir=str(tmp_path))
+    result = get_data_dir(cfg)
+    assert result == tmp_path

@@ -45,3 +45,33 @@ def test_pdf_no_attachment(test_db_path):
     )
     assert result.exit_code == 0
     assert "no pdf" in result.output.lower() or "not found" in result.output.lower()
+
+
+def test_pdf_invalid_page_range_non_numeric(test_db_path):
+    runner = CliRunner()
+    result = runner.invoke(
+        main, ["pdf", "--pages", "abc", "DEEP003"],
+        env={"ZOT_DATA_DIR": str(test_db_path.parent)},
+    )
+    assert result.exit_code == 0
+    assert "invalid page range" in result.output.lower()
+
+
+def test_pdf_invalid_page_range_reversed(test_db_path):
+    runner = CliRunner()
+    result = runner.invoke(
+        main, ["pdf", "--pages", "5-2", "DEEP003"],
+        env={"ZOT_DATA_DIR": str(test_db_path.parent)},
+    )
+    assert result.exit_code == 0
+    assert "invalid page range" in result.output.lower()
+
+
+def test_pdf_invalid_page_range_zero(test_db_path):
+    runner = CliRunner()
+    result = runner.invoke(
+        main, ["pdf", "--pages", "0-3", "DEEP003"],
+        env={"ZOT_DATA_DIR": str(test_db_path.parent)},
+    )
+    assert result.exit_code == 0
+    assert "invalid page range" in result.output.lower()
