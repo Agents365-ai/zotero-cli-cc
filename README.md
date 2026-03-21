@@ -1,10 +1,6 @@
 # zotero-cli-cc
 
-[中文](#中文) | [English](#english)
-
----
-
-<a id="中文"></a>
+[English](README_EN.md)
 
 ## 简介
 
@@ -13,7 +9,7 @@
 **核心特性：**
 - **读操作**：直接读取本地 SQLite 数据库，零配置、离线可用、毫秒级响应
 - **写操作**：通过 Zotero Web API 安全写入，Zotero 完全感知变更
-- **PDF 提取**：直接从本地存储提取 PDF 全文
+- **PDF 提取**：直接从本地存储提取 PDF 全文，自动缓存
 
 **无需启动 Zotero 桌面端即可检索和阅读文献。**
 
@@ -95,7 +91,7 @@ zot collection items COLML01       # 查看 collection 内的文献
 zot collection create "新项目"      # 创建新 collection
 ```
 
-### 配置档案
+### 配置与档案
 
 ```bash
 zot config profile list            # 列出所有配置档案
@@ -124,43 +120,41 @@ zot --profile lab search "CRISPR"          # 使用指定配置档案
 zot --version                              # 查看版本
 ```
 
-## 同类工具对比 / Comparison with Similar Tools
+## 同类工具对比
 
-| 特性 / Feature | **zotero-cli-cc** | [pyzotero-cli](https://github.com/chriscarrollsmith/pyzotero-cli) | [zotero-cli](https://github.com/jbaiter/zotero-cli) (jbaiter) | [zotero-cli-tool](https://github.com/dhondta/zotero-cli) (dhondta) | [zotero-mcp](https://github.com/54yyyu/zotero-mcp) | [cookjohn/zotero-mcp](https://github.com/cookjohn/zotero-mcp) | [ZoteroBridge](https://github.com/Combjellyshen/ZoteroBridge) |
+| 特性 | **zotero-cli-cc** | [pyzotero-cli](https://github.com/chriscarrollsmith/pyzotero-cli) | [zotero-cli](https://github.com/jbaiter/zotero-cli) | [zotero-cli-tool](https://github.com/dhondta/zotero-cli) | [zotero-mcp](https://github.com/54yyyu/zotero-mcp) | [cookjohn/zotero-mcp](https://github.com/cookjohn/zotero-mcp) | [ZoteroBridge](https://github.com/Combjellyshen/ZoteroBridge) |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **本地 SQLite 直读 / Direct SQLite Read** | **✅** | ❌ | ❌ (仅缓存) | ❌ | ❌ | ❌ (插件) | ✅ |
-| **离线可用 / Offline Read** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **无需启动 Zotero / No Zotero Running** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **零配置读操作 / Zero-Config Read** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **安全写入 (Web API) / Safe Write** | **✅** | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ (直写 SQLite) |
-| **PDF 全文提取 / PDF Full-Text** | **✅** | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| **AI 编码助手集成 / AI Coding Assistant** | **✅ Claude Code** | 部分 | ❌ | ❌ | Claude/ChatGPT | Claude/Cursor | Claude/Cursor |
-| **CLI 终端使用 / Terminal CLI** | **✅** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **MCP 协议 / MCP Protocol** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| **JSON 输出 / JSON Output** | ✅ | ✅ | ❌ | ❌ | N/A | N/A | N/A |
-| **笔记管理 / Note Management** | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
-| **Collection 管理 / Collections** | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| **引用导出 / Citation Export** | ✅ BibTeX/JSON | ✅ | ❌ | ✅ Excel | ❌ | ❌ | ❌ |
-| **语义搜索 / Semantic Search** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
-| **输出分级 / Detail Levels** | **✅** | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
-| **多配置档案 / Multi-Profile** | **✅** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **PDF 缓存 / PDF Cache** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **库维护 / Library Maintenance** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **语言 / Language** | Python | Python | Python | Python | Python | TypeScript | TypeScript |
-| **活跃维护 / Active** | ✅ 2026 | ✅ 2025 | ❌ 2024 | ✅ 2026 | ✅ 2026 | ✅ 2026 | ✅ 2026 |
+| **本地 SQLite 直读** | **✅** | ❌ | ❌ (仅缓存) | ❌ | ❌ | ❌ (插件) | ✅ |
+| **离线可用** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **无需启动 Zotero** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **零配置读操作** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **安全写入 (Web API)** | **✅** | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ (直写 SQLite) |
+| **PDF 全文提取** | **✅** | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **AI 编码助手集成** | **✅ Claude Code** | 部分 | ❌ | ❌ | Claude/ChatGPT | Claude/Cursor | Claude/Cursor |
+| **CLI 终端使用** | **✅** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **MCP 协议** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **JSON 输出** | ✅ | ✅ | ❌ | ❌ | N/A | N/A | N/A |
+| **笔记管理** | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
+| **Collection 管理** | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **引用导出** | ✅ BibTeX/JSON | ✅ | ❌ | ✅ Excel | ❌ | ❌ | ❌ |
+| **语义搜索** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
+| **输出分级** | **✅** | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
+| **多配置档案** | **✅** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **PDF 缓存** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **库维护** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **语言** | Python | Python | Python | Python | Python | TypeScript | TypeScript |
+| **活跃维护** | ✅ 2026 | ✅ 2025 | ❌ 2024 | ✅ 2026 | ✅ 2026 | ✅ 2026 | ✅ 2026 |
 
-### 为什么选择 zotero-cli-cc？ / Why zotero-cli-cc?
+### 为什么选择 zotero-cli-cc？
 
 > **唯一一个直接读取本地 SQLite 数据库的活跃 Python CLI 工具。**
->
-> The only actively maintained Python CLI that reads Zotero's local SQLite database directly.
 
-- **极速**：毫秒级响应，无网络延迟 — Millisecond response, no network latency
-- **离线**：无需网络、无需启动 Zotero 桌面端 — No internet, no Zotero desktop needed
-- **零配置**：安装即用，读操作无需 API Key — Install and go, no API key for reads
-- **AI 原生**：专为 Claude Code 设计，`--json` 输出直接供 AI 解析 — Built for Claude Code, `--json` output for AI consumption
-- **安全**：读写分离架构，写操作通过 Web API 确保 Zotero 数据库完整性 — Read/write separation, writes go through Web API to protect DB integrity
-- **终端原生**：唯一同时支持本地 SQLite 直读和安全写入的 CLI 工具，MCP 工具无法在终端中直接使用 — The only CLI combining local SQLite reads with safe Web API writes; MCP tools require AI client, not usable in terminal
+- **极速**：毫秒级响应，无网络延迟
+- **离线**：无需网络、无需启动 Zotero 桌面端
+- **零配置**：安装即用，读操作无需 API Key
+- **AI 原生**：专为 Claude Code 设计，`--json` 输出直接供 AI 解析
+- **安全**：读写分离架构，写操作通过 Web API 确保 Zotero 数据库完整性
+- **终端原生**：唯一同时支持本地 SQLite 直读和安全写入的 CLI 工具，MCP 工具无法在终端中直接使用
 
 ## 架构
 
@@ -218,50 +212,6 @@ zot --version                              # 查看版本
 | `ZOT_LIBRARY_ID` | 覆盖 Library ID（写操作） |
 | `ZOT_API_KEY` | 覆盖 API Key（写操作） |
 | `ZOT_PROFILE` | 覆盖默认配置档案 |
-
----
-
-<a id="english"></a>
-
-## English
-
-`zotero-cli-cc` is a Zotero CLI designed for [Claude Code](https://claude.ai/code) — SQLite reads (offline, fast) + Web API writes (safe).
-
-### Install
-
-```bash
-uv tool install zotero-cli-cc
-# or
-pip install zotero-cli-cc
-```
-
-### Setup
-
-```bash
-zot config init  # Configure API key (write operations only)
-```
-
-### Commands
-
-| Command | Purpose |
-|---------|---------|
-| `zot search <query>` | Search library (title, author, tag, fulltext) |
-| `zot list` | List items with filters |
-| `zot read <key>` | View item details + notes |
-| `zot note <key>` | View/add notes |
-| `zot export <key>` | Export citation (BibTeX/JSON) |
-| `zot add` | Add item by DOI or URL |
-| `zot delete <key>` | Delete item (move to trash) |
-| `zot tag <key>` | View/manage tags |
-| `zot collection` | Manage collections |
-| `zot summarize <key>` | Structured summary for AI consumption |
-| `zot pdf <key>` | Extract PDF text |
-| `zot relate <key>` | Find related items |
-| `zot config` | Configuration management |
-| `zot config profile` | Manage config profiles |
-| `zot config cache` | Manage PDF text cache |
-
-Global flags: `--json` (JSON output) · `--limit N` (limit results) · `--detail minimal|standard|full` (detail level) · `--no-interaction` (suppress prompts) · `--profile NAME` (config profile) · `--version`
 
 ---
 
