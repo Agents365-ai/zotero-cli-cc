@@ -139,6 +139,10 @@ zot --version                              # 查看版本
 | **笔记管理 / Note Management** | ✅ | ✅ | ✅ | ❌ | ❌ |
 | **Collection 管理 / Collections** | ✅ | ✅ | ❌ | ❌ | ✅ |
 | **引用导出 / Citation Export** | ✅ BibTeX/JSON | ✅ | ❌ | ✅ Excel | ❌ |
+| **多配置档案 / Multi-Profile** | **✅** | ✅ | ❌ | ❌ | ❌ |
+| **PDF 缓存 / PDF Cache** | **✅** | ❌ | ❌ | ❌ | ❌ |
+| **结构化错误提示 / Error Hints** | **✅** | ✅ | ❌ | ❌ | ❌ |
+| **输出分级 / Detail Levels** | **✅** | ❌ | ❌ | ❌ | ✅ |
 | **语言 / Language** | Python | Python | Python | Python | Python |
 | **活跃维护 / Active** | ✅ 2026 | ✅ 2025 | ❌ 2024 | ✅ 2026 | ✅ 2026 |
 
