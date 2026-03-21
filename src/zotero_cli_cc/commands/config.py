@@ -82,6 +82,34 @@ def profile_list(config_path: str | None) -> None:
         click.echo(f"  {p}{marker}")
 
 
+@config_group.group("cache")
+def cache_group() -> None:
+    """Manage PDF text cache."""
+    pass
+
+
+@cache_group.command("clear")
+def cache_clear() -> None:
+    """Clear the PDF text cache."""
+    from zotero_cli_cc.core.pdf_cache import PdfCache
+    cache = PdfCache()
+    stats = cache.stats()
+    cache.clear()
+    cache.close()
+    click.echo(f"Cache cleared. Removed {stats['entries']} entries.")
+
+
+@cache_group.command("stats")
+def cache_stats() -> None:
+    """Show PDF cache statistics."""
+    from zotero_cli_cc.core.pdf_cache import PdfCache
+    cache = PdfCache()
+    stats = cache.stats()
+    cache.close()
+    click.echo(f"Cached PDFs: {stats['entries']}")
+    click.echo(f"Total chars: {stats['total_chars']:,}")
+
+
 @profile_group.command("set")
 @click.argument("name")
 @click.option("--config-path", type=click.Path(), default=None)

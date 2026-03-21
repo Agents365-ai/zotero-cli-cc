@@ -42,7 +42,18 @@ def pdf_cmd(ctx: click.Context, key: str, pages: str | None) -> None:
         if not pdf_path.exists():
             click.echo(format_error(f"PDF file not found at {pdf_path}", output_json=json_out))
             return
-        text = extract_text_from_pdf(pdf_path, pages=page_range)
+        from zotero_cli_cc.core.pdf_cache import PdfCache
+        cache = PdfCache()
+        if page_range is None:
+            cached = cache.get(pdf_path)
+            if cached is not None:
+                text = cached
+            else:
+                text = extract_text_from_pdf(pdf_path)
+                cache.put(pdf_path, text)
+        else:
+            text = extract_text_from_pdf(pdf_path, pages=page_range)
+        cache.close()
         if json_out:
             click.echo(json.dumps({"key": key, "pages": pages, "text": text}, ensure_ascii=False))
         else:
