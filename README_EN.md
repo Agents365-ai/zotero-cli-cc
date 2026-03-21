@@ -1,4 +1,4 @@
-# zotero-cli-cc
+# zot — Let Zotero Fly in Your Terminal
 
 [中文](README.md)
 

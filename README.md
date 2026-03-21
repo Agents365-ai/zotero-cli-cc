@@ -1,4 +1,4 @@
-# zotero-cli-cc
+# zot — 让 Zotero 在终端飞起来
 
 [English](README_EN.md)
 
