@@ -126,25 +126,28 @@ zot --version                              # 查看版本
 
 ## 同类工具对比 / Comparison with Similar Tools
 
-| 特性 / Feature | **zotero-cli-cc** | [pyzotero-cli](https://github.com/chriscarrollsmith/pyzotero-cli) | [zotero-cli](https://github.com/jbaiter/zotero-cli) (jbaiter) | [zotero-cli-tool](https://github.com/dhondta/zotero-cli) (dhondta) | [zotero-mcp](https://github.com/54yyyu/zotero-mcp) |
-|---|:---:|:---:|:---:|:---:|:---:|
-| **本地 SQLite 直读 / Direct SQLite Read** | **✅** | ❌ | ❌ (仅缓存) | ❌ | ❌ |
-| **离线可用 / Offline Read** | **✅** | ❌ | ❌ | ❌ | ❌ |
-| **无需启动 Zotero / No Zotero Running** | **✅** | ❌ | ❌ | ❌ | ❌ |
-| **零配置读操作 / Zero-Config Read** | **✅** | ❌ | ❌ | ❌ | ❌ |
-| **PDF 全文提取 / PDF Full-Text** | **✅** | ❌ | ❌ | ❌ | ✅ |
-| **安全写入 (Web API) / Safe Write** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **AI 编码助手集成 / AI Coding Assistant** | **✅ Claude Code** | 部分 | ❌ | ❌ | Claude/ChatGPT |
-| **JSON 输出 / JSON Output** | ✅ | ✅ | ❌ | ❌ | N/A |
-| **笔记管理 / Note Management** | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **Collection 管理 / Collections** | ✅ | ✅ | ❌ | ❌ | ✅ |
-| **引用导出 / Citation Export** | ✅ BibTeX/JSON | ✅ | ❌ | ✅ Excel | ❌ |
-| **多配置档案 / Multi-Profile** | **✅** | ✅ | ❌ | ❌ | ❌ |
-| **PDF 缓存 / PDF Cache** | **✅** | ❌ | ❌ | ❌ | ❌ |
-| **结构化错误提示 / Error Hints** | **✅** | ✅ | ❌ | ❌ | ❌ |
-| **输出分级 / Detail Levels** | **✅** | ❌ | ❌ | ❌ | ✅ |
-| **语言 / Language** | Python | Python | Python | Python | Python |
-| **活跃维护 / Active** | ✅ 2026 | ✅ 2025 | ❌ 2024 | ✅ 2026 | ✅ 2026 |
+| 特性 / Feature | **zotero-cli-cc** | [pyzotero-cli](https://github.com/chriscarrollsmith/pyzotero-cli) | [zotero-cli](https://github.com/jbaiter/zotero-cli) (jbaiter) | [zotero-cli-tool](https://github.com/dhondta/zotero-cli) (dhondta) | [zotero-mcp](https://github.com/54yyyu/zotero-mcp) | [cookjohn/zotero-mcp](https://github.com/cookjohn/zotero-mcp) | [ZoteroBridge](https://github.com/Combjellyshen/ZoteroBridge) |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **本地 SQLite 直读 / Direct SQLite Read** | **✅** | ❌ | ❌ (仅缓存) | ❌ | ❌ | ❌ (插件) | ✅ |
+| **离线可用 / Offline Read** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **无需启动 Zotero / No Zotero Running** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **零配置读操作 / Zero-Config Read** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **安全写入 (Web API) / Safe Write** | **✅** | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ (直写 SQLite) |
+| **PDF 全文提取 / PDF Full-Text** | **✅** | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **AI 编码助手集成 / AI Coding Assistant** | **✅ Claude Code** | 部分 | ❌ | ❌ | Claude/ChatGPT | Claude/Cursor | Claude/Cursor |
+| **CLI 终端使用 / Terminal CLI** | **✅** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **MCP 协议 / MCP Protocol** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **JSON 输出 / JSON Output** | ✅ | ✅ | ❌ | ❌ | N/A | N/A | N/A |
+| **笔记管理 / Note Management** | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
+| **Collection 管理 / Collections** | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **引用导出 / Citation Export** | ✅ BibTeX/JSON | ✅ | ❌ | ✅ Excel | ❌ | ❌ | ❌ |
+| **语义搜索 / Semantic Search** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
+| **输出分级 / Detail Levels** | **✅** | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
+| **多配置档案 / Multi-Profile** | **✅** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **PDF 缓存 / PDF Cache** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **库维护 / Library Maintenance** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **语言 / Language** | Python | Python | Python | Python | Python | TypeScript | TypeScript |
+| **活跃维护 / Active** | ✅ 2026 | ✅ 2025 | ❌ 2024 | ✅ 2026 | ✅ 2026 | ✅ 2026 | ✅ 2026 |
 
 ### 为什么选择 zotero-cli-cc？ / Why zotero-cli-cc?
 
@@ -157,6 +160,7 @@ zot --version                              # 查看版本
 - **零配置**：安装即用，读操作无需 API Key — Install and go, no API key for reads
 - **AI 原生**：专为 Claude Code 设计，`--json` 输出直接供 AI 解析 — Built for Claude Code, `--json` output for AI consumption
 - **安全**：读写分离架构，写操作通过 Web API 确保 Zotero 数据库完整性 — Read/write separation, writes go through Web API to protect DB integrity
+- **终端原生**：唯一同时支持本地 SQLite 直读和安全写入的 CLI 工具，MCP 工具无法在终端中直接使用 — The only CLI combining local SQLite reads with safe Web API writes; MCP tools require AI client, not usable in terminal
 
 ## 架构
 
