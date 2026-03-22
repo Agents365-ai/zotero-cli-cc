@@ -6,6 +6,7 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from zotero_cli_cc.config import get_data_dir, load_config
+from zotero_cli_cc.core.pdf_cache import PdfCache
 from zotero_cli_cc.core.pdf_extractor import extract_text_from_pdf
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.models import Collection, Item, Note
@@ -26,21 +27,25 @@ def _get_reader() -> ZoteroReader:
     return ZoteroReader(db_path)
 
 
-def _item_to_dict(item: Item) -> dict:
-    return {
+def _item_to_dict(item: Item, detail: str = "standard") -> dict:
+    d: dict = {
         "key": item.key,
         "item_type": item.item_type,
         "title": item.title,
-        "creators": [{"name": c.full_name, "type": c.creator_type} for c in item.creators],
-        "abstract": item.abstract,
+        "authors": [c.full_name for c in item.creators],
         "date": item.date,
-        "url": item.url,
-        "doi": item.doi,
-        "tags": item.tags,
-        "collections": item.collections,
-        "date_added": item.date_added,
-        "date_modified": item.date_modified,
     }
+    if detail != "minimal":
+        d["abstract"] = item.abstract
+        d["url"] = item.url
+        d["doi"] = item.doi
+        d["tags"] = item.tags
+        d["collections"] = item.collections
+        d["date_added"] = item.date_added
+        d["date_modified"] = item.date_modified
+    if detail == "full":
+        d["extra"] = item.extra
+    return d
 
 
 def _note_to_dict(note: Note) -> dict:
@@ -91,7 +96,7 @@ def _handle_list_items(limit: int) -> dict:
         reader.close()
 
 
-def _handle_read(key: str) -> dict:
+def _handle_read(key: str, detail: str = "standard") -> dict:
     reader = _get_reader()
     try:
         item = reader.get_item(key)
@@ -99,29 +104,47 @@ def _handle_read(key: str) -> dict:
             raise ValueError(f"Item '{key}' not found")
         notes = reader.get_notes(key)
         return {
-            "item": _item_to_dict(item),
+            "item": _item_to_dict(item, detail=detail),
             "notes": [_note_to_dict(n) for n in notes],
         }
     finally:
         reader.close()
 
 
-def _handle_pdf(key: str, start_page: int | None, end_page: int | None) -> dict:
-    reader = _get_reader()
+def _handle_pdf(key: str, pages: str | None) -> dict:
+    cfg = load_config()
+    data_dir = get_data_dir(cfg)
+    reader = ZoteroReader(data_dir / "zotero.sqlite")
     try:
         att = reader.get_pdf_attachment(key)
         if att is None:
             raise ValueError(f"No PDF attachment found for item '{key}'")
-        cfg = load_config()
-        data_dir = get_data_dir(cfg)
         pdf_path = data_dir / "storage" / att.key / att.filename
-        pages = (start_page, end_page) if start_page is not None and end_page is not None else None
-        text = extract_text_from_pdf(pdf_path, pages=pages)
-        return {
-            "text": text,
-            "filename": att.filename,
-            "key": att.key,
-        }
+        if not pdf_path.exists():
+            raise ValueError(f"PDF file not found at {pdf_path}")
+
+        page_range = None
+        if pages:
+            parts = pages.split("-")
+            start = int(parts[0])
+            end = int(parts[1]) if len(parts) > 1 else start
+            page_range = (start, end)
+
+        cache = PdfCache()
+        try:
+            if page_range is None:
+                cached = cache.get(pdf_path)
+                if cached is not None:
+                    text = cached
+                else:
+                    text = extract_text_from_pdf(pdf_path)
+                    cache.put(pdf_path, text)
+            else:
+                text = extract_text_from_pdf(pdf_path, pages=page_range)
+        finally:
+            cache.close()
+
+        return {"key": key, "pages": pages, "text": text}
     finally:
         reader.close()
 
@@ -251,25 +274,25 @@ def list_items(limit: int = 50) -> dict:
 
 
 @mcp.tool()
-def read(key: str) -> dict:
+def read(key: str, detail: str = "standard") -> dict:
     """Read full details of a Zotero item including its notes.
 
     Args:
         key: The Zotero item key (e.g. 'ABC123').
+        detail: Detail level — 'minimal', 'standard', or 'full'.
     """
-    return _handle_read(key)
+    return _handle_read(key, detail)
 
 
 @mcp.tool()
-def pdf(key: str, start_page: int | None = None, end_page: int | None = None) -> dict:
+def pdf(key: str, pages: str | None = None) -> dict:
     """Extract text from the PDF attachment of a Zotero item.
 
     Args:
         key: The Zotero item key.
-        start_page: Optional first page to extract (1-indexed).
-        end_page: Optional last page to extract (inclusive).
+        pages: Optional page range (e.g. '1-5' or '3' for a single page).
     """
-    return _handle_pdf(key, start_page, end_page)
+    return _handle_pdf(key, pages)
 
 
 @mcp.tool()

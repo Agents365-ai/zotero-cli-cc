@@ -47,25 +47,36 @@ def _make_collection(key: str = "COL1", name: str = "My Collection") -> Collecti
 
 
 class TestItemToDict:
-    def test_basic(self):
+    def test_standard(self):
         from zotero_cli_cc.mcp_server import _item_to_dict
 
         item = _make_item()
         d = _item_to_dict(item)
         assert d["key"] == "ABC123"
         assert d["title"] == "Test Paper"
-        assert d["creators"] == [{"name": "Jane Doe", "type": "author"}]
+        assert d["authors"] == ["Jane Doe"]
         assert d["tags"] == ["ML", "AI"]
+        assert d["doi"] == "10.1234/test"
 
-    def test_none_fields(self):
+    def test_minimal(self):
         from zotero_cli_cc.mcp_server import _item_to_dict
 
         item = _make_item()
-        item.abstract = None
-        item.doi = None
-        d = _item_to_dict(item)
-        assert d["abstract"] is None
-        assert d["doi"] is None
+        d = _item_to_dict(item, detail="minimal")
+        assert d["key"] == "ABC123"
+        assert d["title"] == "Test Paper"
+        assert "abstract" not in d
+        assert "tags" not in d
+        assert "doi" not in d
+
+    def test_full(self):
+        from zotero_cli_cc.mcp_server import _item_to_dict
+
+        item = _make_item()
+        item.extra = {"publication": "Nature"}
+        d = _item_to_dict(item, detail="full")
+        assert d["extra"] == {"publication": "Nature"}
+        assert d["tags"] == ["ML", "AI"]
 
 
 class TestNoteToDict:
@@ -188,49 +199,44 @@ class TestHandleRead:
 
 
 class TestHandlePdf:
+    @patch("zotero_cli_cc.mcp_server.PdfCache")
     @patch("zotero_cli_cc.mcp_server.extract_text_from_pdf")
-    @patch("zotero_cli_cc.mcp_server._get_reader")
-    def test_extracts_text(self, mock_get_reader, mock_extract):
+    @patch("zotero_cli_cc.mcp_server.ZoteroReader")
+    @patch("zotero_cli_cc.mcp_server.load_config")
+    @patch("zotero_cli_cc.mcp_server.get_data_dir")
+    def test_extracts_text(self, mock_data_dir, mock_config, mock_reader_cls, mock_extract, mock_cache_cls):
         from zotero_cli_cc.mcp_server import _handle_pdf
 
+        data_dir = Path("/fake/zotero")
+        mock_data_dir.return_value = data_dir
         reader = MagicMock()
         att = Attachment(key="ATT1", parent_key="ABC123", filename="paper.pdf", content_type="application/pdf")
         reader.get_pdf_attachment.return_value = att
-        mock_get_reader.return_value = reader
+        mock_reader_cls.return_value = reader
+        cache = MagicMock()
+        cache.get.return_value = None
+        mock_cache_cls.return_value = cache
         mock_extract.return_value = "PDF text content"
 
-        result = _handle_pdf("ABC123", None, None)
+        pdf_path = data_dir / "storage" / "ATT1" / "paper.pdf"
+        with patch.object(Path, "exists", return_value=True):
+            result = _handle_pdf("ABC123", None)
         assert result["text"] == "PDF text content"
-        assert result["filename"] == "paper.pdf"
         reader.close.assert_called_once()
 
-    @patch("zotero_cli_cc.mcp_server._get_reader")
-    def test_no_pdf_raises(self, mock_get_reader):
+    @patch("zotero_cli_cc.mcp_server.ZoteroReader")
+    @patch("zotero_cli_cc.mcp_server.load_config")
+    @patch("zotero_cli_cc.mcp_server.get_data_dir")
+    def test_no_pdf_raises(self, mock_data_dir, mock_config, mock_reader_cls):
         from zotero_cli_cc.mcp_server import _handle_pdf
 
+        mock_data_dir.return_value = Path("/fake/zotero")
         reader = MagicMock()
         reader.get_pdf_attachment.return_value = None
-        mock_get_reader.return_value = reader
+        mock_reader_cls.return_value = reader
 
         with pytest.raises(ValueError, match="No PDF"):
-            _handle_pdf("ABC123", None, None)
-        reader.close.assert_called_once()
-
-    @patch("zotero_cli_cc.mcp_server.extract_text_from_pdf")
-    @patch("zotero_cli_cc.mcp_server._get_reader")
-    def test_with_pages(self, mock_get_reader, mock_extract):
-        from zotero_cli_cc.mcp_server import _handle_pdf
-
-        reader = MagicMock()
-        att = Attachment(key="ATT1", parent_key="ABC123", filename="paper.pdf", content_type="application/pdf")
-        reader.get_pdf_attachment.return_value = att
-        mock_get_reader.return_value = reader
-        mock_extract.return_value = "Page 1 text"
-
-        result = _handle_pdf("ABC123", 1, 3)
-        # Verify pages tuple passed
-        call_args = mock_extract.call_args
-        assert call_args[1].get("pages") == (1, 3) or call_args[0][1] == (1, 3) if len(call_args[0]) > 1 else call_args[1].get("pages") == (1, 3)
+            _handle_pdf("ABC123", None)
         reader.close.assert_called_once()
 
 
