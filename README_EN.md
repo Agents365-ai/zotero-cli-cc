@@ -34,6 +34,37 @@ Read operations work out of the box as long as Zotero data is in the default dir
 
 Write operations require an API Key from https://www.zotero.org/settings/keys.
 
+### MCP Server Mode
+
+zotero-cli-cc supports [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) and can be used in MCP-compatible clients like LM Studio, Claude Desktop, and Cursor.
+
+**Install MCP Support:**
+
+```bash
+pip install zotero-cli-cc[mcp]
+```
+
+**Start MCP Server:**
+
+```bash
+zot mcp serve
+```
+
+**Client Configuration (LM Studio / Claude Desktop / Cursor):**
+
+```json
+{
+  "mcpServers": {
+    "zotero": {
+      "command": "zot",
+      "args": ["mcp", "serve"]
+    }
+  }
+}
+```
+
+MCP mode provides 17 tools covering search, reading, PDF extraction, note management, tag management, citation export, and more.
+
 ## Commands
 
 ### Search & Browse

@@ -34,6 +34,37 @@ zot config init
 
 写操作需要 API Key，在 https://www.zotero.org/settings/keys 获取。
 
+### MCP 服务器模式
+
+zotero-cli-cc 支持 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/)，可在 LM Studio、Claude Desktop、Cursor 等支持 MCP 的客户端中使用。
+
+**安装 MCP 支持：**
+
+```bash
+pip install zotero-cli-cc[mcp]
+```
+
+**启动 MCP 服务器：**
+
+```bash
+zot mcp serve
+```
+
+**客户端配置（LM Studio / Claude Desktop / Cursor）：**
+
+```json
+{
+  "mcpServers": {
+    "zotero": {
+      "command": "zot",
+      "args": ["mcp", "serve"]
+    }
+  }
+}
+```
+
+MCP 模式提供 17 个工具，涵盖搜索、阅读、PDF 提取、笔记管理、标签管理、导出引用等完整功能。
+
 ## 命令一览
 
 ### 检索与浏览
