@@ -322,6 +322,59 @@ class ZoteroReader:
                 return att
         return None
 
+    def get_stats(self) -> dict:
+        """Return library statistics."""
+        conn = self._connect()
+        # Total items (excluding attachments and notes)
+        total = conn.execute(
+            "SELECT COUNT(*) as cnt FROM items WHERE itemTypeID " + _EXCLUDED_SQL
+        ).fetchone()["cnt"]
+
+        # Items by type
+        type_rows = conn.execute(
+            "SELECT t.typeName, COUNT(*) as cnt FROM items i "
+            "JOIN itemTypes t ON i.itemTypeID = t.itemTypeID "
+            "WHERE i.itemTypeID " + _EXCLUDED_SQL + " "
+            "GROUP BY t.typeName ORDER BY cnt DESC"
+        ).fetchall()
+        by_type = {r["typeName"]: r["cnt"] for r in type_rows}
+
+        # Top tags
+        tag_rows = conn.execute(
+            "SELECT t.name, COUNT(*) as cnt FROM itemTags it "
+            "JOIN tags t ON it.tagID = t.tagID "
+            "GROUP BY t.name ORDER BY cnt DESC LIMIT 20"
+        ).fetchall()
+        top_tags = {r["name"]: r["cnt"] for r in tag_rows}
+
+        # Collections with item counts
+        coll_rows = conn.execute(
+            "SELECT c.collectionName, COUNT(ci.itemID) as cnt "
+            "FROM collections c "
+            "LEFT JOIN collectionItems ci ON c.collectionID = ci.collectionID "
+            "GROUP BY c.collectionName ORDER BY cnt DESC"
+        ).fetchall()
+        collections = {r["collectionName"]: r["cnt"] for r in coll_rows}
+
+        # Attachments
+        pdf_count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM itemAttachments WHERE contentType = 'application/pdf'"
+        ).fetchone()["cnt"]
+
+        # Notes count
+        notes_count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM itemNotes"
+        ).fetchone()["cnt"]
+
+        return {
+            "total_items": total,
+            "by_type": by_type,
+            "top_tags": top_tags,
+            "collections": collections,
+            "pdf_attachments": pdf_count,
+            "notes": notes_count,
+        }
+
     def export_citation(self, key: str, fmt: str = "bibtex") -> str | None:
         item = self.get_item(key)
         if item is None:
