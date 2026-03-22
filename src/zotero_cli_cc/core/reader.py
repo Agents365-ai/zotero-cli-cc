@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import sqlite3
@@ -194,11 +195,12 @@ class ZoteroReader:
             ).fetchall()
             item_ids.update(r["itemID"] for r in rows)
 
-        # Filter by collection
+        # Filter by collection (accepts key or name)
         if collection:
             col_row = conn.execute(
-                "SELECT collectionID FROM collections WHERE collectionName = ?",
-                (collection,),
+                "SELECT collectionID FROM collections "
+                "WHERE key = ? OR collectionName = ?",
+                (collection, collection),
             ).fetchone()
             if col_row:
                 col_items = conn.execute(
@@ -326,6 +328,8 @@ class ZoteroReader:
             return None
         if fmt == "bibtex":
             return self._to_bibtex(item)
+        if fmt in ("csl", "csl-json", "json"):
+            return self._to_csl_json(item)
         return None
 
     def get_related_items(self, key: str, limit: int = 20) -> list[Item]:
@@ -565,6 +569,39 @@ class ZoteroReader:
             lines.append(f"  url = {{{item.url}}},")
         lines.append("}")
         return "\n".join(lines)
+
+    @staticmethod
+    def _to_csl_json(item: Item) -> str:
+        """Convert an Item to CSL-JSON format (single item, not array)."""
+        type_map = {
+            "journalArticle": "article-journal",
+            "book": "book",
+            "bookSection": "chapter",
+            "conferencePaper": "paper-conference",
+            "thesis": "thesis",
+            "report": "report",
+            "webpage": "webpage",
+            "preprint": "article",
+        }
+        csl: dict = {
+            "id": item.key,
+            "type": type_map.get(item.item_type, "article"),
+            "title": item.title,
+        }
+        if item.creators:
+            csl["author"] = [
+                {"family": c.last_name, "given": c.first_name}
+                for c in item.creators if c.creator_type == "author"
+            ]
+        if item.date:
+            csl["issued"] = {"raw": item.date}
+        if item.abstract:
+            csl["abstract"] = item.abstract
+        if item.doi:
+            csl["DOI"] = item.doi
+        if item.url:
+            csl["URL"] = item.url
+        return json.dumps(csl, indent=2, ensure_ascii=False)
 
     @staticmethod
     def _html_to_markdown(html: str) -> str:

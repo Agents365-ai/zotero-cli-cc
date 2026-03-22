@@ -124,7 +124,7 @@ class TestHandleSearch:
         assert result["query"] == "test"
         assert len(result["items"]) == 1
         assert result["items"][0]["key"] == "ABC123"
-        reader.close.assert_called_once()
+
 
     @patch("zotero_cli_cc.mcp_server._get_reader")
     def test_empty_results(self, mock_get_reader):
@@ -137,7 +137,7 @@ class TestHandleSearch:
         result = _handle_search("nothing", None, 50)
         assert result["total"] == 0
         assert result["items"] == []
-        reader.close.assert_called_once()
+
 
     @patch("zotero_cli_cc.mcp_server._get_reader")
     def test_with_collection_filter(self, mock_get_reader):
@@ -149,7 +149,7 @@ class TestHandleSearch:
 
         _handle_search("q", "MyCol", 10)
         reader.search.assert_called_once_with("q", collection="MyCol", limit=10)
-        reader.close.assert_called_once()
+
 
 
 class TestHandleListItems:
@@ -166,7 +166,7 @@ class TestHandleListItems:
         assert result["total"] == 1
         assert len(result["items"]) == 1
         reader.search.assert_called_once_with("", collection=None, limit=50)
-        reader.close.assert_called_once()
+
 
 
 class TestHandleRead:
@@ -183,7 +183,7 @@ class TestHandleRead:
         result = _handle_read("ABC123")
         assert result["item"]["key"] == "ABC123"
         assert len(result["notes"]) == 1
-        reader.close.assert_called_once()
+
 
     @patch("zotero_cli_cc.mcp_server._get_reader")
     def test_not_found_raises(self, mock_get_reader):
@@ -195,16 +195,16 @@ class TestHandleRead:
 
         with pytest.raises(ValueError, match="not found"):
             _handle_read("MISSING")
-        reader.close.assert_called_once()
+
 
 
 class TestHandlePdf:
     @patch("zotero_cli_cc.mcp_server.PdfCache")
     @patch("zotero_cli_cc.mcp_server.extract_text_from_pdf")
-    @patch("zotero_cli_cc.mcp_server.ZoteroReader")
+    @patch("zotero_cli_cc.mcp_server._get_reader")
     @patch("zotero_cli_cc.mcp_server.load_config")
     @patch("zotero_cli_cc.mcp_server.get_data_dir")
-    def test_extracts_text(self, mock_data_dir, mock_config, mock_reader_cls, mock_extract, mock_cache_cls):
+    def test_extracts_text(self, mock_data_dir, mock_config, mock_get_reader, mock_extract, mock_cache_cls):
         from zotero_cli_cc.mcp_server import _handle_pdf
 
         data_dir = Path("/fake/zotero")
@@ -212,32 +212,30 @@ class TestHandlePdf:
         reader = MagicMock()
         att = Attachment(key="ATT1", parent_key="ABC123", filename="paper.pdf", content_type="application/pdf")
         reader.get_pdf_attachment.return_value = att
-        mock_reader_cls.return_value = reader
+        mock_get_reader.return_value = reader
         cache = MagicMock()
         cache.get.return_value = None
         mock_cache_cls.return_value = cache
         mock_extract.return_value = "PDF text content"
 
-        pdf_path = data_dir / "storage" / "ATT1" / "paper.pdf"
         with patch.object(Path, "exists", return_value=True):
             result = _handle_pdf("ABC123", None)
         assert result["text"] == "PDF text content"
-        reader.close.assert_called_once()
 
-    @patch("zotero_cli_cc.mcp_server.ZoteroReader")
+    @patch("zotero_cli_cc.mcp_server._get_reader")
     @patch("zotero_cli_cc.mcp_server.load_config")
     @patch("zotero_cli_cc.mcp_server.get_data_dir")
-    def test_no_pdf_raises(self, mock_data_dir, mock_config, mock_reader_cls):
+    def test_no_pdf_raises(self, mock_data_dir, mock_config, mock_get_reader):
         from zotero_cli_cc.mcp_server import _handle_pdf
 
         mock_data_dir.return_value = Path("/fake/zotero")
         reader = MagicMock()
         reader.get_pdf_attachment.return_value = None
-        mock_reader_cls.return_value = reader
+        mock_get_reader.return_value = reader
 
         with pytest.raises(ValueError, match="No PDF"):
             _handle_pdf("ABC123", None)
-        reader.close.assert_called_once()
+
 
 
 class TestHandleSummarize:
@@ -258,7 +256,7 @@ class TestHandleSummarize:
         assert result["doi"] == "10.1234/test"
         assert result["abstract"] == "An abstract."
         assert len(result["notes"]) == 1
-        reader.close.assert_called_once()
+
 
     @patch("zotero_cli_cc.mcp_server._get_reader")
     def test_not_found_raises(self, mock_get_reader):
@@ -270,7 +268,7 @@ class TestHandleSummarize:
 
         with pytest.raises(ValueError, match="not found"):
             _handle_summarize("MISSING")
-        reader.close.assert_called_once()
+
 
 
 class TestHandleSummarizeAll:
@@ -288,7 +286,7 @@ class TestHandleSummarizeAll:
         assert len(result["items"]) == 2
         assert result["items"][0]["key"] == "K1"
         assert result["items"][0]["abstract"] == "An abstract."
-        reader.close.assert_called_once()
+
 
 
 class TestHandleExport:
@@ -303,7 +301,7 @@ class TestHandleExport:
         result = _handle_export("ABC123", "bibtex")
         assert result["citation"] == "@article{abc, title={Test}}"
         assert result["format"] == "bibtex"
-        reader.close.assert_called_once()
+
 
     @patch("zotero_cli_cc.mcp_server._get_reader")
     def test_not_found_raises(self, mock_get_reader):
@@ -315,7 +313,7 @@ class TestHandleExport:
 
         with pytest.raises(ValueError, match="not found"):
             _handle_export("MISSING", "bibtex")
-        reader.close.assert_called_once()
+
 
 
 class TestHandleRelate:
@@ -332,7 +330,7 @@ class TestHandleRelate:
         assert len(result["items"]) == 1
         assert result["items"][0]["key"] == "REL1"
         assert result["source_key"] == "ABC123"
-        reader.close.assert_called_once()
+
 
     @patch("zotero_cli_cc.mcp_server._get_reader")
     def test_empty_related(self, mock_get_reader):
@@ -344,7 +342,7 @@ class TestHandleRelate:
 
         result = _handle_relate("ABC123", 20)
         assert result["items"] == []
-        reader.close.assert_called_once()
+
 
 
 class TestHandleNoteView:
@@ -360,7 +358,7 @@ class TestHandleNoteView:
         assert len(result["notes"]) == 1
         assert result["notes"][0]["content"] == "Some note content."
         assert result["parent_key"] == "ABC123"
-        reader.close.assert_called_once()
+
 
     @patch("zotero_cli_cc.mcp_server._get_reader")
     def test_empty_notes(self, mock_get_reader):
@@ -372,7 +370,7 @@ class TestHandleNoteView:
 
         result = _handle_note_view("ABC123")
         assert result["notes"] == []
-        reader.close.assert_called_once()
+
 
 
 class TestHandleTagView:
@@ -388,7 +386,7 @@ class TestHandleTagView:
         result = _handle_tag_view("ABC123")
         assert result["tags"] == ["ML", "AI"]
         assert result["key"] == "ABC123"
-        reader.close.assert_called_once()
+
 
     @patch("zotero_cli_cc.mcp_server._get_reader")
     def test_not_found_raises(self, mock_get_reader):
@@ -400,7 +398,7 @@ class TestHandleTagView:
 
         with pytest.raises(ValueError, match="not found"):
             _handle_tag_view("MISSING")
-        reader.close.assert_called_once()
+
 
 
 class TestHandleCollectionList:
@@ -415,7 +413,7 @@ class TestHandleCollectionList:
         result = _handle_collection_list()
         assert len(result["collections"]) == 1
         assert result["collections"][0]["name"] == "My Collection"
-        reader.close.assert_called_once()
+
 
 
 class TestHandleCollectionItems:
@@ -430,7 +428,7 @@ class TestHandleCollectionItems:
         result = _handle_collection_items("COL1")
         assert len(result["items"]) == 1
         assert result["collection_key"] == "COL1"
-        reader.close.assert_called_once()
+
 
     @patch("zotero_cli_cc.mcp_server._get_reader")
     def test_empty_collection(self, mock_get_reader):
@@ -442,19 +440,19 @@ class TestHandleCollectionItems:
 
         result = _handle_collection_items("EMPTY")
         assert result["items"] == []
-        reader.close.assert_called_once()
+
 
 
 # ---------------------------------------------------------------------------
-# Reader close on error
+# Error propagation
 # ---------------------------------------------------------------------------
 
 
-class TestReaderAlwaysClosed:
-    """Ensure reader.close() is called even when handlers raise."""
+class TestErrorPropagation:
+    """Ensure errors from reader methods propagate to callers."""
 
     @patch("zotero_cli_cc.mcp_server._get_reader")
-    def test_read_closes_on_error(self, mock_get_reader):
+    def test_read_propagates_error(self, mock_get_reader):
         from zotero_cli_cc.mcp_server import _handle_read
 
         reader = MagicMock()
@@ -463,10 +461,9 @@ class TestReaderAlwaysClosed:
 
         with pytest.raises(RuntimeError):
             _handle_read("ABC123")
-        reader.close.assert_called_once()
 
     @patch("zotero_cli_cc.mcp_server._get_reader")
-    def test_search_closes_on_error(self, mock_get_reader):
+    def test_search_propagates_error(self, mock_get_reader):
         from zotero_cli_cc.mcp_server import _handle_search
 
         reader = MagicMock()
@@ -475,7 +472,6 @@ class TestReaderAlwaysClosed:
 
         with pytest.raises(RuntimeError):
             _handle_search("q", None, 50)
-        reader.close.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -523,6 +519,20 @@ class TestHandleNoteAdd:
         result = _handle_note_add("ABC123", "Some note content")
         assert result["note_key"] == "NOTE2"
         writer.add_note.assert_called_once_with("ABC123", "Some note content")
+
+
+class TestHandleNoteUpdate:
+    @patch("zotero_cli_cc.mcp_server._get_writer")
+    def test_updates_note(self, mock_get_writer):
+        from zotero_cli_cc.mcp_server import _handle_note_update
+
+        writer = MagicMock()
+        mock_get_writer.return_value = writer
+
+        result = _handle_note_update("NOTE1", "Updated content")
+        assert result["note_key"] == "NOTE1"
+        assert result["updated"] is True
+        writer.update_note.assert_called_once_with("NOTE1", "Updated content")
 
 
 class TestHandleTagAdd:

@@ -64,6 +64,10 @@ class TestSearch:
         assert result.total > 0
         assert all(i.key == "ATTN001" for i in result.items)
 
+    def test_search_with_collection_filter_by_key(self, reader: ZoteroReader):
+        result = reader.search("", collection="COLML01")
+        assert result.total > 0
+
     def test_search_with_limit(self, reader: ZoteroReader):
         result = reader.search("", limit=1)
         assert len(result.items) == 1
@@ -131,6 +135,20 @@ class TestExportCitation:
         assert "@article" in bib
         assert "Attention" in bib
         assert "Vaswani" in bib
+
+    def test_export_csl_json(self, reader: ZoteroReader):
+        import json
+        csl = reader.export_citation("ATTN001", fmt="csl-json")
+        assert csl is not None
+        data = json.loads(csl)
+        assert data["type"] == "article-journal"
+        assert data["title"] == "Attention Is All You Need"
+        assert data["DOI"] == "10.5555/attention"
+        assert any(a["family"] == "Vaswani" for a in data["author"])
+
+    def test_export_unsupported_format(self, reader: ZoteroReader):
+        result = reader.export_citation("ATTN001", fmt="ris")
+        assert result is None
 
     def test_export_nonexistent(self, reader: ZoteroReader):
         bib = reader.export_citation("NONEXIST", fmt="bibtex")

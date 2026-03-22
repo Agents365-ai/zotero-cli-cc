@@ -12,7 +12,7 @@ from zotero_cli_cc.models import ErrorInfo
 
 @click.command("export")
 @click.argument("key")
-@click.option("--format", "fmt", default="bibtex", type=click.Choice(["bibtex", "json"]), help="Export format")
+@click.option("--format", "fmt", default="bibtex", type=click.Choice(["bibtex", "csl-json", "json"]), help="Export format")
 @click.pass_context
 def export_cmd(ctx: click.Context, key: str, fmt: str) -> None:
     """Export citation."""
