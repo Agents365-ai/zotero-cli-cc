@@ -19,18 +19,19 @@ Two complementary tools for Zotero:
 
 | User Intent | Command | Why |
 |-------------|---------|-----|
-| Keyword search ("search for transformer") | `zot --json search "transformer"` | Fast keyword match |
+| Search by title/author/tag | `zot --json search "transformer"` | Fast metadata match |
+| **Search paper content / fulltext** | **`rak --json search "query" --hybrid`** | **zot fulltext is word-level LIKE only; rak has BM25 + vector** |
 | Semantic search ("papers about cell fate") | `rak --json search "cell fate" --hybrid` | Needs semantic understanding |
 | Similarity search ("papers like this one") | `rak --json search "..." --hybrid` | Needs embeddings |
 | Read/view a paper | `zot --json read KEY` | Direct lookup |
 | Export citation | `zot export KEY` | Local data |
 | Add/delete/tag/note | `zot ...` | All write ops |
-| PDF full text | `zot --json pdf KEY` | Local file access |
+| PDF full text extraction | `zot --json pdf KEY` | Local file access |
 | Library stats | `zot --json stats` | Local aggregation |
 | Open PDF/URL | `zot open KEY` or `zot open --url KEY` | System open |
 | Ask question about papers | `rak ask "question" --hybrid` | Needs RAG pipeline |
 
-**Rule of thumb**: Use `zot` by default. Use `rak` only when the user needs semantic understanding, similarity, or Q&A over their library.
+**Rule of thumb**: Use `zot` for metadata lookup and all CRUD. Use `rak` for any search that involves paper content, semantic meaning, or Q&A. When in doubt about search, prefer `rak --hybrid` — it covers both keyword and semantic matching.
 
 **If `rak` is not installed**, fall back to `zot` for everything. Check with `which rak`.
 
