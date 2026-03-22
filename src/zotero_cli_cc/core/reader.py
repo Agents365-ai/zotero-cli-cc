@@ -21,11 +21,8 @@ from zotero_cli_cc.models import (
 MAX_RETRIES = 3
 RETRY_DELAY = 1.0
 
-# Zotero internal item type IDs (excluded from regular item queries)
-ATTACHMENT_TYPE_ID = 26
-NOTE_TYPE_ID = 14
-EXCLUDED_TYPE_IDS = (ATTACHMENT_TYPE_ID, NOTE_TYPE_ID)
-_EXCLUDED_SQL = f"NOT IN ({ATTACHMENT_TYPE_ID}, {NOTE_TYPE_ID})"
+# Excluded type names (looked up dynamically per database)
+_EXCLUDED_TYPE_NAMES = ("attachment", "note", "annotation")
 
 # Tested schema version range (Zotero 6–8)
 MIN_SCHEMA_VERSION = 100
@@ -37,6 +34,7 @@ class ZoteroReader:
         self._db_path = db_path
         self._conn: sqlite3.Connection | None = None
         self._tmp_dir: Path | None = None
+        self._excluded_sql: str | None = None
 
     def _connect(self) -> sqlite3.Connection:
         if self._conn is not None:
@@ -59,6 +57,20 @@ class ZoteroReader:
                 # Fallback: copy DB to temp file
                 return self._connect_from_copy()
         raise sqlite3.OperationalError(f"Failed to connect to {self._db_path} after {MAX_RETRIES} retries")
+
+    def _get_excluded_sql(self) -> str:
+        """Build SQL fragment to exclude attachment/note/annotation types, looked up by name."""
+        if self._excluded_sql is not None:
+            return self._excluded_sql
+        conn = self._connect()
+        placeholders = ",".join("?" * len(_EXCLUDED_TYPE_NAMES))
+        rows = conn.execute(
+            f"SELECT itemTypeID FROM itemTypes WHERE typeName IN ({placeholders})",
+            _EXCLUDED_TYPE_NAMES,
+        ).fetchall()
+        ids = [str(r["itemTypeID"]) for r in rows]
+        self._excluded_sql = f"NOT IN ({','.join(ids)})" if ids else "!= -1"
+        return self._excluded_sql
 
     def _connect_from_copy(self) -> sqlite3.Connection:
         """Copy DB files to temp dir to avoid WAL locks."""
@@ -110,7 +122,7 @@ class ZoteroReader:
         conn = self._connect()
         row = conn.execute(
             "SELECT itemID, itemTypeID, key, dateAdded, dateModified "
-            "FROM items WHERE key = ? AND itemTypeID " + _EXCLUDED_SQL,
+            "FROM items WHERE key = ? AND itemTypeID " + self._get_excluded_sql(),
             (key,),
         ).fetchone()
         if row is None:
@@ -157,7 +169,7 @@ class ZoteroReader:
                 "SELECT DISTINCT i.itemID FROM items i "
                 "JOIN itemData id ON i.itemID = id.itemID "
                 "JOIN itemDataValues iv ON id.valueID = iv.valueID "
-                "WHERE iv.value LIKE ? AND i.itemTypeID " + _EXCLUDED_SQL,
+                "WHERE iv.value LIKE ? AND i.itemTypeID " + self._get_excluded_sql(),
                 (like,),
             ).fetchall()
             item_ids.update(r["itemID"] for r in rows)
@@ -166,7 +178,9 @@ class ZoteroReader:
             rows = conn.execute(
                 "SELECT DISTINCT ic.itemID FROM itemCreators ic "
                 "JOIN creators c ON ic.creatorID = c.creatorID "
-                "WHERE c.firstName LIKE ? OR c.lastName LIKE ?",
+                "JOIN items i ON ic.itemID = i.itemID "
+                "WHERE (c.firstName LIKE ? OR c.lastName LIKE ?) "
+                "AND i.itemTypeID " + self._get_excluded_sql(),
                 (like, like),
             ).fetchall()
             item_ids.update(r["itemID"] for r in rows)
@@ -175,7 +189,8 @@ class ZoteroReader:
             rows = conn.execute(
                 "SELECT DISTINCT it.itemID FROM itemTags it "
                 "JOIN tags t ON it.tagID = t.tagID "
-                "WHERE t.name LIKE ?",
+                "JOIN items i ON it.itemID = i.itemID "
+                "WHERE t.name LIKE ? AND i.itemTypeID " + self._get_excluded_sql(),
                 (like,),
             ).fetchall()
             item_ids.update(r["itemID"] for r in rows)
@@ -191,7 +206,7 @@ class ZoteroReader:
             item_ids.update(r["parentItemID"] for r in rows)
         else:
             rows = conn.execute(
-                "SELECT itemID FROM items WHERE itemTypeID " + _EXCLUDED_SQL
+                "SELECT itemID FROM items WHERE itemTypeID " + self._get_excluded_sql()
             ).fetchall()
             item_ids.update(r["itemID"] for r in rows)
 
@@ -279,7 +294,7 @@ class ZoteroReader:
         rows = conn.execute(
             "SELECT i.key FROM collectionItems ci "
             "JOIN items i ON ci.itemID = i.itemID "
-            "WHERE ci.collectionID = ? AND i.itemTypeID " + _EXCLUDED_SQL,
+            "WHERE ci.collectionID = ? AND i.itemTypeID " + self._get_excluded_sql(),
             (col_row["collectionID"],),
         ).fetchall()
         items = []
@@ -327,14 +342,14 @@ class ZoteroReader:
         conn = self._connect()
         # Total items (excluding attachments and notes)
         total = conn.execute(
-            "SELECT COUNT(*) as cnt FROM items WHERE itemTypeID " + _EXCLUDED_SQL
+            "SELECT COUNT(*) as cnt FROM items WHERE itemTypeID " + self._get_excluded_sql()
         ).fetchone()["cnt"]
 
         # Items by type
         type_rows = conn.execute(
             "SELECT t.typeName, COUNT(*) as cnt FROM items i "
             "JOIN itemTypes t ON i.itemTypeID = t.itemTypeID "
-            "WHERE i.itemTypeID " + _EXCLUDED_SQL + " "
+            "WHERE i.itemTypeID " + self._get_excluded_sql() + " "
             "GROUP BY t.typeName ORDER BY cnt DESC"
         ).fetchall()
         by_type = {r["typeName"]: r["cnt"] for r in type_rows}
@@ -461,7 +476,7 @@ class ZoteroReader:
         # Fetch base item rows
         rows = conn.execute(
             f"SELECT itemID, itemTypeID, key, dateAdded, dateModified "
-            f"FROM items WHERE itemID IN ({placeholders}) AND itemTypeID {_EXCLUDED_SQL}",
+            f"FROM items WHERE itemID IN ({placeholders}) AND itemTypeID {self._get_excluded_sql()}",
             item_ids,
         ).fetchall()
         if not rows:
