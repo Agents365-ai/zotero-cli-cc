@@ -243,9 +243,9 @@ graph TD
 
 ## TODO
 
-- [ ] 改进 HTML 转 Markdown：支持列表、链接、表格等 Zotero 笔记常用格式
-- [ ] `summarize-all` 分页：为大型文献库添加 offset/cursor 分页支持
-- [ ] 危险操作 `--dry-run`：为 `delete`、`collection delete`、`collection reorganize` 添加预览模式
+- [x] 改进 HTML 转 Markdown：支持列表、链接、表格等 Zotero 笔记常用格式（v0.1.2：使用 markdownify）
+- [x] `summarize-all` 分页：为大型文献库添加 offset/cursor 分页支持（v0.1.2：`--offset` 参数）
+- [x] 危险操作 `--dry-run`：为 `delete`、`collection delete`、`tag` 添加预览模式（v0.1.2）
 
 ---
 

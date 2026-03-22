@@ -243,9 +243,9 @@ cp -r skill/zotero-cli-cc ~/.claude/skills/
 
 ## TODO
 
-- [ ] Improve HTML-to-Markdown: support lists, links, tables, and other common Zotero note formats
-- [ ] `summarize-all` pagination: add offset/cursor pagination for large libraries
-- [ ] `--dry-run` for destructive ops: add preview mode to `delete`, `collection delete`, and `collection reorganize`
+- [x] Improve HTML-to-Markdown: support lists, links, tables, and other common Zotero note formats (v0.1.2: uses markdownify)
+- [x] `summarize-all` pagination: add offset/cursor pagination for large libraries (v0.1.2: `--offset` flag)
+- [x] `--dry-run` for destructive ops: add preview mode to `delete`, `collection delete`, and `tag` (v0.1.2)
 
 ---
 
