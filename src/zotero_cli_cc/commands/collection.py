@@ -119,8 +119,9 @@ def collection_delete(ctx: click.Context, key: str, dry_run: bool) -> None:
 
 @collection_group.command("reorganize")
 @click.argument("plan_file", type=click.Path(exists=True))
+@click.option("--dry-run", is_flag=True, help="Preview the plan without executing")
 @click.pass_context
-def collection_reorganize(ctx: click.Context, plan_file: str) -> None:
+def collection_reorganize(ctx: click.Context, plan_file: str, dry_run: bool) -> None:
     """Batch create collections and move items based on a JSON plan file.
 
     The plan file should be a JSON file with this structure:
@@ -134,17 +135,30 @@ def collection_reorganize(ctx: click.Context, plan_file: str) -> None:
 
     cfg = load_config(profile=ctx.obj.get("profile"))
     json_out = ctx.obj.get("json", False)
-    library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
-    api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
-    if not library_id or not api_key:
-        click.echo(format_error(ErrorInfo(message="Write credentials not configured", context="collection reorganize", hint="Run 'zot config init' to set up API credentials"), output_json=json_out))
-        return
 
     plan_path = Path(plan_file)
     plan = json.loads(plan_path.read_text())
     collections = plan.get("collections", [])
     if not collections:
         click.echo("No collections in plan.")
+        return
+
+    if dry_run:
+        for coll in collections:
+            name = coll["name"]
+            parent_name = coll.get("parent")
+            items = coll.get("items", [])
+            parent_str = f" (under '{parent_name}')" if parent_name else ""
+            click.echo(f"[dry-run] Would create collection '{name}'{parent_str}")
+            for item_key in items:
+                click.echo(f"[dry-run]   Would move {item_key} -> '{name}'")
+        click.echo(f"\n[dry-run] Total: {len(collections)} collections to create")
+        return
+
+    library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
+    api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
+    if not library_id or not api_key:
+        click.echo(format_error(ErrorInfo(message="Write credentials not configured", context="collection reorganize", hint="Run 'zot config init' to set up API credentials"), output_json=json_out))
         return
 
     writer = ZoteroWriter(library_id=library_id, api_key=api_key)

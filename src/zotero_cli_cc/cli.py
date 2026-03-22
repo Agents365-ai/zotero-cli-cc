@@ -22,6 +22,7 @@ from zotero_cli_cc.commands.relate import relate_cmd
 from zotero_cli_cc.commands.mcp import mcp_group
 from zotero_cli_cc.commands.stats import stats_cmd
 from zotero_cli_cc.commands.open_cmd import open_cmd
+from zotero_cli_cc.commands.completions import completions_cmd
 
 
 @click.group()
@@ -61,3 +62,4 @@ main.add_command(relate_cmd, "relate")
 main.add_command(mcp_group, "mcp")
 main.add_command(stats_cmd, "stats")
 main.add_command(open_cmd, "open")
+main.add_command(completions_cmd, "completions")

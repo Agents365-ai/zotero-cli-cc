@@ -33,6 +33,24 @@ class TestDryRun:
         assert result.exit_code == 0
         assert "[dry-run]" in result.output
 
+    def test_collection_reorganize_dry_run(self, tmp_path):
+        plan = {"collections": [
+            {"name": "Topic A", "items": ["K1", "K2"]},
+            {"name": "Sub B", "parent": "Topic A", "items": ["K3"]},
+        ]}
+        plan_file = tmp_path / "plan.json"
+        plan_file.write_text(json.dumps(plan))
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["collection", "reorganize", str(plan_file), "--dry-run"],
+        )
+        assert result.exit_code == 0
+        assert "[dry-run] Would create collection 'Topic A'" in result.output
+        assert "[dry-run]   Would move K1 -> 'Topic A'" in result.output
+        assert "[dry-run]   Would move K2 -> 'Topic A'" in result.output
+        assert "[dry-run] Would create collection 'Sub B' (under 'Topic A')" in result.output
+        assert "2 collections to create" in result.output
+
     def test_collection_delete_dry_run(self):
         runner = CliRunner()
         result = runner.invoke(
@@ -59,6 +77,31 @@ class TestDryRun:
         assert result.exit_code == 0
         assert "[dry-run]" in result.output
         assert "oldtag" in result.output
+
+
+# --- Shell completions tests ---
+
+
+class TestCompletions:
+    def test_completions_bash(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["completions", "bash"])
+        assert result.exit_code == 0
+
+    def test_completions_zsh(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["completions", "zsh"])
+        assert result.exit_code == 0
+
+    def test_completions_fish(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["completions", "fish"])
+        assert result.exit_code == 0
+
+    def test_completions_invalid_shell(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["completions", "powershell"])
+        assert result.exit_code != 0
 
 
 # --- Offset/pagination tests ---
