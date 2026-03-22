@@ -170,7 +170,7 @@ zot pdf ABC123 --pages 1-5         # Extract specific pages
 | **Note Management** | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
 | **Collections** | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | **Citation Export** | ✅ BibTeX/JSON | ✅ | ❌ | ✅ Excel | ❌ | ❌ | ❌ |
-| **Semantic Search** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
+| **Semantic Search** | [RAK](https://github.com/Agents365-ai/zotero-rag-cli) | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
 | **Detail Levels** | **✅** | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
 | **Multi-Profile** | **✅** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **PDF Cache** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
@@ -236,6 +236,12 @@ cp -r skill/zotero-cli-cc ~/.claude/skills/
 | `ZOT_LIBRARY_ID` | Override Library ID (write operations) |
 | `ZOT_API_KEY` | Override API Key (write operations) |
 | `ZOT_PROFILE` | Override default config profile |
+
+## TODO
+
+- [ ] Improve HTML-to-Markdown: support lists, links, tables, and other common Zotero note formats
+- [ ] `summarize-all` pagination: add offset/cursor pagination for large libraries
+- [ ] `--dry-run` for destructive ops: add preview mode to `delete`, `collection delete`, and `collection reorganize`
 
 ---
 

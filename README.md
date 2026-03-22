@@ -192,7 +192,7 @@ zot --version                              # 查看版本
 | **笔记管理** | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
 | **Collection 管理** | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | **引用导出** | ✅ BibTeX/JSON | ✅ | ❌ | ✅ Excel | ❌ | ❌ | ❌ |
-| **语义搜索** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
+| **语义搜索** | [RAK](https://github.com/Agents365-ai/zotero-rag-cli) | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
 | **输出分级** | **✅** | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
 | **多配置档案** | **✅** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **PDF 缓存** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
@@ -236,6 +236,12 @@ graph TD
 | `ZOT_LIBRARY_ID` | 覆盖 Library ID（写操作） |
 | `ZOT_API_KEY` | 覆盖 API Key（写操作） |
 | `ZOT_PROFILE` | 覆盖默认配置档案 |
+
+## TODO
+
+- [ ] 改进 HTML 转 Markdown：支持列表、链接、表格等 Zotero 笔记常用格式
+- [ ] `summarize-all` 分页：为大型文献库添加 offset/cursor 分页支持
+- [ ] 危险操作 `--dry-run`：为 `delete`、`collection delete`、`collection reorganize` 添加预览模式
 
 ---
 
