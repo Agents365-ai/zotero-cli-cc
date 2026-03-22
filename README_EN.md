@@ -1,7 +1,7 @@
 # zot — Let Zotero Fly in Your Terminal
 
 <p align="center">
-  <img src="asserts/banner.png" alt="zotero-cli-cc banner" width="720">
+  <img src="asserts/banner_official.png" alt="zotero-cli-cc banner" width="720">
 </p>
 
 [中文](README.md)

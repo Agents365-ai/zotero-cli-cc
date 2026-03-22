@@ -1,7 +1,7 @@
 # zot — 让 Zotero 在终端飞起来
 
 <p align="center">
-  <img src="asserts/banner.png" alt="zotero-cli-cc banner" width="720">
+  <img src="asserts/banner_official.png" alt="zotero-cli-cc banner" width="720">
 </p>
 
 [English](README_EN.md)
