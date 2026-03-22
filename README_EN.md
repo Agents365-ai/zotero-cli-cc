@@ -224,8 +224,8 @@ Export BibTeX for this paper
 Install the zotero-cli skill so Claude Code automatically recognizes literature-related requests:
 
 ```bash
-# Install skill (copy skill/zotero-cli/ to ~/.claude/skills/)
-cp -r skill/zotero-cli ~/.claude/skills/
+# Install skill (copy skill/zotero-cli-cc/ to ~/.claude/skills/)
+cp -r skill/zotero-cli-cc ~/.claude/skills/
 ```
 
 ## Environment Variables
