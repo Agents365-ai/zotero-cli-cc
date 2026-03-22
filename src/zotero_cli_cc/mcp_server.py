@@ -8,9 +8,9 @@ from mcp.server.fastmcp import FastMCP
 
 from zotero_cli_cc.config import get_data_dir, load_config
 from zotero_cli_cc.core.pdf_cache import PdfCache
-from zotero_cli_cc.core.pdf_extractor import extract_text_from_pdf
+from zotero_cli_cc.core.pdf_extractor import extract_text_from_pdf, PdfExtractionError
 from zotero_cli_cc.core.reader import ZoteroReader
-from zotero_cli_cc.core.writer import ZoteroWriter
+from zotero_cli_cc.core.writer import ZoteroWriter, ZoteroWriteError
 from zotero_cli_cc.models import Collection, Item, Note
 
 mcp = FastMCP("zotero", instructions="Read and write access to a local Zotero library")
@@ -152,6 +152,8 @@ def _handle_pdf(key: str, pages: str | None) -> dict:
                 cache.put(pdf_path, text)
         else:
             text = extract_text_from_pdf(pdf_path, pages=page_range)
+    except PdfExtractionError as e:
+        return {"error": str(e), "context": "pdf"}
     finally:
         cache.close()
 
@@ -256,64 +258,113 @@ def _handle_collection_items(collection_key: str) -> dict:
 
 
 def _handle_note_add(key: str, content: str) -> dict:
-    writer = _get_writer()
-    note_key = writer.add_note(key, content)
-    return {"note_key": note_key}
+    try:
+        writer = _get_writer()
+        note_key = writer.add_note(key, content)
+        return {"note_key": note_key}
+    except ZoteroWriteError as e:
+        return {"error": str(e), "context": "note_add"}
 
 
 def _handle_note_update(note_key: str, content: str) -> dict:
-    writer = _get_writer()
-    writer.update_note(note_key, content)
-    return {"note_key": note_key, "updated": True}
+    try:
+        writer = _get_writer()
+        writer.update_note(note_key, content)
+        return {"note_key": note_key, "updated": True}
+    except ZoteroWriteError as e:
+        return {"error": str(e), "context": "note_update"}
 
 
-def _handle_tag_add(key: str, tags: list[str]) -> dict:
-    writer = _get_writer()
-    writer.add_tags(key, tags)
-    return {"key": key, "tags_added": tags}
+def _handle_tag_add(keys: list[str], tags: list[str]) -> dict:
+    try:
+        writer = _get_writer()
+    except (ValueError, ZoteroWriteError) as e:
+        return {"error": str(e), "context": "tag_add"}
+    results = []
+    for key in keys:
+        try:
+            writer.add_tags(key, tags)
+            results.append({"key": key, "tags_added": tags})
+        except ZoteroWriteError as e:
+            results.append({"key": key, "error": str(e)})
+    return {"results": results}
 
 
-def _handle_tag_remove(key: str, tags: list[str]) -> dict:
-    writer = _get_writer()
-    writer.remove_tags(key, tags)
-    return {"key": key, "tags_removed": tags}
+def _handle_tag_remove(keys: list[str], tags: list[str]) -> dict:
+    try:
+        writer = _get_writer()
+    except (ValueError, ZoteroWriteError) as e:
+        return {"error": str(e), "context": "tag_remove"}
+    results = []
+    for key in keys:
+        try:
+            writer.remove_tags(key, tags)
+            results.append({"key": key, "tags_removed": tags})
+        except ZoteroWriteError as e:
+            results.append({"key": key, "error": str(e)})
+    return {"results": results}
 
 
 def _handle_add(doi: str | None, url: str | None) -> dict:
     if not doi and not url:
         raise ValueError("Either doi or url must be provided.")
-    writer = _get_writer()
-    item_key = writer.add_item(doi=doi, url=url)
-    return {"item_key": item_key}
+    try:
+        writer = _get_writer()
+        item_key = writer.add_item(doi=doi, url=url)
+        return {"item_key": item_key}
+    except ZoteroWriteError as e:
+        return {"error": str(e), "context": "add"}
 
 
-def _handle_delete(key: str) -> dict:
-    writer = _get_writer()
-    writer.delete_item(key)
-    return {"deleted": True, "key": key}
+def _handle_delete(keys: list[str]) -> dict:
+    try:
+        writer = _get_writer()
+    except (ValueError, ZoteroWriteError) as e:
+        return {"error": str(e), "context": "delete"}
+    results = []
+    for key in keys:
+        try:
+            writer.delete_item(key)
+            results.append({"key": key, "deleted": True})
+        except ZoteroWriteError as e:
+            results.append({"key": key, "deleted": False, "error": str(e)})
+    return {"results": results}
 
 
 def _handle_collection_create(name: str, parent_key: str | None) -> dict:
-    writer = _get_writer()
-    collection_key = writer.create_collection(name, parent_key=parent_key)
-    return {"collection_key": collection_key}
+    try:
+        writer = _get_writer()
+        collection_key = writer.create_collection(name, parent_key=parent_key)
+        return {"collection_key": collection_key}
+    except ZoteroWriteError as e:
+        return {"error": str(e), "context": "collection_create"}
 
 
 def _handle_collection_move(item_key: str, collection_key: str) -> dict:
-    writer = _get_writer()
-    writer.move_to_collection(item_key, collection_key)
-    return {"item_key": item_key, "collection_key": collection_key}
+    try:
+        writer = _get_writer()
+        writer.move_to_collection(item_key, collection_key)
+        return {"item_key": item_key, "collection_key": collection_key}
+    except ZoteroWriteError as e:
+        return {"error": str(e), "context": "collection_move"}
 
 
 def _handle_collection_delete(collection_key: str) -> dict:
-    writer = _get_writer()
-    writer.delete_collection(collection_key)
-    return {"deleted": True, "collection_key": collection_key}
+    try:
+        writer = _get_writer()
+        writer.delete_collection(collection_key)
+        return {"deleted": True, "collection_key": collection_key}
+    except ZoteroWriteError as e:
+        return {"error": str(e), "context": "collection_delete"}
 
 
 def _handle_collection_reorganize(plan: dict) -> dict:
     """Execute a collection reorganization plan."""
-    writer = _get_writer()
+    try:
+        writer = _get_writer()
+    except ZoteroWriteError as e:
+        return {"error": str(e), "context": "collection_reorganize"}
+
     collections = plan.get("collections", [])
     if not collections:
         raise ValueError("No collections in plan.")
@@ -337,7 +388,7 @@ def _handle_collection_reorganize(plan: dict) -> dict:
                 try:
                     writer.move_to_collection(item_key, col_key)
                     moved.append(item_key)
-                except Exception as e:
+                except ZoteroWriteError as e:
                     failed.append({"key": item_key, "error": str(e)})
 
             results.append({
@@ -347,16 +398,19 @@ def _handle_collection_reorganize(plan: dict) -> dict:
                 "items_failed": len(failed),
                 "failures": failed,
             })
-        except Exception as e:
+        except ZoteroWriteError as e:
             results.append({"name": name, "error": str(e)})
 
     return {"collections_created": len(created), "results": results}
 
 
 def _handle_collection_rename(collection_key: str, new_name: str) -> dict:
-    writer = _get_writer()
-    writer.rename_collection(collection_key, new_name)
-    return {"collection_key": collection_key, "new_name": new_name}
+    try:
+        writer = _get_writer()
+        writer.rename_collection(collection_key, new_name)
+        return {"collection_key": collection_key, "new_name": new_name}
+    except ZoteroWriteError as e:
+        return {"error": str(e), "context": "collection_rename"}
 
 
 # ---------------------------------------------------------------------------
@@ -514,25 +568,25 @@ def note_update(note_key: str, content: str) -> dict:
 
 
 @mcp.tool()
-def tag_add(key: str, tags: list[str]) -> dict:
-    """Add tags to a Zotero item.
+def tag_add(keys: list[str], tags: list[str]) -> dict:
+    """Add tags to one or more Zotero items.
 
     Args:
-        key: The Zotero item key.
+        keys: List of Zotero item keys (e.g. ['ABC123'] or ['K1', 'K2', 'K3']).
         tags: List of tag strings to add.
     """
-    return _handle_tag_add(key, tags)
+    return _handle_tag_add(keys, tags)
 
 
 @mcp.tool()
-def tag_remove(key: str, tags: list[str]) -> dict:
-    """Remove tags from a Zotero item.
+def tag_remove(keys: list[str], tags: list[str]) -> dict:
+    """Remove tags from one or more Zotero items.
 
     Args:
-        key: The Zotero item key.
+        keys: List of Zotero item keys (e.g. ['ABC123'] or ['K1', 'K2', 'K3']).
         tags: List of tag strings to remove.
     """
-    return _handle_tag_remove(key, tags)
+    return _handle_tag_remove(keys, tags)
 
 
 @mcp.tool()
@@ -547,13 +601,13 @@ def add(doi: str | None = None, url: str | None = None) -> dict:
 
 
 @mcp.tool()
-def delete(key: str) -> dict:
-    """Delete an item from the Zotero library.
+def delete(keys: list[str]) -> dict:
+    """Delete one or more items from the Zotero library (move to trash).
 
     Args:
-        key: The Zotero item key to delete.
+        keys: List of Zotero item keys to delete (e.g. ['ABC123'] or ['K1', 'K2']).
     """
-    return _handle_delete(key)
+    return _handle_delete(keys)
 
 
 @mcp.tool()

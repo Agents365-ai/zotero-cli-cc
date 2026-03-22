@@ -543,10 +543,21 @@ class TestHandleTagAdd:
         writer = MagicMock()
         mock_get_writer.return_value = writer
 
-        result = _handle_tag_add("ABC123", ["ML", "NLP"])
-        assert result["key"] == "ABC123"
-        assert result["tags_added"] == ["ML", "NLP"]
+        result = _handle_tag_add(["ABC123"], ["ML", "NLP"])
+        assert result["results"][0]["key"] == "ABC123"
+        assert result["results"][0]["tags_added"] == ["ML", "NLP"]
         writer.add_tags.assert_called_once_with("ABC123", ["ML", "NLP"])
+
+    @patch("zotero_cli_cc.mcp_server._get_writer")
+    def test_adds_tags_batch(self, mock_get_writer):
+        from zotero_cli_cc.mcp_server import _handle_tag_add
+
+        writer = MagicMock()
+        mock_get_writer.return_value = writer
+
+        result = _handle_tag_add(["K1", "K2"], ["ML"])
+        assert len(result["results"]) == 2
+        assert writer.add_tags.call_count == 2
 
 
 class TestHandleTagRemove:
@@ -557,9 +568,9 @@ class TestHandleTagRemove:
         writer = MagicMock()
         mock_get_writer.return_value = writer
 
-        result = _handle_tag_remove("ABC123", ["ML"])
-        assert result["key"] == "ABC123"
-        assert result["tags_removed"] == ["ML"]
+        result = _handle_tag_remove(["ABC123"], ["ML"])
+        assert result["results"][0]["key"] == "ABC123"
+        assert result["results"][0]["tags_removed"] == ["ML"]
         writer.remove_tags.assert_called_once_with("ABC123", ["ML"])
 
 
@@ -603,10 +614,21 @@ class TestHandleDelete:
         writer = MagicMock()
         mock_get_writer.return_value = writer
 
-        result = _handle_delete("ABC123")
-        assert result["deleted"] is True
-        assert result["key"] == "ABC123"
+        result = _handle_delete(["ABC123"])
+        assert result["results"][0]["deleted"] is True
+        assert result["results"][0]["key"] == "ABC123"
         writer.delete_item.assert_called_once_with("ABC123")
+
+    @patch("zotero_cli_cc.mcp_server._get_writer")
+    def test_deletes_batch(self, mock_get_writer):
+        from zotero_cli_cc.mcp_server import _handle_delete
+
+        writer = MagicMock()
+        mock_get_writer.return_value = writer
+
+        result = _handle_delete(["K1", "K2", "K3"])
+        assert len(result["results"]) == 3
+        assert writer.delete_item.call_count == 3
 
 
 class TestHandleCollectionCreate:
@@ -725,3 +747,96 @@ class TestHandleCollectionReorganize:
 
         with pytest.raises(ValueError, match="No collections"):
             _handle_collection_reorganize({"collections": []})
+
+
+# ---------------------------------------------------------------------------
+# Write error handling tests
+# ---------------------------------------------------------------------------
+
+
+class TestMcpWriteErrorHandling:
+    """Verify that ZoteroWriteError is caught and returned as structured dicts."""
+
+    @pytest.fixture(autouse=True)
+    def mock_get_writer(self):
+        from zotero_cli_cc.core.writer import ZoteroWriteError
+
+        writer = MagicMock()
+        with patch("zotero_cli_cc.mcp_server._get_writer", return_value=writer):
+            self.writer = writer
+            self.ZoteroWriteError = ZoteroWriteError
+            yield
+
+    def test_note_add_error(self):
+        from zotero_cli_cc.mcp_server import _handle_note_add
+
+        self.writer.add_note.side_effect = self.ZoteroWriteError("Item not found")
+        result = _handle_note_add("K1", "text")
+        assert result["error"] == "Item not found"
+        assert result["context"] == "note_add"
+
+    def test_note_update_error(self):
+        from zotero_cli_cc.mcp_server import _handle_note_update
+
+        self.writer.update_note.side_effect = self.ZoteroWriteError("Note not found")
+        result = _handle_note_update("N1", "text")
+        assert result["error"] == "Note not found"
+        assert result["context"] == "note_update"
+
+    def test_tag_add_error(self):
+        from zotero_cli_cc.mcp_server import _handle_tag_add
+
+        self.writer.add_tags.side_effect = self.ZoteroWriteError("Network error")
+        result = _handle_tag_add(["K1"], ["t1"])
+        assert result["results"][0]["error"] == "Network error"
+
+    def test_tag_remove_error(self):
+        from zotero_cli_cc.mcp_server import _handle_tag_remove
+
+        self.writer.remove_tags.side_effect = self.ZoteroWriteError("Item not found")
+        result = _handle_tag_remove(["K1"], ["t1"])
+        assert result["results"][0]["error"] == "Item not found"
+
+    def test_add_error(self):
+        from zotero_cli_cc.mcp_server import _handle_add
+
+        self.writer.add_item.side_effect = self.ZoteroWriteError("API error: Bad request")
+        result = _handle_add(doi="10.1234/test", url=None)
+        assert result["error"] == "API error: Bad request"
+        assert result["context"] == "add"
+
+    def test_delete_error(self):
+        from zotero_cli_cc.mcp_server import _handle_delete
+
+        self.writer.delete_item.side_effect = self.ZoteroWriteError("Item 'K1' not found")
+        result = _handle_delete(["K1"])
+        assert result["results"][0]["error"] == "Item 'K1' not found"
+        assert result["results"][0]["deleted"] is False
+
+    def test_collection_create_error(self):
+        from zotero_cli_cc.mcp_server import _handle_collection_create
+
+        self.writer.create_collection.side_effect = self.ZoteroWriteError("Network error")
+        result = _handle_collection_create("Test", None)
+        assert result["error"] == "Network error"
+
+    def test_collection_move_error(self):
+        from zotero_cli_cc.mcp_server import _handle_collection_move
+
+        self.writer.move_to_collection.side_effect = self.ZoteroWriteError("Not found")
+        result = _handle_collection_move("K1", "COL1")
+        assert result["error"] == "Not found"
+
+    def test_collection_delete_error(self):
+        from zotero_cli_cc.mcp_server import _handle_collection_delete
+
+        self.writer.delete_collection.side_effect = self.ZoteroWriteError("Not found")
+        result = _handle_collection_delete("COL1")
+        assert result["error"] == "Not found"
+
+    def test_collection_rename_error(self):
+        from zotero_cli_cc.mcp_server import _handle_collection_rename
+
+        self.writer.rename_collection.side_effect = self.ZoteroWriteError("Not found")
+        result = _handle_collection_rename("COL1", "New")
+        assert result["error"] == "Not found"

@@ -11,16 +11,20 @@ from zotero_cli_cc.models import ErrorInfo
 
 
 @click.command("delete")
-@click.argument("key")
+@click.argument("keys", nargs=-1, required=True)
 @click.option("--yes", is_flag=True, help="Skip confirmation")
 @click.option("--dry-run", is_flag=True, help="Show what would be deleted without executing")
 @click.pass_context
-def delete_cmd(ctx: click.Context, key: str, yes: bool, dry_run: bool) -> None:
-    """Delete an item (move to trash)."""
+def delete_cmd(ctx: click.Context, keys: tuple[str, ...], yes: bool, dry_run: bool) -> None:
+    """Delete one or more items (move to trash).
+
+    Accepts multiple keys: zot delete KEY1 KEY2 KEY3
+    """
     cfg = load_config(profile=ctx.obj.get("profile"))
     json_out = ctx.obj.get("json", False)
     if dry_run:
-        click.echo(f"[dry-run] Would delete item '{key}' (move to trash)")
+        for key in keys:
+            click.echo(f"[dry-run] Would delete item '{key}' (move to trash)")
         return
     library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
     api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
@@ -29,13 +33,18 @@ def delete_cmd(ctx: click.Context, key: str, yes: bool, dry_run: bool) -> None:
         return
     no_interaction = ctx.obj.get("no_interaction", False)
     if not yes and not no_interaction:
-        if not click.confirm(f"Delete item '{key}'?"):
+        label = ", ".join(keys)
+        if not click.confirm(f"Delete {len(keys)} item(s): {label}?"):
             click.echo("Cancelled.")
             return
     writer = ZoteroWriter(library_id=library_id, api_key=api_key)
-    try:
-        writer.delete_item(key)
-        click.echo(f"Item '{key}' moved to trash.")
+    failed = []
+    for key in keys:
+        try:
+            writer.delete_item(key)
+            click.echo(f"Item '{key}' moved to trash.")
+        except ZoteroWriteError as e:
+            failed.append(key)
+            click.echo(format_error(ErrorInfo(message=str(e), context="delete", hint=f"Failed for key '{key}'"), output_json=json_out))
+    if not failed:
         click.echo(SYNC_REMINDER)
-    except ZoteroWriteError as e:
-        click.echo(format_error(ErrorInfo(message=str(e), context="delete", hint="Check item key and API credentials"), output_json=json_out))

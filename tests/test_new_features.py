@@ -10,7 +10,7 @@ from click.testing import CliRunner
 
 from zotero_cli_cc.cli import main
 from zotero_cli_cc.core.pdf_extractor import extract_text_from_pdf, PdfExtractionError
-from zotero_cli_cc.core.writer import ZoteroWriter, ZoteroWriteError
+from zotero_cli_cc.core.writer import ZoteroWriter, ZoteroWriteError, SYNC_REMINDER
 
 WRITE_ENV = {"ZOT_LIBRARY_ID": "123", "ZOT_API_KEY": "abc"}
 
@@ -163,6 +163,98 @@ class TestPdfExtractionError:
     def test_pdf_extraction_error_has_message(self):
         err = PdfExtractionError("Cannot open PDF: encrypted")
         assert "encrypted" in str(err)
+
+
+# --- Batch operations tests ---
+
+
+class TestBatchDelete:
+    @patch("zotero_cli_cc.commands.delete.ZoteroWriter")
+    def test_delete_multiple_keys(self, mock_writer_cls):
+        mock_writer = MagicMock()
+        mock_writer_cls.return_value = mock_writer
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["delete", "K1", "K2", "K3", "--yes"], env=WRITE_ENV,
+        )
+        assert result.exit_code == 0
+        assert mock_writer.delete_item.call_count == 3
+        assert "K1" in result.output
+        assert "K2" in result.output
+        assert "K3" in result.output
+
+    def test_delete_multiple_dry_run(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["delete", "K1", "K2", "--dry-run"])
+        assert result.exit_code == 0
+        assert "[dry-run]" in result.output
+        assert "K1" in result.output
+        assert "K2" in result.output
+
+    @patch("zotero_cli_cc.commands.delete.ZoteroWriter")
+    def test_delete_partial_failure(self, mock_writer_cls):
+        mock_writer = MagicMock()
+        mock_writer_cls.return_value = mock_writer
+        mock_writer.delete_item.side_effect = [None, ZoteroWriteError("Not found"), None]
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["delete", "K1", "K2", "K3", "--yes"], env=WRITE_ENV,
+        )
+        assert result.exit_code == 0
+        assert "K1" in result.output
+        assert "Not found" in result.output
+        assert "K3" in result.output
+        # Should NOT print sync reminder when there are failures
+        assert SYNC_REMINDER not in result.output
+
+
+class TestBatchTag:
+    @patch("zotero_cli_cc.commands.tag.ZoteroWriter")
+    def test_tag_add_multiple_keys(self, mock_writer_cls):
+        mock_writer = MagicMock()
+        mock_writer_cls.return_value = mock_writer
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["tag", "K1", "K2", "K3", "--add", "newtag"], env=WRITE_ENV,
+        )
+        assert result.exit_code == 0
+        assert mock_writer.add_tags.call_count == 3
+        assert "K1" in result.output
+        assert "K2" in result.output
+        assert "K3" in result.output
+
+    @patch("zotero_cli_cc.commands.tag.ZoteroWriter")
+    def test_tag_remove_multiple_keys(self, mock_writer_cls):
+        mock_writer = MagicMock()
+        mock_writer_cls.return_value = mock_writer
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["tag", "K1", "K2", "--remove", "oldtag"], env=WRITE_ENV,
+        )
+        assert result.exit_code == 0
+        assert mock_writer.remove_tags.call_count == 2
+
+    def test_tag_multiple_dry_run(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["tag", "K1", "K2", "--add", "t", "--dry-run"],
+        )
+        assert result.exit_code == 0
+        assert result.output.count("[dry-run]") == 2
+
+    def test_tag_view_multiple_keys(self, test_db_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["tag", "ATTN001", "BERT002"],
+            env={"ZOT_DATA_DIR": str(test_db_path.parent)},
+        )
+        assert result.exit_code == 0
+        assert "ATTN001" in result.output
+        assert "BERT002" in result.output
 
 
 # --- Timeout tests ---
