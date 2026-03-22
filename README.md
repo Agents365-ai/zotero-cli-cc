@@ -178,14 +178,6 @@ zot --version                              # 查看版本
 | **语言** | Python | Python | Python | Python | Python | TypeScript | TypeScript |
 | **活跃维护** | ✅ 2026 | ✅ 2025 | ❌ 2024 | ✅ 2026 | ✅ 2026 | ✅ 2026 | ✅ 2026 |
 
-### 相关项目与教程
-
-以下项目也提供了 Zotero 相关的工具集成，可以作为参考：
-
-- **[cookjohn/zotero-mcp](https://github.com/cookjohn/zotero-mcp)** - 基于 MCP 协议的 Zotero 集成，支持 Claude/Cursor。该项目公众号提供了详细的使用教程。
-- **[Combjellyshen/ZoteroBridge](https://github.com/Combjellyshen/ZoteroBridge)** - Zotero Bridge 工具，支持 AI 编码助手集成。
-- **[54yyyu/zotero-mcp](https://github.com/54yyyu/zotero-mcp)** - 另一个 MCP 协议的 Zotero 实现。
-
 ### 为什么选择 zotero-cli-cc？
 
 > **唯一一个直接读取本地 SQLite 数据库的活跃 Python CLI 工具。**
