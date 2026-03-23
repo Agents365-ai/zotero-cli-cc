@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-03-23
+
+### Added
+- `zot cite` command — format citations in APA, Nature, or Vancouver style and copy to clipboard
+- `zot add --from-file` — batch import DOIs/URLs from a text file (one per line, supports `#` comments)
+- RIS export format (`zot export KEY --format ris`) with 11 Zotero type mappings
+- Usage examples in `--help` text for 13 commands
+- PyPI/CI/Python/License badges in README
+- `pipx` as install option
+- Shell completion install instructions (zsh/bash/fish)
+
 ## [0.1.2] - 2026-03-22
 
 ### Added
