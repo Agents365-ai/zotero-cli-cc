@@ -313,6 +313,23 @@ class ZoteroReader:
 
         return SearchResult(items=items, total=total, query=query)
 
+    def get_recent_items(
+        self,
+        since: str,
+        sort: str = "dateAdded",
+        limit: int = 50,
+    ) -> list[Item]:
+        """Return items added or modified since the given timestamp."""
+        conn = self._connect()
+        excl_sql, excl_params = self._excluded_filter()
+        col = "dateModified" if sort == "dateModified" else "dateAdded"
+        rows = conn.execute(
+            f"SELECT itemID FROM items WHERE {col} >= ? AND itemTypeID {excl_sql} ORDER BY {col} DESC LIMIT ?",
+            (since, *excl_params, limit),
+        ).fetchall()
+        item_ids = [r["itemID"] for r in rows]
+        return self._get_items_batch(conn, item_ids) if item_ids else []
+
     def get_notes(self, key: str) -> list[Note]:
         conn = self._connect()
         parent = conn.execute("SELECT itemID FROM items WHERE key = ?", (key,)).fetchone()

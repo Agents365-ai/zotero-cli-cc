@@ -18,6 +18,7 @@ from zotero_cli_cc.commands.note import note_cmd
 from zotero_cli_cc.commands.open_cmd import open_cmd
 from zotero_cli_cc.commands.pdf import pdf_cmd
 from zotero_cli_cc.commands.read import read_cmd
+from zotero_cli_cc.commands.recent import recent_cmd
 from zotero_cli_cc.commands.relate import relate_cmd
 from zotero_cli_cc.commands.search import search_cmd
 from zotero_cli_cc.commands.stats import stats_cmd
@@ -82,3 +83,4 @@ main.add_command(stats_cmd, "stats")
 main.add_command(open_cmd, "open")
 main.add_command(cite_cmd, "cite")
 main.add_command(completions_cmd, "completions")
+main.add_command(recent_cmd, "recent")

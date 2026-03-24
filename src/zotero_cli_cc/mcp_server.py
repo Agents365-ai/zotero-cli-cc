@@ -227,6 +227,17 @@ def _handle_relate(key: str, limit: int) -> dict:
     }
 
 
+def _handle_recent(days: int, modified: bool, limit: int) -> dict:
+    from datetime import datetime, timedelta, timezone
+
+    reader = _get_reader()
+    sort_field = "dateModified" if modified else "dateAdded"
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    since_str = since.strftime("%Y-%m-%d %H:%M:%S")
+    items = reader.get_recent_items(since=since_str, sort=sort_field, limit=limit)
+    return {"items": [_item_to_dict(i) for i in items], "total": len(items)}
+
+
 def _handle_note_view(key: str) -> dict:
     reader = _get_reader()
     notes = reader.get_notes(key)
@@ -535,6 +546,18 @@ def relate(key: str, limit: int = 20) -> dict:
         limit: Maximum number of related items (default 20).
     """
     return _handle_relate(key, limit)
+
+
+@mcp.tool()
+def recent(days: int = 7, modified: bool = False, limit: int = 50) -> dict:
+    """Show recently added or modified items.
+
+    Args:
+        days: Number of days to look back (default: 7)
+        modified: If True, use dateModified instead of dateAdded
+        limit: Maximum number of items to return
+    """
+    return _handle_recent(days, modified, limit)
 
 
 @mcp.tool()
