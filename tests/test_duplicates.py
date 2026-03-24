@@ -73,3 +73,32 @@ class TestDuplicateReader:
             assert len(groups) <= 1
         finally:
             reader.close()
+
+
+class TestDuplicatesCLI:
+    def test_duplicates_json(self):
+        result = _invoke(["duplicates", "--by", "doi"], json_output=True)
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) >= 1
+        assert data[0]["match_type"] == "doi"
+
+    def test_duplicates_table(self):
+        result = _invoke(["duplicates"])
+        assert result.exit_code == 0
+        assert "ATTN001" in result.output or "DUPE008" in result.output
+
+    def test_duplicates_by_title(self):
+        result = _invoke(["duplicates", "--by", "title"], json_output=True)
+        assert result.exit_code == 0
+
+
+class TestDuplicatesMCP:
+    def test_handle_duplicates(self):
+        from zotero_cli_cc.mcp_server import _handle_duplicates
+        with patch("zotero_cli_cc.mcp_server._get_reader") as mock_get:
+            mock_reader = MagicMock()
+            mock_get.return_value = mock_reader
+            mock_reader.find_duplicates.return_value = []
+            result = _handle_duplicates(strategy="doi")
+            assert result["groups"] == []

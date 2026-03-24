@@ -11,6 +11,7 @@ from zotero_cli_cc.commands.collection import collection_group
 from zotero_cli_cc.commands.completions import completions_cmd
 from zotero_cli_cc.commands.config import config_group
 from zotero_cli_cc.commands.delete import delete_cmd
+from zotero_cli_cc.commands.duplicates import duplicates_cmd
 from zotero_cli_cc.commands.export import export_cmd
 from zotero_cli_cc.commands.list_cmd import list_cmd
 from zotero_cli_cc.commands.mcp import mcp_group
@@ -88,3 +89,4 @@ main.add_command(completions_cmd, "completions")
 main.add_command(recent_cmd, "recent")
 main.add_command(update_cmd, "update")
 main.add_command(trash_group, "trash")
+main.add_command(duplicates_cmd, "duplicates")

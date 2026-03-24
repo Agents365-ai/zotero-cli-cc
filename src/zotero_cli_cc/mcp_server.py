@@ -292,6 +292,21 @@ def _handle_collection_items(collection_key: str) -> dict:
     }
 
 
+def _handle_duplicates(strategy: str = "both", threshold: float = 0.85, limit: int = 50) -> dict:
+    reader = _get_reader()
+    groups = reader.find_duplicates(strategy=strategy, threshold=threshold, limit=limit)
+    result_groups = []
+    for g in groups:
+        result_groups.append(
+            {
+                "match_type": g.match_type,
+                "score": g.score,
+                "items": [_item_to_dict(i) for i in g.items],
+            }
+        )
+    return {"groups": result_groups, "total": len(result_groups)}
+
+
 # ---------------------------------------------------------------------------
 # Write handler functions
 # ---------------------------------------------------------------------------
@@ -644,6 +659,18 @@ def collection_items(collection_key: str) -> dict:
         collection_key: The collection key.
     """
     return _handle_collection_items(collection_key)
+
+
+@mcp.tool()
+def duplicates(strategy: str = "both", threshold: float = 0.85, limit: int = 50) -> dict:
+    """Find potential duplicate items by DOI and/or title similarity.
+
+    Args:
+        strategy: Detection strategy — 'doi', 'title', or 'both' (default 'both').
+        threshold: Minimum title similarity ratio (0.0–1.0, default 0.85).
+        limit: Maximum number of duplicate groups to return (default 50).
+    """
+    return _handle_duplicates(strategy, threshold, limit)
 
 
 # ---------------------------------------------------------------------------
