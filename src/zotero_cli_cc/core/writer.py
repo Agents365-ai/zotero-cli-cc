@@ -20,8 +20,8 @@ class ZoteroWriteError(Exception):
 
 
 class ZoteroWriter:
-    def __init__(self, library_id: str, api_key: str, timeout: float = API_TIMEOUT) -> None:
-        self._zot = zotero.Zotero(library_id, "user", api_key)
+    def __init__(self, library_id: str, api_key: str, library_type: str = "user", timeout: float = API_TIMEOUT) -> None:
+        self._zot = zotero.Zotero(library_id, library_type, api_key)
         if self._zot.client is not None:
             self._zot.client.timeout = httpx.Timeout(timeout)
 

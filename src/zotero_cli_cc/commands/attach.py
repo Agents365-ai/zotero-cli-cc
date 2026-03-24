@@ -27,6 +27,9 @@ def attach_cmd(ctx: click.Context, key: str, file_path: str) -> None:
     json_out = ctx.obj.get("json", False)
     library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
     api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
+    library_type = ctx.obj.get("library_type", "user")
+    if library_type == "group" and ctx.obj.get("group_id"):
+        library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
         click.echo(
             format_error(
@@ -39,7 +42,7 @@ def attach_cmd(ctx: click.Context, key: str, file_path: str) -> None:
             )
         )
         return
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key)
+    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
         att_key = writer.upload_attachment(key, Path(file_path))
         click.echo(f"Attachment uploaded: {att_key}")

@@ -479,7 +479,7 @@ class TestGetWriter:
         with patch("zotero_cli_cc.mcp_server.ZoteroWriter") as mock_writer_cls:
             mock_writer_cls.return_value = MagicMock()
             _get_writer()
-            mock_writer_cls.assert_called_once_with("12345", "secret")
+            mock_writer_cls.assert_called_once_with("12345", "secret", library_type="user")
 
     @patch("zotero_cli_cc.mcp_server.load_config")
     def test_raises_without_credentials(self, mock_config):

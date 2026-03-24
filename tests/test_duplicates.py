@@ -1,4 +1,5 @@
 """Tests for duplicate detection."""
+
 from __future__ import annotations
 
 import json
@@ -96,6 +97,7 @@ class TestDuplicatesCLI:
 class TestDuplicatesMCP:
     def test_handle_duplicates(self):
         from zotero_cli_cc.mcp_server import _handle_duplicates
+
         with patch("zotero_cli_cc.mcp_server._get_reader") as mock_get:
             mock_reader = MagicMock()
             mock_get.return_value = mock_reader

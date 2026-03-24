@@ -41,6 +41,7 @@ from zotero_cli_cc.commands.update import update_cmd
 @click.option("--no-interaction", is_flag=True, help="Suppress interactive prompts for automation")
 @click.option("--verbose", is_flag=True, help="Verbose output")
 @click.option("--profile", default=None, help="Config profile name")
+@click.option("--library", default="user", help="Library: 'user' (default) or 'group:<id>'")
 @click.pass_context
 def main(
     ctx: click.Context,
@@ -50,6 +51,7 @@ def main(
     no_interaction: bool,
     verbose: bool,
     profile: str | None,
+    library: str,
 ) -> None:
     """zot — Zotero CLI for Claude Code.
 
@@ -66,6 +68,19 @@ def main(
     ctx.obj["no_interaction"] = no_interaction
     ctx.obj["verbose"] = verbose
     ctx.obj["profile"] = profile or os.environ.get("ZOT_PROFILE")
+
+    # Parse --library option
+    if library == "user":
+        ctx.obj["library_type"] = "user"
+        ctx.obj["group_id"] = None
+    elif library.startswith("group:"):
+        group_part = library[6:]
+        if not group_part.isdigit():
+            raise click.BadParameter(f"Invalid --library format: '{library}'. Use 'user' or 'group:<id>'")
+        ctx.obj["library_type"] = "group"
+        ctx.obj["group_id"] = group_part
+    else:
+        raise click.BadParameter(f"Invalid --library format: '{library}'. Use 'user' or 'group:<id>'")
 
 
 main.add_command(config_group, "config")

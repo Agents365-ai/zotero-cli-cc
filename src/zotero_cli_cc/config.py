@@ -162,3 +162,21 @@ def get_data_dir(config: AppConfig) -> Path:
     if env_dir:
         return Path(env_dir)
     return detect_zotero_data_dir(config)
+
+
+def resolve_library_id(db_path: Path, ctx_obj: dict) -> int:
+    """Resolve the library_id from ctx.obj, defaulting to 1 (user library)."""
+    if ctx_obj.get("library_type") != "group" or not ctx_obj.get("group_id"):
+        return 1
+    from zotero_cli_cc.core.reader import ZoteroReader
+
+    reader = ZoteroReader(db_path)
+    try:
+        resolved = reader.resolve_group_library_id(int(ctx_obj["group_id"]))
+    finally:
+        reader.close()
+    if resolved is None:
+        import click
+
+        raise click.ClickException(f"Group '{ctx_obj['group_id']}' not found in local database")
+    return resolved

@@ -1,4 +1,5 @@
 """Tests for group library support."""
+
 from __future__ import annotations
 
 import json
@@ -51,9 +52,9 @@ class TestGroupReader:
         reader = ZoteroReader(FIXTURES_DIR / "zotero.sqlite")
         try:
             result = reader.search("")
-            keys = [i.key for i in result.items]
             # With library_id=1, _library_filter returns empty -> no filter -> group items visible
             # This is expected: default behavior unchanged, all items visible
+            assert result.items is not None
         finally:
             reader.close()
 
@@ -93,3 +94,23 @@ class TestGroupReader:
             assert "Machine Learning" not in names
         finally:
             reader.close()
+
+
+class TestGroupCLI:
+    def test_library_option_user(self):
+        result = _invoke(["--library", "user", "search", "attention"], json_output=True)
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        keys = [i["key"] for i in data]
+        assert "ATTN001" in keys
+
+    def test_library_option_group(self):
+        result = _invoke(["--library", "group:99999", "search", ""], json_output=True)
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        keys = [i["key"] for i in data]
+        assert "GRPITM09" in keys
+
+    def test_library_option_invalid(self):
+        result = _invoke(["--library", "invalid", "search", "test"])
+        assert result.exit_code != 0

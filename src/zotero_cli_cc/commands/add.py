@@ -46,6 +46,9 @@ def add_cmd(ctx: click.Context, doi: str | None, url: str | None, from_file: str
     json_out = ctx.obj.get("json", False)
     library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
     api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
+    library_type = ctx.obj.get("library_type", "user")
+    if library_type == "group" and ctx.obj.get("group_id"):
+        library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
         click.echo(
             format_error(
@@ -60,11 +63,11 @@ def add_cmd(ctx: click.Context, doi: str | None, url: str | None, from_file: str
         return
 
     if pdf_file:
-        _add_from_pdf(Path(pdf_file), doi, library_id, api_key, json_out)
+        _add_from_pdf(Path(pdf_file), doi, library_id, api_key, json_out, library_type=library_type)
         return
 
     if from_file:
-        _add_from_file(Path(from_file), library_id, api_key, json_out)
+        _add_from_file(Path(from_file), library_id, api_key, json_out, library_type=library_type)
         return
 
     if not doi and not url:
@@ -79,7 +82,7 @@ def add_cmd(ctx: click.Context, doi: str | None, url: str | None, from_file: str
             )
         )
         return
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key)
+    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
         key = writer.add_item(doi=doi, url=url)
         click.echo(f"Item added: {key}")
@@ -92,7 +95,9 @@ def add_cmd(ctx: click.Context, doi: str | None, url: str | None, from_file: str
         )
 
 
-def _add_from_pdf(pdf_path: Path, doi_override: str | None, library_id: str, api_key: str, json_out: bool) -> None:
+def _add_from_pdf(
+    pdf_path: Path, doi_override: str | None, library_id: str, api_key: str, json_out: bool, library_type: str = "user"
+) -> None:
     """Add item from PDF: extract DOI, create item, upload attachment."""
     from zotero_cli_cc.core.pdf_extractor import extract_doi
 
@@ -112,7 +117,7 @@ def _add_from_pdf(pdf_path: Path, doi_override: str | None, library_id: str, api
         )
         return
 
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key)
+    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
         key = writer.add_item(doi=doi)
         click.echo(f"Item created: {key} (DOI: {doi})")
@@ -130,7 +135,7 @@ def _add_from_pdf(pdf_path: Path, doi_override: str | None, library_id: str, api
         click.echo(f"Retry with: zot attach {key} --file {pdf_path}")
 
 
-def _add_from_file(file_path: Path, library_id: str, api_key: str, json_out: bool) -> None:
+def _add_from_file(file_path: Path, library_id: str, api_key: str, json_out: bool, library_type: str = "user") -> None:
     """Batch add items from a file with one DOI or URL per line."""
     lines = [line.strip() for line in file_path.read_text().splitlines() if line.strip() and not line.startswith("#")]
     if not lines:
@@ -145,7 +150,7 @@ def _add_from_file(file_path: Path, library_id: str, api_key: str, json_out: boo
         return
 
     click.echo(f"Adding {len(lines)} items from {file_path}...")
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key)
+    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     added = 0
     failed = 0
     for i, entry in enumerate(lines, 1):

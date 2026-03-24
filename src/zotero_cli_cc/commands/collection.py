@@ -4,7 +4,7 @@ import os
 
 import click
 
-from zotero_cli_cc.config import get_data_dir, load_config
+from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
 from zotero_cli_cc.formatter import format_collections, format_error, format_items
@@ -24,7 +24,8 @@ def collection_list(ctx: click.Context) -> None:
     cfg = load_config(profile=ctx.obj.get("profile"))
     data_dir = get_data_dir(cfg)
     db_path = data_dir / "zotero.sqlite"
-    reader = ZoteroReader(db_path)
+    library_id = resolve_library_id(db_path, ctx.obj)
+    reader = ZoteroReader(db_path, library_id=library_id)
     try:
         collections = reader.get_collections()
         click.echo(format_collections(collections, output_json=ctx.obj.get("json", False)))
@@ -40,7 +41,8 @@ def collection_items(ctx: click.Context, key: str) -> None:
     cfg = load_config(profile=ctx.obj.get("profile"))
     data_dir = get_data_dir(cfg)
     db_path = data_dir / "zotero.sqlite"
-    reader = ZoteroReader(db_path)
+    library_id = resolve_library_id(db_path, ctx.obj)
+    reader = ZoteroReader(db_path, library_id=library_id)
     try:
         items = reader.get_collection_items(key)
         click.echo(format_items(items, output_json=ctx.obj.get("json", False)))
@@ -58,6 +60,9 @@ def collection_create(ctx: click.Context, name: str, parent: str | None) -> None
     json_out = ctx.obj.get("json", False)
     library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
     api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
+    library_type = ctx.obj.get("library_type", "user")
+    if library_type == "group" and ctx.obj.get("group_id"):
+        library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
         click.echo(
             format_error(
@@ -70,7 +75,7 @@ def collection_create(ctx: click.Context, name: str, parent: str | None) -> None
             )
         )
         return
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key)
+    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
         key = writer.create_collection(name, parent_key=parent)
         click.echo(f"Collection created: {key}")
@@ -94,6 +99,9 @@ def collection_move(ctx: click.Context, item_key: str, collection_key: str) -> N
     json_out = ctx.obj.get("json", False)
     library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
     api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
+    library_type = ctx.obj.get("library_type", "user")
+    if library_type == "group" and ctx.obj.get("group_id"):
+        library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
         click.echo(
             format_error(
@@ -106,7 +114,7 @@ def collection_move(ctx: click.Context, item_key: str, collection_key: str) -> N
             )
         )
         return
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key)
+    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
         writer.move_to_collection(item_key, collection_key)
         click.echo(f"Item {item_key} moved to collection {collection_key}")
@@ -133,6 +141,9 @@ def collection_delete(ctx: click.Context, key: str, dry_run: bool) -> None:
         return
     library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
     api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
+    library_type = ctx.obj.get("library_type", "user")
+    if library_type == "group" and ctx.obj.get("group_id"):
+        library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
         click.echo(
             format_error(
@@ -145,7 +156,7 @@ def collection_delete(ctx: click.Context, key: str, dry_run: bool) -> None:
             )
         )
         return
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key)
+    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
         writer.delete_collection(key)
         click.echo(f"Collection {key} deleted")
@@ -199,6 +210,9 @@ def collection_reorganize(ctx: click.Context, plan_file: str, dry_run: bool) -> 
 
     library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
     api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
+    library_type = ctx.obj.get("library_type", "user")
+    if library_type == "group" and ctx.obj.get("group_id"):
+        library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
         click.echo(
             format_error(
@@ -212,7 +226,7 @@ def collection_reorganize(ctx: click.Context, plan_file: str, dry_run: bool) -> 
         )
         return
 
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key)
+    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     created_collections: dict[str, str] = {}  # name -> key mapping for parent lookups
 
     for coll in collections:
@@ -249,6 +263,9 @@ def collection_rename(ctx: click.Context, key: str, new_name: str) -> None:
     json_out = ctx.obj.get("json", False)
     library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
     api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
+    library_type = ctx.obj.get("library_type", "user")
+    if library_type == "group" and ctx.obj.get("group_id"):
+        library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
         click.echo(
             format_error(
@@ -261,7 +278,7 @@ def collection_rename(ctx: click.Context, key: str, new_name: str) -> None:
             )
         )
         return
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key)
+    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
         writer.rename_collection(key, new_name)
         click.echo(f"Collection {key} renamed to '{new_name}'")

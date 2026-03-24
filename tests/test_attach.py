@@ -1,4 +1,5 @@
 """Tests for file attachment upload."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -81,6 +82,7 @@ class TestAttachWriter:
 class TestAttachMCP:
     def test_handle_attach(self):
         from zotero_cli_cc.mcp_server import _handle_attach
+
         with patch("zotero_cli_cc.mcp_server._get_writer") as mock_get:
             mock_writer = MagicMock()
             mock_get.return_value = mock_writer

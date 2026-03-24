@@ -4,7 +4,7 @@ import json
 
 import click
 
-from zotero_cli_cc.config import get_data_dir, load_config
+from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.pdf_extractor import PdfExtractionError, extract_text_from_pdf
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.formatter import format_error
@@ -52,7 +52,8 @@ def pdf_cmd(ctx: click.Context, key: str, pages: str | None, annotations: bool) 
             return
     data_dir = get_data_dir(cfg)
     db_path = data_dir / "zotero.sqlite"
-    reader = ZoteroReader(db_path)
+    library_id = resolve_library_id(db_path, ctx.obj)
+    reader = ZoteroReader(db_path, library_id=library_id)
     try:
         att = reader.get_pdf_attachment(key)
         if att is None:

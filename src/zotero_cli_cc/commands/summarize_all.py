@@ -6,7 +6,7 @@ import json
 
 import click
 
-from zotero_cli_cc.config import get_data_dir, load_config
+from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 
 
@@ -26,7 +26,8 @@ def summarize_all_cmd(ctx: click.Context, offset: int) -> None:
     data_dir = get_data_dir(cfg)
     db_path = data_dir / "zotero.sqlite"
     limit = ctx.obj.get("limit", 10000)
-    reader = ZoteroReader(db_path)
+    library_id = resolve_library_id(db_path, ctx.obj)
+    reader = ZoteroReader(db_path, library_id=library_id)
     try:
         result = reader.search("", limit=limit, offset=offset)
         items = []

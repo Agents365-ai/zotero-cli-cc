@@ -28,6 +28,9 @@ def delete_cmd(ctx: click.Context, keys: tuple[str, ...], yes: bool, dry_run: bo
         return
     library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
     api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
+    library_type = ctx.obj.get("library_type", "user")
+    if library_type == "group" and ctx.obj.get("group_id"):
+        library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
         click.echo(
             format_error(
@@ -46,7 +49,7 @@ def delete_cmd(ctx: click.Context, keys: tuple[str, ...], yes: bool, dry_run: bo
         if not click.confirm(f"Delete {len(keys)} item(s): {label}?"):
             click.echo("Cancelled.")
             return
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key)
+    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     failed = []
     for key in keys:
         try:
