@@ -14,8 +14,9 @@ from zotero_cli_cc.models import ErrorInfo
 @click.command("pdf")
 @click.argument("key")
 @click.option("--pages", default=None, help="Page range, e.g. '1-5'")
+@click.option("--annotations", is_flag=True, help="Extract annotations (highlights, notes) instead of text")
 @click.pass_context
-def pdf_cmd(ctx: click.Context, key: str, pages: str | None) -> None:
+def pdf_cmd(ctx: click.Context, key: str, pages: str | None, annotations: bool) -> None:
     """Extract text from the PDF attachment.
 
     Full text is cached locally for fast repeated access.
@@ -78,6 +79,31 @@ def pdf_cmd(ctx: click.Context, key: str, pages: str | None) -> None:
                     output_json=json_out,
                 )
             )
+            return
+        if annotations:
+            from zotero_cli_cc.core.pdf_extractor import extract_annotations
+
+            try:
+                annots = extract_annotations(pdf_path)
+            except PdfExtractionError as e:
+                click.echo(format_error(ErrorInfo(message=str(e), context="pdf"), output_json=json_out))
+                return
+            if not annots:
+                if json_out:
+                    click.echo("[]")
+                else:
+                    click.echo("No annotations found.")
+                return
+            if json_out:
+                click.echo(json.dumps(annots, ensure_ascii=False, indent=2))
+            else:
+                for a in annots:
+                    line = f"[p.{a['page']}] {a['type']}"
+                    if a.get("quote"):
+                        line += f': "{a["quote"]}"'
+                    if a.get("content"):
+                        line += f" -- {a['content']}"
+                    click.echo(line)
             return
         from zotero_cli_cc.core.pdf_cache import PdfCache
 

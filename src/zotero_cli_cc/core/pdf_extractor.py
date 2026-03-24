@@ -39,3 +39,43 @@ def extract_text_from_pdf(
         raise PdfExtractionError(f"Failed to extract text: {e}") from e
     finally:
         doc.close()
+
+
+def extract_annotations(pdf_path: Path) -> list[dict]:
+    """Extract annotations (highlights, notes, comments) from a PDF.
+
+    Returns list of dicts with keys: type, page, content, quote (for highlights).
+    """
+    if not pdf_path.exists():
+        raise FileNotFoundError(f"PDF not found: {pdf_path}")
+    try:
+        doc = pymupdf.open(str(pdf_path))
+    except Exception as e:
+        raise PdfExtractionError(f"Cannot open PDF: {e}") from e
+    annotations: list[dict] = []
+    try:
+        for page_num, page in enumerate(doc, start=1):
+            for annot in page.annots() or []:
+                entry: dict = {
+                    "type": annot.type[1],  # e.g. "Highlight", "Text", "Underline"
+                    "page": page_num,
+                    "content": annot.info.get("content", "") or "",
+                }
+                # For highlight/underline/squiggly/strikeout, extract quoted text
+                if annot.type[0] in (8, 9, 10, 11):
+                    try:
+                        quads = annot.vertices
+                        if quads:
+                            quad_points = [pymupdf.Quad(quads[i : i + 4]) for i in range(0, len(quads), 4)]
+                            text_parts = []
+                            for q in quad_points:
+                                text_parts.append(page.get_text("text", clip=q.rect).strip())
+                            quoted = " ".join(t for t in text_parts if t)
+                            if quoted:
+                                entry["quote"] = quoted
+                    except Exception:
+                        pass
+                annotations.append(entry)
+    finally:
+        doc.close()
+    return annotations

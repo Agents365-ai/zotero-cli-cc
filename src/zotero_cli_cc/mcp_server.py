@@ -171,6 +171,22 @@ def _handle_pdf(key: str, pages: str | None) -> dict:
     return {"key": key, "pages": pages, "text": text}
 
 
+def _handle_annotations(key: str) -> dict:
+    from zotero_cli_cc.core.pdf_extractor import extract_annotations
+
+    reader = _get_reader()
+    att = reader.get_pdf_attachment(key)
+    if att is None:
+        return {"error": f"No PDF attachment found for '{key}'"}
+    cfg = load_config()
+    data_dir = get_data_dir(cfg)
+    pdf_path = data_dir / "storage" / att.key / att.filename
+    if not pdf_path.exists():
+        return {"error": f"PDF file not found at {pdf_path}"}
+    annots = extract_annotations(pdf_path)
+    return {"key": key, "annotations": annots, "total": len(annots)}
+
+
 def _handle_summarize(key: str) -> dict:
     reader = _get_reader()
     item = reader.get_item(key)
@@ -513,6 +529,16 @@ def pdf(key: str, pages: str | None = None) -> dict:
         pages: Optional page range (e.g. '1-5' or '3' for a single page).
     """
     return _handle_pdf(key, pages)
+
+
+@mcp.tool()
+def annotations(key: str) -> dict:
+    """Extract annotations (highlights, notes, comments) from a PDF attachment.
+
+    Args:
+        key: Item key whose PDF attachment to extract annotations from.
+    """
+    return _handle_annotations(key)
 
 
 @mcp.tool()
