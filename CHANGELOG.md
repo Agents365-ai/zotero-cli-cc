@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-03-24
+
+### Added
+- `zot duplicates [--by doi|title|both] [--threshold 0.85]` — find duplicate items by DOI match or fuzzy title similarity
+- `zot trash list` — view trashed items
+- `zot trash restore KEY [KEY ...]` — restore item(s) from trash via Zotero API
+- `zot attach KEY --file paper.pdf` — upload file attachments to existing items
+- `zot add --pdf paper.pdf` — extract DOI from PDF, create item, and attach file
+- `--library group:<id>` — global option for group library support across all commands
+- `DuplicateGroup` model for structured duplicate detection results
+- `resolve_library_id()` helper for group library resolution
+- All 5 new features available as MCP tools (`duplicates`, `trash_list`, `trash_restore`, `attach`, `add_from_pdf`)
+- `library` parameter added to all existing MCP tools for group library access
+- 43 new tests (314 total)
+
+### Changed
+- `ZoteroReader` accepts `library_id` parameter for multi-library filtering
+- `ZoteroWriter` accepts `library_type` parameter for group library writes
+- MCP server uses per-library reader cache instead of global singleton
+
 ## [0.1.5] - 2026-03-24
 
 ### Added

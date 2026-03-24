@@ -343,13 +343,13 @@ graph TD
 - [x] `zot recent --days 7`：最近添加/修改的条目
 - [x] `zot pdf KEY --annotations`：提取 PDF 标注（高亮、批注、页码）— pymupdf 已支持
 
-### Tier 2 — High Value, Higher Effort
+### Tier 2 — High Value, Higher Effort ✅
 
-- [ ] `zot duplicates --by title,doi`：重复检测（模糊标题 + DOI 比对）
-- [ ] `zot trash list/restore/empty`：回收站管理
-- [ ] `zot attach KEY --file paper.pdf`：附件上传
-- [ ] `--library group:12345`：群组文库支持
-- [ ] `zot add --file paper.pdf`：从本地 PDF 添加（自动提取 DOI）
+- [x] `zot duplicates --by doi|title|both`：重复检测（模糊标题 + DOI 比对）
+- [x] `zot trash list/restore`：回收站管理（查看 + 恢复）
+- [x] `zot attach KEY --file paper.pdf`：附件上传
+- [x] `--library group:<id>`：群组文库支持（所有命令 + MCP 工具）
+- [x] `zot add --pdf paper.pdf`：从本地 PDF 添加（自动提取 DOI + 附件上传）
 
 ### Tier 3 — Medium Value
 
