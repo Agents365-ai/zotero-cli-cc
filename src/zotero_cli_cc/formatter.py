@@ -8,7 +8,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.tree import Tree
 
-from zotero_cli_cc.models import Collection, ErrorInfo, Item, Note
+from zotero_cli_cc.models import Collection, DuplicateGroup, ErrorInfo, Item, Note
 
 
 def format_items(items: list[Item], output_json: bool = False, detail: str = "standard") -> str:
@@ -125,6 +125,35 @@ def format_notes(notes: list[Note], output_json: bool = False) -> str:
         console.print(f"[bold cyan][{n.key}][/bold cyan]")
         console.print(n.content)
         console.print()
+    return buf.getvalue()
+
+
+def format_duplicates(groups: list[DuplicateGroup], output_json: bool = False) -> str:
+    if output_json:
+        data = []
+        for i, g in enumerate(groups, 1):
+            data.append(
+                {
+                    "group": i,
+                    "match_type": g.match_type,
+                    "score": g.score,
+                    "items": [asdict(item) for item in g.items],
+                }
+            )
+        return json.dumps(data, indent=2, ensure_ascii=False)
+    buf = StringIO()
+    console = Console(file=buf, force_terminal=False, width=120)
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Group", width=6)
+    table.add_column("Keys", width=20)
+    table.add_column("Title", width=50)
+    table.add_column("Match", width=8)
+    table.add_column("Score", width=6)
+    for i, g in enumerate(groups, 1):
+        keys = ", ".join(item.key for item in g.items)
+        title = g.items[0].title if g.items else ""
+        table.add_row(str(i), keys, title, g.match_type, f"{g.score:.2f}")
+    console.print(table)
     return buf.getvalue()
 
 

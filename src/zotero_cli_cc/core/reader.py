@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sqlite3
 import tempfile
 import time
 import warnings
+from difflib import SequenceMatcher
 from pathlib import Path
 
 from zotero_cli_cc.models import (
     Attachment,
     Collection,
     Creator,
+    DuplicateGroup,
     Item,
     Note,
     SearchResult,
@@ -343,6 +346,122 @@ class ZoteroReader:
         ).fetchall()
         item_ids = [r["itemID"] for r in rows]
         return self._get_items_batch(conn, item_ids) if item_ids else []
+
+    def find_duplicates(
+        self,
+        strategy: str = "both",
+        threshold: float = 0.85,
+        limit: int = 50,
+    ) -> list[DuplicateGroup]:
+        """Find potential duplicate items by DOI and/or title similarity."""
+        conn = self._connect()
+        excl_sql, excl_params = self._excluded_filter()
+
+        # Load items for comparison (cap at 10k most recent)
+        rows = conn.execute(
+            f"SELECT i.itemID, i.key FROM items i WHERE i.itemTypeID {excl_sql} ORDER BY i.dateAdded DESC LIMIT 10000",
+            excl_params,
+        ).fetchall()
+
+        item_keys = {r["itemID"]: r["key"] for r in rows}
+        item_ids = list(item_keys.keys())
+        if not item_ids:
+            return []
+
+        groups: list[DuplicateGroup] = []
+        seen_group_keys: set[frozenset[str]] = set()
+
+        # --- DOI strategy ---
+        if strategy in ("doi", "both"):
+            ph = ",".join("?" * len(item_ids))
+            doi_rows = conn.execute(
+                f"SELECT id.itemID, iv.value FROM itemData id "
+                f"JOIN fields f ON id.fieldID = f.fieldID "
+                f"JOIN itemDataValues iv ON id.valueID = iv.valueID "
+                f"WHERE f.fieldName = 'DOI' AND id.itemID IN ({ph}) AND iv.value != ''",
+                item_ids,
+            ).fetchall()
+
+            doi_map: dict[str, list[int]] = {}
+            for r in doi_rows:
+                doi_map.setdefault(r["value"].strip().lower(), []).append(r["itemID"])
+
+            for doi_val, ids in doi_map.items():
+                if len(ids) < 2:
+                    continue
+                group_key = frozenset(item_keys[i] for i in ids)
+                if group_key in seen_group_keys:
+                    continue
+                seen_group_keys.add(group_key)
+                items = self._get_items_batch(conn, ids)
+                if len(items) >= 2:
+                    groups.append(DuplicateGroup(items=items, match_type="doi", score=1.0))
+
+        # --- Title strategy ---
+        if strategy in ("title", "both"):
+            ph = ",".join("?" * len(item_ids))
+            title_rows = conn.execute(
+                f"SELECT id.itemID, iv.value FROM itemData id "
+                f"JOIN fields f ON id.fieldID = f.fieldID "
+                f"JOIN itemDataValues iv ON id.valueID = iv.valueID "
+                f"WHERE f.fieldName = 'title' AND id.itemID IN ({ph})",
+                item_ids,
+            ).fetchall()
+
+            def _normalize(title: str) -> str:
+                t = re.sub(r"[^\w\s]", "", title.lower()).strip()
+                return re.sub(r"\s+", " ", t)
+
+            title_items: list[tuple[int, str, str]] = []  # (itemID, original, normalized)
+            for r in title_rows:
+                title_items.append((r["itemID"], r["value"], _normalize(r["value"])))
+
+            # Group exact normalized matches (O(n))
+            norm_groups: dict[str, list[int]] = {}
+            for item_id, orig, norm in title_items:
+                norm_groups.setdefault(norm, []).append(item_id)
+
+            for norm, ids in norm_groups.items():
+                if len(ids) >= 2:
+                    group_key = frozenset(item_keys[i] for i in ids)
+                    if group_key not in seen_group_keys:
+                        seen_group_keys.add(group_key)
+                        items = self._get_items_batch(conn, ids)
+                        if len(items) >= 2:
+                            groups.append(DuplicateGroup(items=items, match_type="title", score=1.0))
+
+            # Fuzzy match singletons only (O(n^2) on singletons)
+            singletons = [(item_id, norm) for item_id, _, norm in title_items if len(norm_groups[norm]) == 1]
+            matched: set[int] = set()
+            for idx, (id_a, norm_a) in enumerate(singletons):
+                if id_a in matched:
+                    continue
+                cluster = [id_a]
+                for j in range(idx + 1, len(singletons)):
+                    id_b, norm_b = singletons[j]
+                    if id_b in matched:
+                        continue
+                    ratio = SequenceMatcher(None, norm_a, norm_b).ratio()
+                    if ratio >= threshold:
+                        cluster.append(id_b)
+                        matched.add(id_b)
+                if len(cluster) >= 2:
+                    matched.add(id_a)
+                    group_key = frozenset(item_keys[cid] for cid in cluster)
+                    if group_key not in seen_group_keys:
+                        seen_group_keys.add(group_key)
+                        items = self._get_items_batch(conn, cluster)
+                        best_score = (
+                            max(
+                                SequenceMatcher(None, _normalize(items[0].title), _normalize(it.title)).ratio()
+                                for it in items[1:]
+                            )
+                            if len(items) >= 2
+                            else 0.0
+                        )
+                        groups.append(DuplicateGroup(items=items, match_type="title", score=round(best_score, 3)))
+
+        return groups[:limit]
 
     def get_notes(self, key: str) -> list[Note]:
         conn = self._connect()

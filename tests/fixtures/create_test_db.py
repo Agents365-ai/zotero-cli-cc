@@ -188,6 +188,13 @@ def create_test_db() -> None:
     c.execute("INSERT INTO itemCreators VALUES (7, 6, 1, 0)")
     c.execute("INSERT INTO deletedItems VALUES (7, '2024-03-01 12:00:00')")
 
+    # Item 8: Duplicate of ATTN001 (same DOI)
+    c.execute("INSERT INTO items VALUES (8, 2, '2024-05-01', '2024-05-02', '2024-05-02', 1, 'DUPE008')")
+    c.execute("INSERT INTO itemDataValues VALUES (17, 'Attention Is All You Need (duplicate)')")
+    c.execute("INSERT INTO itemDataValues VALUES (18, '10.5555/attention')")  # Same DOI as ATTN001
+    c.execute("INSERT INTO itemData VALUES (8, 4, 17)")  # title
+    c.execute("INSERT INTO itemData VALUES (8, 26, 18)")  # DOI
+
     conn.commit()
     conn.close()
     print(f"Created test DB at {DB_PATH}")

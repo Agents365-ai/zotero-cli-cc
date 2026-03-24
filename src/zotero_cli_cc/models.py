@@ -70,3 +70,10 @@ class SearchResult:
     items: list[Item]
     total: int
     query: str
+
+
+@dataclass
+class DuplicateGroup:
+    items: list[Item]
+    match_type: str  # "doi" | "title"
+    score: float  # 1.0 for DOI exact match, 0.0-1.0 for title similarity
