@@ -504,6 +504,37 @@ def _handle_attach(parent_key: str, file_path: str) -> dict:
         return {"error": str(e), "context": "attach"}
 
 
+def _handle_add_from_pdf(file_path: str, doi_override: str | None = None) -> dict:
+    from zotero_cli_cc.core.pdf_extractor import extract_doi
+
+    doi = doi_override
+    if not doi:
+        doi = extract_doi(Path(file_path))
+    if not doi:
+        return {"error": "No DOI found in PDF. Use doi_override to specify manually."}
+
+    try:
+        writer = _get_writer()
+        item_key = writer.add_item(doi=doi)
+    except ZoteroWriteError as e:
+        return {"error": str(e), "context": "add_from_pdf"}
+
+    try:
+        att_key = writer.upload_attachment(item_key, Path(file_path))
+        return {
+            "item_key": item_key,
+            "attachment_key": att_key,
+            "doi": doi,
+            "note": "Item created with DOI only. Sync with Zotero desktop to retrieve full metadata.",
+        }
+    except ZoteroWriteError as e:
+        return {
+            "item_key": item_key,
+            "doi": doi,
+            "error": f"Attachment upload failed: {e}. Retry with: attach(parent_key='{item_key}', file_path='{file_path}')",
+        }
+
+
 # ---------------------------------------------------------------------------
 # MCP tool definitions
 # ---------------------------------------------------------------------------
@@ -863,3 +894,17 @@ def attach(parent_key: str, file_path: str) -> dict:
         file_path: Path to the file to upload.
     """
     return _handle_attach(parent_key, file_path)
+
+
+@mcp.tool()
+def add_from_pdf(file_path: str, doi_override: str | None = None) -> dict:
+    """Add an item from a local PDF by extracting its DOI, then attach the PDF.
+
+    Note: The Zotero Web API creates bare items (DOI only). Sync with Zotero desktop
+    to retrieve full metadata (title, authors, etc.).
+
+    Args:
+        file_path: Path to the PDF file.
+        doi_override: Optional DOI to use instead of extracting from PDF.
+    """
+    return _handle_add_from_pdf(file_path, doi_override)

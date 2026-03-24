@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pymupdf
@@ -79,3 +80,15 @@ def extract_annotations(pdf_path: Path) -> list[dict]:
     finally:
         doc.close()
     return annotations
+
+
+def extract_doi(pdf_path: Path) -> str | None:
+    """Extract DOI from first 2 pages of a PDF. Returns first match or None."""
+    try:
+        text = extract_text_from_pdf(pdf_path, pages=(1, 2))
+    except (PdfExtractionError, FileNotFoundError):
+        return None
+    match = re.search(r"10\.\d{4,9}/[^\s]+", text)
+    if match:
+        return match.group(0).rstrip(".,;)]}>'\"")
+    return None
