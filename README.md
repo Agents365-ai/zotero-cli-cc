@@ -325,6 +325,38 @@ graph TD
 - [x] 批量操作：从文件批量导入（`zot add --from-file dois.txt`）
 - [x] `zot export`：增加 RIS 格式支持（BibTeX、CSL-JSON、RIS、JSON）
 
+### Tier 1 — High Value, Moderate Effort
+
+- [x] `zot update KEY --title/--date/--field`：更新条目元数据（pyzotero `update_item()` 已支持）
+- [x] `zot search --type journalArticle`：按条目类型过滤搜索结果
+- [x] `zot search --sort dateAdded --direction desc`：搜索/列表排序控制
+- [x] `zot recent --days 7`：最近添加/修改的条目
+- [x] `zot pdf KEY --annotations`：提取 PDF 标注（高亮、批注、页码）— pymupdf 已支持
+
+### Tier 2 — High Value, Higher Effort
+
+- [ ] `zot duplicates --by title,doi`：重复检测（模糊标题 + DOI 比对）
+- [ ] `zot trash list/restore/empty`：回收站管理
+- [ ] `zot attach KEY --file paper.pdf`：附件上传
+- [ ] `--library group:12345`：群组文库支持
+- [ ] `zot add --file paper.pdf`：从本地 PDF 添加（自动提取 DOI）
+
+### Tier 3 — Medium Value
+
+- [ ] Saved searches CRUD：保存的搜索管理
+- [ ] 更多导出格式：BibLaTeX、MODS、TEI、CSV
+- [ ] 格式化参考文献：通过 citeproc-py 生成 CSL 格式参考文献表
+- [ ] `zot collection remove`：从集合移除条目（`collection move` 的对应操作）
+- [ ] BetterBibTeX citation key 查找支持
+
+### Tier 4 — Nice to Have
+
+- [ ] 语义搜索（向量嵌入 + ChromaDB）
+- [ ] DOI-to-key 索引
+- [ ] 版本跟踪 / 增量同步
+- [ ] Web 界面（`zot serve`）
+- [ ] 按集合查看标签
+
 ### Polish
 
 - [ ] GitHub Issues / Discussions：开放用户反馈渠道

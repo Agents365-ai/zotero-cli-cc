@@ -60,6 +60,37 @@ def format_item_detail(item: Item, notes: list[Note], output_json: bool = False,
     if detail != "minimal":
         if item.tags:
             console.print(f"Tags: {', '.join(item.tags)}")
+        if detail == "full" and item.extra:
+            display_keys = [
+                ("publicationTitle", "Journal"),
+                ("journalAbbreviation", "Journal Abbr"),
+                ("volume", "Volume"),
+                ("issue", "Issue"),
+                ("pages", "Pages"),
+                ("ISSN", "ISSN"),
+                ("publisher", "Publisher"),
+                ("language", "Language"),
+                ("citationKey", "Citation Key"),
+            ]
+            shown = []
+            for ekey, label in display_keys:
+                val = item.extra.get(ekey)
+                if val:
+                    shown.append(f"  {label}: {val}")
+            if shown:
+                console.print("\n[bold]Metadata:[/bold]")
+                for line in shown:
+                    console.print(line)
+            # Show remaining extra fields not in display_keys
+            skip = {k for k, _ in display_keys} | {
+                "libraryCatalog",
+                "accessDate",
+                "rights",
+            }
+            remaining = {k: v for k, v in item.extra.items() if k not in skip and v}
+            if remaining:
+                for rk, rv in remaining.items():
+                    console.print(f"  {rk}: {rv}")
         if item.abstract:
             console.print(f"\n[bold]Abstract:[/bold]\n{item.abstract}")
         if notes:

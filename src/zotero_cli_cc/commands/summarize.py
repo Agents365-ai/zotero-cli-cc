@@ -61,13 +61,32 @@ def summarize_cmd(ctx: click.Context, key: str) -> None:
             click.echo(f"Year: {item.date or 'N/A'}")
             if item.doi:
                 click.echo(f"DOI: {item.doi}")
+            if item.url:
+                click.echo(f"URL: {item.url}")
             if detail != "minimal":
-                if item.abstract:
-                    click.echo(f"Key findings: {item.abstract}")
                 if item.tags:
                     click.echo(f"Tags: {', '.join(item.tags)}")
+                if item.extra:
+                    journal = item.extra.get("publicationTitle")
+                    volume = item.extra.get("volume", "")
+                    issue = item.extra.get("issue", "")
+                    pages = item.extra.get("pages", "")
+                    parts = [
+                        p
+                        for p in [
+                            journal,
+                            f"vol.{volume}" if volume else "",
+                            f"({issue})" if issue else "",
+                            f"pp.{pages}" if pages else "",
+                        ]
+                        if p
+                    ]
+                    if parts:
+                        click.echo(f"Source: {' '.join(parts)}")
+                if item.abstract:
+                    click.echo(f"\nAbstract:\n{item.abstract}")
                 if notes:
-                    click.echo(f"Notes ({len(notes)}):")
+                    click.echo(f"\nNotes ({len(notes)}):")
                     for n in notes:
                         click.echo(f"  {n.content[:500]}")
     finally:
