@@ -77,6 +77,13 @@ def create_test_db() -> None:
         CREATE TABLE fulltextItemWords (wordID INT NOT NULL, itemID INT NOT NULL, PRIMARY KEY (wordID, itemID));
         CREATE TABLE fulltextWords (wordID INTEGER PRIMARY KEY, word TEXT NOT NULL UNIQUE);
 
+        CREATE TABLE deletedItems (
+            itemID INTEGER PRIMARY KEY,
+            dateDeleted DEFAULT CURRENT_TIMESTAMP NOT NULL,
+            FOREIGN KEY (itemID) REFERENCES items(itemID) ON DELETE CASCADE
+        );
+        CREATE INDEX deletedItems_dateDeleted ON deletedItems(dateDeleted);
+
         CREATE TABLE version (schema TEXT PRIMARY KEY, version INT NOT NULL);
         INSERT INTO version VALUES ('userdata', 120);
     """)
@@ -170,6 +177,16 @@ def create_test_db() -> None:
     c.execute("INSERT INTO fulltextItemWords VALUES (1, 5)")  # attachment itemID
     c.execute("INSERT INTO fulltextItemWords VALUES (2, 5)")
     c.execute("INSERT INTO fulltextItemWords VALUES (3, 5)")
+
+    # Item 7: Trashed item "Old Survey Paper"
+    c.execute("INSERT INTO items VALUES (7, 2, '2023-06-01', '2023-06-02', '2023-06-02', 1, 'TRSH007')")
+    c.execute("INSERT INTO itemDataValues VALUES (15, 'Old Survey of Neural Networks')")
+    c.execute("INSERT INTO itemDataValues VALUES (16, '2010')")
+    c.execute("INSERT INTO itemData VALUES (7, 4, 15)")  # title
+    c.execute("INSERT INTO itemData VALUES (7, 14, 16)")  # date
+    c.execute("INSERT INTO creators VALUES (6, 'John', 'Smith')")
+    c.execute("INSERT INTO itemCreators VALUES (7, 6, 1, 0)")
+    c.execute("INSERT INTO deletedItems VALUES (7, '2024-03-01 12:00:00')")
 
     conn.commit()
     conn.close()

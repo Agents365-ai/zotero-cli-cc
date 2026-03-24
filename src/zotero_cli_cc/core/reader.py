@@ -330,6 +330,20 @@ class ZoteroReader:
         item_ids = [r["itemID"] for r in rows]
         return self._get_items_batch(conn, item_ids) if item_ids else []
 
+    def get_trash_items(self, limit: int = 50) -> list[Item]:
+        """Return items in the trash, ordered by deletion date (newest first)."""
+        conn = self._connect()
+        excl_sql, excl_params = self._excluded_filter()
+        rows = conn.execute(
+            f"SELECT i.itemID FROM items i "
+            f"JOIN deletedItems d ON i.itemID = d.itemID "
+            f"WHERE i.itemTypeID {excl_sql} "
+            f"ORDER BY d.dateDeleted DESC LIMIT ?",
+            (*excl_params, limit),
+        ).fetchall()
+        item_ids = [r["itemID"] for r in rows]
+        return self._get_items_batch(conn, item_ids) if item_ids else []
+
     def get_notes(self, key: str) -> list[Note]:
         conn = self._connect()
         parent = conn.execute("SELECT itemID FROM items WHERE key = ?", (key,)).fetchone()
