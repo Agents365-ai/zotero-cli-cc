@@ -151,3 +151,15 @@ profile = "lab"
 library_id = "222"
 """)
     assert get_default_profile(config_file) == "lab"
+
+
+def test_save_and_load_config_with_backslashes(tmp_path):
+    """Ensure Windows-style paths with backslashes survive save/load round-trip."""
+    config_path = tmp_path / "config.toml"
+    windows_path = r"C:\Users\testuser\Zotero"
+    cfg = AppConfig(data_dir=windows_path, library_id="123", api_key="abc")
+    save_config(cfg, config_path)
+    loaded = load_config(config_path)
+    assert loaded.data_dir == windows_path
+    assert loaded.library_id == "123"
+    assert loaded.api_key == "abc"

@@ -119,16 +119,16 @@ def save_config(config: AppConfig, path: Path | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
         "[zotero]",
-        f'data_dir = "{config.data_dir}"',
-        f'library_id = "{config.library_id}"',
-        f'api_key = "{config.api_key}"',
+        f"data_dir = '{config.data_dir}'",
+        f"library_id = '{config.library_id}'",
+        f"api_key = '{config.api_key}'",
         "",
         "[output]",
-        f'default_format = "{config.default_format}"',
+        f"default_format = '{config.default_format}'",
         f"limit = {config.default_limit}",
         "",
         "[export]",
-        f'default_style = "{config.default_export_style}"',
+        f"default_style = '{config.default_export_style}'",
         "",
     ]
     path.write_text("\n".join(lines))
