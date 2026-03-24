@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import httpx
 from httpx import ConnectError as HttpxConnectError
 from httpx import TimeoutException as HttpxTimeoutException
@@ -89,6 +91,23 @@ class ZoteroWriter:
             self._zot.update_item(item)
         except ResourceNotFoundError:
             raise ZoteroWriteError(f"Item '{key}' not found")
+        except (HttpxConnectError, HttpxTimeoutException) as e:
+            raise ZoteroWriteError(f"Network error: {e}") from e
+
+    def upload_attachment(self, parent_key: str, file_path: Path) -> str:
+        """Upload a file attachment to an existing item. Returns attachment key."""
+        if not file_path.exists():
+            raise ZoteroWriteError(f"File not found: {file_path}")
+        try:
+            resp = self._zot.attachment_simple([str(file_path)], parentid=parent_key)
+            if resp.get("success"):
+                return str(resp["success"][0]["key"])
+            if resp.get("unchanged"):
+                return str(resp["unchanged"][0]["key"])
+            if resp.get("failure"):
+                msg = resp["failure"][0].get("message", "Upload failed")
+                raise ZoteroWriteError(f"Attachment upload failed: {msg}")
+            raise ZoteroWriteError("Unexpected empty response from attachment upload")
         except (HttpxConnectError, HttpxTimeoutException) as e:
             raise ZoteroWriteError(f"Network error: {e}") from e
 

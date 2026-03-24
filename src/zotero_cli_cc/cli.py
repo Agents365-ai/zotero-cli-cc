@@ -6,6 +6,7 @@ import click
 
 from zotero_cli_cc import __version__
 from zotero_cli_cc.commands.add import add_cmd
+from zotero_cli_cc.commands.attach import attach_cmd
 from zotero_cli_cc.commands.cite import cite_cmd
 from zotero_cli_cc.commands.collection import collection_group
 from zotero_cli_cc.commands.completions import completions_cmd
@@ -90,3 +91,4 @@ main.add_command(recent_cmd, "recent")
 main.add_command(update_cmd, "update")
 main.add_command(trash_group, "trash")
 main.add_command(duplicates_cmd, "duplicates")
+main.add_command(attach_cmd, "attach")

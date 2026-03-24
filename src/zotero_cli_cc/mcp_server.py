@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import atexit
+from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
@@ -494,6 +495,15 @@ def _handle_trash_restore(key: str) -> dict:
         return {"error": str(e), "context": "trash_restore"}
 
 
+def _handle_attach(parent_key: str, file_path: str) -> dict:
+    try:
+        writer = _get_writer()
+        att_key = writer.upload_attachment(parent_key, Path(file_path))
+        return {"key": att_key, "parent_key": parent_key, "filename": Path(file_path).name}
+    except ZoteroWriteError as e:
+        return {"error": str(e), "context": "attach"}
+
+
 # ---------------------------------------------------------------------------
 # MCP tool definitions
 # ---------------------------------------------------------------------------
@@ -842,3 +852,14 @@ def trash_restore(key: str) -> dict:
         key: The item key to restore from trash.
     """
     return _handle_trash_restore(key)
+
+
+@mcp.tool()
+def attach(parent_key: str, file_path: str) -> dict:
+    """Upload a file attachment to an existing Zotero item.
+
+    Args:
+        parent_key: The item key to attach the file to.
+        file_path: Path to the file to upload.
+    """
+    return _handle_attach(parent_key, file_path)
