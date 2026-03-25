@@ -44,10 +44,18 @@ class ZoteroReader:
     def _connect(self) -> sqlite3.Connection:
         if self._conn is not None:
             return self._conn
+        if not self._db_path.exists():
+            raise FileNotFoundError(
+                f"Zotero database not found: {self._db_path}\n"
+                f"  Run 'zot config show' to check your configuration.\n"
+                f"  Run 'zot config init --data-dir <path>' to set the correct data directory."
+            )
+        # Use forward slashes in URI for Windows compatibility (RFC 3986)
+        uri_path = self._db_path.as_posix()
         for attempt in range(MAX_RETRIES):
             try:
                 conn = sqlite3.connect(
-                    f"file:{self._db_path}?mode=ro",
+                    f"file:{uri_path}?mode=ro",
                     uri=True,
                     timeout=5.0,
                 )

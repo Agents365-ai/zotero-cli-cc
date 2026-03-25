@@ -54,6 +54,10 @@ def config_init(
                 default=str(detected_dir),
             )
 
+    # Normalize path (resolve ~, convert to absolute) to avoid Windows backslash issues
+    if data_dir:
+        data_dir = str(Path(data_dir).expanduser().resolve())
+
     cfg = AppConfig(
         data_dir=data_dir or "",
         library_id=library_id or "",
@@ -63,11 +67,21 @@ def config_init(
     click.echo(f"Configuration saved to {path}")
     click.echo(f"  Data directory: {cfg.data_dir or '(auto-detect)'}")
 
+    # Validate the data directory
+    if cfg.data_dir:
+        dd = Path(cfg.data_dir)
+        if not dd.exists():
+            click.echo(click.style(f"  WARNING: Directory does not exist: {dd}", fg="yellow"))
+        elif not (dd / "zotero.sqlite").exists():
+            click.echo(click.style(f"  WARNING: zotero.sqlite not found in {dd}", fg="yellow"))
+
 
 @config_group.command("show")
 @click.option("--config-path", type=click.Path(), default=None, help="Config file path")
 def config_show(config_path: str | None) -> None:
     """Show current configuration."""
+    from zotero_cli_cc.config import get_data_dir
+
     path = Path(config_path) if config_path else CONFIG_FILE
     cfg = load_config(path)
     click.echo(f"Library ID: {cfg.library_id}")
@@ -76,6 +90,16 @@ def config_show(config_path: str | None) -> None:
     click.echo(f"Format:     {cfg.default_format}")
     click.echo(f"Limit:      {cfg.default_limit}")
     click.echo(f"Export:     {cfg.default_export_style}")
+
+    # Path validation
+    data_dir = get_data_dir(cfg)
+    db_file = data_dir / "zotero.sqlite"
+    if not data_dir.exists():
+        click.echo(click.style(f"\nWARNING: Data directory not found: {data_dir}", fg="yellow"))
+    elif not db_file.exists():
+        click.echo(click.style(f"\nWARNING: zotero.sqlite not found in {data_dir}", fg="yellow"))
+    else:
+        click.echo(click.style(f"\nDatabase:   {db_file} (OK)", fg="green"))
 
 
 @config_group.group("profile")
