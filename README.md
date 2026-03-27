@@ -24,6 +24,28 @@
 
 **Search and read papers without launching Zotero desktop.**
 
+## Using with Claude Code
+
+In any Claude Code session, use natural language:
+
+```
+Search my Zotero for single cell papers
+→ Claude runs: zot --json search "single cell"
+
+Show me details of this paper
+→ Claude runs: zot --json read ABC123
+
+Export BibTeX for this paper
+→ Claude runs: zot export ABC123
+```
+
+Install the zotero-cli skill so Claude Code automatically recognizes literature-related requests:
+
+```bash
+# Install skill (copy skill/zotero-cli-cc/ to ~/.claude/skills/)
+cp -r skill/zotero-cli-cc ~/.claude/skills/
+```
+
 ## Install
 
 ```bash
@@ -37,6 +59,14 @@ pipx install zotero-cli-cc
 pip install zotero-cli-cc
 ```
 
+Upgrade to the latest version:
+
+```bash
+uv tool upgrade zotero-cli-cc    # uv
+pipx upgrade zotero-cli-cc       # pipx
+pip install -U zotero-cli-cc     # pip
+```
+
 ## Setup
 
 ```bash
@@ -44,7 +74,48 @@ pip install zotero-cli-cc
 zot config init
 ```
 
-Read operations work out of the box as long as Zotero data is in the default directory (`~/Zotero`).
+### Data Directory
+
+> **Data directory** refers to the folder containing the `zotero.sqlite` database file (not the Zotero installation directory or the PDF sync directory). You can find it in Zotero Settings → Advanced → "Data Directory Location".
+
+Read operations work out of the box. `zot` automatically detects the Zotero data directory:
+
+| Platform | Detection Order |
+|----------|----------------|
+| **Windows** | Registry `HKCU\Software\Zotero\Zotero\dataDir` → `%APPDATA%\Zotero` → `%LOCALAPPDATA%\Zotero` |
+| **macOS / Linux** | `~/Zotero` |
+
+If your Zotero data is not in the default location, specify it:
+
+```bash
+# Option 1: Config file (recommended)
+zot config init --data-dir "D:\MyZotero"
+
+# Option 2: Environment variable
+export ZOT_DATA_DIR="/path/to/zotero/data"
+
+# Option 3: Edit config file manually
+# Edit ~/.config/zot/config.toml (Linux/macOS)
+# or %APPDATA%\zot\config.toml (Windows)
+```
+
+Example config file:
+
+```toml
+[zotero]
+data_dir = "D:\\MyZotero"
+library_id = "12345"
+api_key = "xxx"
+
+[output]
+default_format = "table"
+limit = 50
+
+[export]
+default_style = "bibtex"
+```
+
+### API Credentials
 
 Write operations require an API Key from https://www.zotero.org/settings/keys.
 
@@ -187,15 +258,15 @@ zot pdf ABC123 --pages 1-5         # Extract specific pages
 
 ### Global Flags
 
-| Flag | Purpose |
-|------|---------|
-| `--json` | JSON output (use for programmatic processing) |
-| `--limit N` | Limit results (default: 50) |
-| `--detail minimal` | Only key/title/authors/year — saves tokens |
-| `--detail full` | Include extra fields |
-| `--no-interaction` | Suppress prompts (for automation) |
-| `--profile NAME` | Use a specific config profile |
-| `--version` | Show version |
+```bash
+zot --json search "attention"              # JSON output
+zot --limit 5 list                         # Limit results
+zot --detail minimal search "attention"    # Minimal output (key/title/authors/year only)
+zot --detail full read ABC123              # Full output (including extra fields)
+zot --no-interaction delete ABC123         # Skip confirmation prompts (AI/script mode)
+zot --profile lab search "CRISPR"          # Use a specific config profile
+zot --version                              # Show version
+```
 
 ### Shell Completions
 
@@ -265,28 +336,6 @@ graph TD
     D --> F["~/Zotero/storage/*.pdf"]
 ```
 
-## Using with Claude Code
-
-In any Claude Code session, use natural language:
-
-```
-Search my Zotero for single cell papers
-→ Claude runs: zot --json search "single cell"
-
-Show me details of this paper
-→ Claude runs: zot --json read ABC123
-
-Export BibTeX for this paper
-→ Claude runs: zot export ABC123
-```
-
-Install the zotero-cli skill so Claude Code automatically recognizes literature-related requests:
-
-```bash
-# Install skill (copy skill/zotero-cli-cc/ to ~/.claude/skills/)
-cp -r skill/zotero-cli-cc ~/.claude/skills/
-```
-
 ## Environment Variables
 
 | Variable | Purpose |
@@ -308,6 +357,38 @@ cp -r skill/zotero-cli-cc ~/.claude/skills/
 - [x] `zot cite`: copy formatted citation to clipboard (APA, Nature, Vancouver)
 - [x] Bulk operations from file input (`zot add --from-file dois.txt`)
 - [x] `zot export`: add RIS format support (BibTeX, CSL-JSON, RIS, JSON)
+
+### Tier 1 — High Value, Moderate Effort
+
+- [x] `zot update KEY --title/--date/--field`: update item metadata (pyzotero `update_item()`)
+- [x] `zot search --type journalArticle`: filter search results by item type
+- [x] `zot search --sort dateAdded --direction desc`: sort control for search/list
+- [x] `zot recent --days 7`: recently added/modified items
+- [x] `zot pdf KEY --annotations`: extract PDF annotations (highlights, comments, page numbers) — pymupdf
+
+### Tier 2 — High Value, Higher Effort
+
+- [x] `zot duplicates --by doi|title|both`: duplicate detection (fuzzy title + DOI matching)
+- [x] `zot trash list/restore`: trash management (view + restore)
+- [x] `zot attach KEY --file paper.pdf`: attachment upload
+- [x] `--library group:<id>`: group library support (all commands + MCP tools)
+- [x] `zot add --pdf paper.pdf`: add from local PDF (auto-extract DOI + upload attachment)
+
+### Tier 3 — Medium Value
+
+- [ ] Saved searches CRUD
+- [ ] More export formats: BibLaTeX, MODS, TEI, CSV
+- [ ] Formatted bibliography via citeproc-py with CSL styles
+- [ ] `zot collection remove`: remove item from collection (counterpart to `collection move`)
+- [ ] BetterBibTeX citation key lookup support
+
+### Tier 4 — Nice to Have
+
+- [ ] Semantic search (vector embeddings + ChromaDB)
+- [ ] DOI-to-key index
+- [ ] Version tracking / incremental sync
+- [ ] Web interface (`zot serve`)
+- [ ] View tags by collection
 
 ### Polish
 
