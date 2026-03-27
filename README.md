@@ -1,4 +1,4 @@
-# zot — 让 Zotero 在终端飞起来
+# zot — Let Zotero Fly in Your Terminal
 
 <p align="center">
   <img src="asserts/banner_official.png" alt="zotero-cli-cc banner" width="720">
@@ -11,131 +11,60 @@
   <a href="https://creativecommons.org/licenses/by-nc/4.0/"><img src="https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey" alt="License"></a>
 </p>
 
-[English](README_EN.md)
+[中文](README_CN.md)
 
-## 简介
+## Introduction
 
-`zotero-cli-cc` 是一个专为 [Claude Code](https://claude.ai/code) 设计的 Zotero 命令行工具。
+`zotero-cli-cc` is a Zotero CLI designed for [Claude Code](https://claude.ai/code).
 
-**核心特性：**
-- **读操作**：直接读取本地 SQLite 数据库，零配置、离线可用、毫秒级响应
-- **写操作**：通过 Zotero Web API 安全写入，Zotero 完全感知变更
-- **PDF 提取**：直接从本地存储提取 PDF 全文，自动缓存
+**Core Features:**
+- **Reads**: Direct local SQLite database access — zero config, offline, millisecond response
+- **Writes**: Safe writes through Zotero Web API — Zotero fully aware of changes
+- **PDF**: Extract full text from local PDF storage with automatic caching
 
-**无需启动 Zotero 桌面端即可检索和阅读文献。**
+**Search and read papers without launching Zotero desktop.**
 
-## 在 Claude Code 中使用
-
-在任何 Claude Code 会话中，直接用自然语言请求：
-
-```
-帮我搜索 Zotero 中关于 single cell 的论文
-→ Claude 自动运行: zot --json search "single cell"
-
-查看这篇论文的详情
-→ Claude 自动运行: zot --json read ABC123
-
-导出这篇论文的 BibTeX
-→ Claude 自动运行: zot export ABC123
-```
-
-安装 zotero-cli skill 后，Claude Code 会自动识别文献相关请求并调用 `zot`：
+## Install
 
 ```bash
-# 安装 skill（将 skill/zotero-cli-cc/ 复制到 ~/.claude/skills/）
-cp -r skill/zotero-cli-cc ~/.claude/skills/
-```
-
-## 安装
-
-```bash
-# 推荐
+# Recommended
 uv tool install zotero-cli-cc
 
-# 或者
+# Or
 pipx install zotero-cli-cc
 
-# 或者
+# Or
 pip install zotero-cli-cc
 ```
 
-升级到最新版本：
+## Setup
 
 ```bash
-uv tool upgrade zotero-cli-cc    # uv
-pipx upgrade zotero-cli-cc       # pipx
-pip install -U zotero-cli-cc     # pip
-```
-
-## 配置
-
-```bash
-# 配置 Web API 凭证（仅写操作需要）
+# Configure Web API credentials (write operations only)
 zot config init
 ```
 
-### 数据目录
+Read operations work out of the box as long as Zotero data is in the default directory (`~/Zotero`).
 
-> **数据目录**是指包含 `zotero.sqlite` 数据库文件的目录（不是 Zotero 程序安装目录，也不是 PDF 同步目录）。通常在 Zotero 设置 → 高级 → "数据存储位置" 中查看。
+Write operations require an API Key from https://www.zotero.org/settings/keys.
 
-读操作开箱即用，`zot` 会自动检测 Zotero 数据目录：
+### MCP Server Mode
 
-| 平台 | 检测顺序 |
-|------|----------|
-| **Windows** | 注册表 `HKCU\Software\Zotero\Zotero\dataDir` → `%APPDATA%\Zotero` → `%LOCALAPPDATA%\Zotero` |
-| **macOS / Linux** | `~/Zotero` |
+zotero-cli-cc supports [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) and can be used in MCP-compatible clients like LM Studio, Claude Desktop, and Cursor.
 
-如果 Zotero 数据不在默认目录，可以通过以下方式指定：
-
-```bash
-# 方式一：配置文件（推荐）
-zot config init --data-dir "D:\MyZotero"
-
-# 方式二：环境变量
-export ZOT_DATA_DIR="/path/to/zotero/data"
-
-# 方式三：手动编辑配置文件
-# 编辑 ~/.config/zot/config.toml (Linux/macOS)
-# 或 %APPDATA%\zot\config.toml (Windows)
-```
-
-配置文件示例：
-
-```toml
-[zotero]
-data_dir = "D:\\MyZotero"
-library_id = "12345"
-api_key = "xxx"
-
-[output]
-default_format = "table"
-limit = 50
-
-[export]
-default_style = "bibtex"
-```
-
-### API 凭证
-
-写操作需要 API Key，在 https://www.zotero.org/settings/keys 获取。
-
-### MCP 服务器模式
-
-zotero-cli-cc 支持 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/)，可在 LM Studio、Claude Desktop、Cursor 等支持 MCP 的客户端中使用。
-
-**安装 MCP 支持：**
+**Install MCP Support:**
 
 ```bash
 pip install zotero-cli-cc[mcp]
 ```
 
-**启动 MCP 服务器：**
+**Start MCP Server:**
 
 ```bash
 zot mcp serve
 ```
 
-**客户端配置（LM Studio / Claude Desktop / Cursor）：**
+**Client Configuration (LM Studio / Claude Desktop / Cursor):**
 
 ```json
 {
@@ -148,45 +77,45 @@ zot mcp serve
 }
 ```
 
-MCP 模式提供 17 个工具，涵盖搜索、阅读、PDF 提取、笔记管理、标签管理、导出引用等完整功能。
+MCP mode provides 17 tools covering search, reading, PDF extraction, note management, tag management, citation export, and more.
 
-## 命令一览
+## Commands
 
-### 检索与浏览
+### Search & Browse
 
-> **搜索原理：** `zot search` 会在四个层面进行关键词匹配：① 标题与摘要 ② 作者姓名 ③ 标签 ④ PDF 全文索引。其中 PDF 全文检索依赖 Zotero 客户端内建的 `fulltextWords` 词表索引，仅支持单词级别的 `LIKE` 模式匹配，没有相关性排序，也不支持短语或语义搜索。如需更强大的语义检索（向量搜索、BM25、跨语言匹配），请使用 [zotero-rag-cli (rak)](https://github.com/Agents365-ai/zotero-rag-cli)。
+> **How search works:** `zot search` matches keywords across four layers: ① titles & abstracts ② author names ③ tags ④ PDF fulltext index. The PDF fulltext search relies on Zotero's built-in `fulltextWords` word-level index — it only supports simple `LIKE` pattern matching with no relevance ranking, phrase matching, or semantic understanding. For advanced semantic search (vector search, BM25, cross-language matching), use [zotero-rag-cli (rak)](https://github.com/Agents365-ai/zotero-rag-cli).
 
 ```bash
-# 全库搜索（标题、作者、标签、全文）
+# Search across title, author, tags, fulltext
 zot search "transformer attention"
 
-# 按 collection 过滤搜索
+# Filter by collection
 zot search "BERT" --collection "NLP"
 
-# 列出文献
+# List items
 zot list --collection "Machine Learning" --limit 10
 
-# 查看文献详情（元数据 + 摘要 + 笔记）
+# View item details (metadata + abstract + notes)
 zot read ABC123
 
-# 查找相关文献
+# Find related items
 zot relate ABC123
 ```
 
-### 笔记与标签
+### Notes & Tags
 
 ```bash
-# 查看/添加笔记
+# View/add notes
 zot note ABC123
-zot note ABC123 --add "这篇论文提出了新的注意力机制"
+zot note ABC123 --add "This paper proposes a new attention mechanism"
 
-# 查看/添加/删除标签
+# View/add/remove tags
 zot tag ABC123
-zot tag ABC123 --add "重要"
-zot tag ABC123 --remove "待读"
+zot tag ABC123 --add "important"
+zot tag ABC123 --remove "to-read"
 ```
 
-### 引用导出
+### Citation Export
 
 ```bash
 zot export ABC123                    # BibTeX
@@ -194,62 +123,84 @@ zot export ABC123 --format csl-json  # CSL-JSON
 zot export ABC123 --format ris       # RIS
 zot export ABC123 --format json      # JSON
 
-# 格式化引用并复制到剪贴板
-zot cite ABC123                      # APA（默认）
+# Format citation and copy to clipboard
+zot cite ABC123                      # APA (default)
 zot cite ABC123 --style nature       # Nature
 zot cite ABC123 --style vancouver    # Vancouver
 ```
 
-### 文献管理
+### Item Management
 
 ```bash
-zot add --doi "10.1038/s41586-023-06139-9"    # 通过 DOI 添加
-zot add --url "https://arxiv.org/abs/2301.00001"  # 通过 URL 添加
-zot add --from-file dois.txt                     # 从文件批量导入
-zot delete ABC123 --yes                        # 删除（移入回收站）
+zot add --doi "10.1038/s41586-023-06139-9"       # Add by DOI
+zot add --url "https://arxiv.org/abs/2301.00001"  # Add by URL
+zot add --from-file dois.txt                      # Batch import from file
+zot delete ABC123 --yes                           # Delete (move to trash)
 ```
 
-### Collection 管理
+### Collections
 
 ```bash
-zot collection list                # 列出所有 collection（树形展示）
-zot collection items COLML01       # 查看 collection 内的文献
-zot collection create "新项目"      # 创建新 collection
+zot collection list                # List all collections (tree view)
+zot collection items COLML01       # View items in a collection
+zot collection create "New Project"  # Create a new collection
 ```
 
-### 配置与档案
+### Profiles & Cache
 
 ```bash
-zot config profile list            # 列出所有配置档案
-zot config profile set lab         # 设置默认档案
-zot config cache stats             # 查看 PDF 缓存统计
-zot config cache clear             # 清除 PDF 缓存
+zot config profile list            # List all config profiles
+zot config profile set lab         # Set default profile
+zot config cache stats             # Show PDF cache statistics
+zot config cache clear             # Clear PDF cache
 ```
 
-### AI 辅助功能
+### Preprint Status Check
 
 ```bash
-zot summarize ABC123               # 结构化摘要（专为 Claude Code 优化）
-zot pdf ABC123                     # 提取 PDF 全文
-zot pdf ABC123 --pages 1-5         # 提取指定页
+# Check if arXiv/bioRxiv/medRxiv preprints have been published (dry-run)
+zot update-status
+
+# Actually update Zotero metadata for published papers
+zot update-status --apply
+
+# Check a single item
+zot update-status ABC123
+
+# Check items in a collection
+zot update-status --collection "scRNA-seq" --limit 20
 ```
 
-### 全局选项
+Uses the [Semantic Scholar API](https://www.semanticscholar.org/product/api). Optional API key for faster rate limits:
 
 ```bash
-zot --json search "attention"              # JSON 输出
-zot --limit 5 list                         # 限制结果数量
-zot --detail minimal search "attention"    # 精简输出（仅 key/标题/作者/年份）
-zot --detail full read ABC123              # 完整输出（含 extra 字段）
-zot --no-interaction delete ABC123         # 跳过交互确认（AI/脚本模式）
-zot --profile lab search "CRISPR"          # 使用指定配置档案
-zot --version                              # 查看版本
+export S2_API_KEY=your_key_here   # in ~/.zshrc or ~/.bashrc
 ```
 
-### Shell 补全
+### AI Features
 
 ```bash
-# Zsh（推荐）
+zot summarize ABC123               # Structured summary (optimized for Claude Code)
+zot pdf ABC123                     # Extract PDF full text
+zot pdf ABC123 --pages 1-5         # Extract specific pages
+```
+
+### Global Flags
+
+| Flag | Purpose |
+|------|---------|
+| `--json` | JSON output (use for programmatic processing) |
+| `--limit N` | Limit results (default: 50) |
+| `--detail minimal` | Only key/title/authors/year — saves tokens |
+| `--detail full` | Include extra fields |
+| `--no-interaction` | Suppress prompts (for automation) |
+| `--profile NAME` | Use a specific config profile |
+| `--version` | Show version |
+
+### Shell Completions
+
+```bash
+# Zsh (recommended)
 zot completions zsh >> ~/.zshrc
 
 # Bash
@@ -259,146 +210,137 @@ zot completions bash >> ~/.bashrc
 zot completions fish > ~/.config/fish/completions/zot.fish
 ```
 
-添加后重启终端或 `source` 配置文件即可使用 Tab 补全。
+Restart your terminal or `source` the config file to enable tab completions.
 
-## 同类工具对比
+## Comparison with Similar Tools
 
-| 特性 | **zotero-cli-cc** | [pyzotero-cli](https://github.com/chriscarrollsmith/pyzotero-cli) | [zotero-cli](https://github.com/jbaiter/zotero-cli) | [zotero-cli-tool](https://github.com/dhondta/zotero-cli) | [zotero-mcp](https://github.com/54yyyu/zotero-mcp) | [cookjohn/zotero-mcp](https://github.com/cookjohn/zotero-mcp) | [ZoteroBridge](https://github.com/Combjellyshen/ZoteroBridge) |
+| Feature | **zotero-cli-cc** | [pyzotero-cli](https://github.com/chriscarrollsmith/pyzotero-cli) | [zotero-cli](https://github.com/jbaiter/zotero-cli) | [zotero-cli-tool](https://github.com/dhondta/zotero-cli) | [zotero-mcp](https://github.com/54yyyu/zotero-mcp) | [cookjohn/zotero-mcp](https://github.com/cookjohn/zotero-mcp) | [ZoteroBridge](https://github.com/Combjellyshen/ZoteroBridge) |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **本地 SQLite 直读** | **✅** | ❌ | ❌ (仅缓存) | ❌ | ❌ | ❌ (插件) | ✅ |
-| **离线可用** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **无需启动 Zotero** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **零配置读操作** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **安全写入 (Web API)** | **✅** | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ (直写 SQLite) |
-| **PDF 全文提取** | **✅** | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| **AI 编码助手集成** | **✅ Claude Code** | 部分 | ❌ | ❌ | Claude/ChatGPT | Claude/Cursor | Claude/Cursor |
-| **CLI 终端使用** | **✅** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **MCP 协议** | **✅** | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| **JSON 输出** | ✅ | ✅ | ❌ | ❌ | N/A | N/A | N/A |
-| **笔记管理** | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
-| **Collection 管理** | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| **引用导出** | ✅ BibTeX/CSL-JSON/RIS | ✅ | ❌ | ✅ Excel | ❌ | ❌ | ❌ |
-| **语义搜索** | [RAK](https://github.com/Agents365-ai/zotero-rag-cli) | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
-| **输出分级** | **✅** | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
-| **多配置档案** | **✅** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **PDF 缓存** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **库维护** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **语言** | Python | Python | Python | Python | Python | TypeScript | TypeScript |
-| **活跃维护** | ✅ 2026 | ✅ 2025 | ❌ 2024 | ✅ 2026 | ✅ 2026 | ✅ 2026 | ✅ 2026 |
+| **Direct SQLite Read** | **✅** | ❌ | ❌ (cache only) | ❌ | ❌ | ❌ (plugin) | ✅ |
+| **Offline Read** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **No Zotero Running** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Zero-Config Read** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Safe Write (Web API)** | **✅** | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ (direct SQLite) |
+| **PDF Full-Text** | **✅** | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **AI Coding Assistant** | **✅ Claude Code** | Partial | ❌ | ❌ | Claude/ChatGPT | Claude/Cursor | Claude/Cursor |
+| **Terminal CLI** | **✅** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **MCP Protocol** | **✅** | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **JSON Output** | ✅ | ✅ | ❌ | ❌ | N/A | N/A | N/A |
+| **Note Management** | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
+| **Collections** | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **Citation Export** | ✅ BibTeX/CSL-JSON/RIS | ✅ | ❌ | ✅ Excel | ❌ | ❌ | ❌ |
+| **Semantic Search** | [RAK](https://github.com/Agents365-ai/zotero-rag-cli) | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
+| **Detail Levels** | **✅** | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
+| **Multi-Profile** | **✅** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **PDF Cache** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Library Maintenance** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Language** | Python | Python | Python | Python | Python | TypeScript | TypeScript |
+| **Active** | ✅ 2026 | ✅ 2025 | ❌ 2024 | ✅ 2026 | ✅ 2026 | ✅ 2026 | ✅ 2026 |
 
-### 为什么选择 zotero-cli-cc？
+### Why zotero-cli-cc?
 
-> **唯一一个直接读取本地 SQLite 数据库的活跃 Python CLI 工具。**
+> **The only actively maintained Python CLI that reads Zotero's local SQLite database directly.**
 
-- **极速**：毫秒级响应，无网络延迟
-- **离线**：无需网络、无需启动 Zotero 桌面端
-- **零配置**：安装即用，读操作无需 API Key
-- **AI 原生**：专为 Claude Code 设计，`--json` 输出直接供 AI 解析
-- **安全**：读写分离架构，写操作通过 Web API 确保 Zotero 数据库完整性
-- **终端原生**：唯一同时支持本地 SQLite 直读和安全写入的 CLI 工具，MCP 工具无法在终端中直接使用
+- **Fast**: Millisecond response, no network latency
+- **Offline**: No internet, no Zotero desktop needed
+- **Zero-Config**: Install and go, no API key for reads
+- **AI-Native**: Built for Claude Code, `--json` output for AI consumption
+- **Safe**: Read/write separation — writes go through Web API to protect DB integrity
+- **Terminal-Native**: The only CLI combining local SQLite reads with safe Web API writes; MCP tools require AI client, not usable in terminal
 
-## 架构
+## Architecture
 
 ```mermaid
 graph TD
-    A["zot CLI (Click)<br>search | list | read | pdf | ..."] --> B["核心服务层"]
-    C["MCP Server (FastMCP)<br>stdio 传输"] --> B
+    A["zot CLI (Click)<br>search | list | read | pdf | ..."] --> B["Core Services"]
+    C["MCP Server (FastMCP)<br>stdio transport"] --> B
 
-    subgraph B["核心服务层"]
-        R["ZoteroReader<br>(SQLite 只读)"]
+    subgraph B["Core Services"]
+        R["ZoteroReader<br>(SQLite read-only)"]
         W["ZoteroWriter<br>(Web API)"]
     end
 
     R --> D["SQLite<br>~/Zotero/zotero.sqlite"]
-    W --> E["Zotero Web API<br>(远程)"]
+    W --> E["Zotero Web API<br>(remote)"]
     D --> F["~/Zotero/storage/*.pdf"]
 ```
 
-## 环境变量
+## Using with Claude Code
 
-| 变量 | 用途 |
-|------|------|
-| `ZOT_DATA_DIR` | 覆盖 Zotero 数据目录路径 |
-| `ZOT_LIBRARY_ID` | 覆盖 Library ID（写操作） |
-| `ZOT_API_KEY` | 覆盖 API Key（写操作） |
-| `ZOT_PROFILE` | 覆盖默认配置档案 |
+In any Claude Code session, use natural language:
+
+```
+Search my Zotero for single cell papers
+→ Claude runs: zot --json search "single cell"
+
+Show me details of this paper
+→ Claude runs: zot --json read ABC123
+
+Export BibTeX for this paper
+→ Claude runs: zot export ABC123
+```
+
+Install the zotero-cli skill so Claude Code automatically recognizes literature-related requests:
+
+```bash
+# Install skill (copy skill/zotero-cli-cc/ to ~/.claude/skills/)
+cp -r skill/zotero-cli-cc ~/.claude/skills/
+```
+
+## Environment Variables
+
+| Variable | Purpose |
+|----------|---------|
+| `ZOT_DATA_DIR` | Override Zotero data directory path |
+| `ZOT_LIBRARY_ID` | Override Library ID (write operations) |
+| `ZOT_API_KEY` | Override API Key (write operations) |
+| `ZOT_PROFILE` | Override default config profile |
+| `S2_API_KEY` | Semantic Scholar API key (for `update-status`) |
 
 ## TODO
 
-- [x] 改进 HTML 转 Markdown：支持列表、链接、表格等 Zotero 笔记常用格式（v0.1.2：使用 markdownify）
-- [x] `summarize-all` 分页：为大型文献库添加 offset/cursor 分页支持（v0.1.2：`--offset` 参数）
-- [x] 危险操作 `--dry-run`：为 `delete`、`collection delete`、`tag` 添加预览模式（v0.1.2）
+- [x] Improve HTML-to-Markdown: support lists, links, tables, and other common Zotero note formats (v0.1.2: uses markdownify)
+- [x] `summarize-all` pagination: add offset/cursor pagination for large libraries (v0.1.2: `--offset` flag)
+- [x] `--dry-run` for destructive ops: add preview mode to `delete`, `collection delete`, and `tag` (v0.1.2)
 
 ### Features
 
-- [x] `zot cite`：格式化引用并复制到剪贴板（APA、Nature、Vancouver）
-- [x] 批量操作：从文件批量导入（`zot add --from-file dois.txt`）
-- [x] `zot export`：增加 RIS 格式支持（BibTeX、CSL-JSON、RIS、JSON）
-
-### Tier 1 — High Value, Moderate Effort
-
-- [x] `zot update KEY --title/--date/--field`：更新条目元数据（pyzotero `update_item()` 已支持）
-- [x] `zot search --type journalArticle`：按条目类型过滤搜索结果
-- [x] `zot search --sort dateAdded --direction desc`：搜索/列表排序控制
-- [x] `zot recent --days 7`：最近添加/修改的条目
-- [x] `zot pdf KEY --annotations`：提取 PDF 标注（高亮、批注、页码）— pymupdf 已支持
-
-### Tier 2 — High Value, Higher Effort ✅
-
-- [x] `zot duplicates --by doi|title|both`：重复检测（模糊标题 + DOI 比对）
-- [x] `zot trash list/restore`：回收站管理（查看 + 恢复）
-- [x] `zot attach KEY --file paper.pdf`：附件上传
-- [x] `--library group:<id>`：群组文库支持（所有命令 + MCP 工具）
-- [x] `zot add --pdf paper.pdf`：从本地 PDF 添加（自动提取 DOI + 附件上传）
-
-### Tier 3 — Medium Value
-
-- [ ] Saved searches CRUD：保存的搜索管理
-- [ ] 更多导出格式：BibLaTeX、MODS、TEI、CSV
-- [ ] 格式化参考文献：通过 citeproc-py 生成 CSL 格式参考文献表
-- [ ] `zot collection remove`：从集合移除条目（`collection move` 的对应操作）
-- [ ] BetterBibTeX citation key 查找支持
-
-### Tier 4 — Nice to Have
-
-- [ ] 语义搜索（向量嵌入 + ChromaDB）
-- [ ] DOI-to-key 索引
-- [ ] 版本跟踪 / 增量同步
-- [ ] Web 界面（`zot serve`）
-- [ ] 按集合查看标签
+- [x] `zot cite`: copy formatted citation to clipboard (APA, Nature, Vancouver)
+- [x] Bulk operations from file input (`zot add --from-file dois.txt`)
+- [x] `zot export`: add RIS format support (BibTeX, CSL-JSON, RIS, JSON)
 
 ### Polish
 
-- [ ] GitHub Issues / Discussions：开放用户反馈渠道
-- [x] 改进 `--help` 文本：添加使用示例
-- [x] Shell 补全安装说明：在 README 中添加 zsh/bash/fish 安装指引
+- [ ] GitHub Issues / Discussions setup for user feedback
+- [x] Improve `--help` text with usage examples
+- [x] Shell completion install instructions in README (zsh/bash/fish)
 
 ### Distribution
 
-- [x] `pipx` 安装说明
-- [x] GitHub Releases：附带 changelog（v0.1.1, v0.1.2）
-- [x] README 徽章：PyPI 版本、CI 状态、Python 版本、License
+- [x] `pipx` install instructions
+- [x] GitHub Releases with changelogs (v0.1.1, v0.1.2)
+- [x] README badges: PyPI version, CI status, Python versions, License
 
 ### MCP Server
 
-- [ ] 扩展 MCP 工具：collection 管理、导出、高级搜索
-- [ ] MCP 服务器文档 / 集成指南
+- [ ] Expand MCP tools: collection management, export, advanced search
+- [ ] MCP server documentation / integration guide
 
 ---
 
-## 支持作者 / Support
+## Support
 
 <table>
   <tr>
     <td align="center">
-      <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/wechat-pay.png" width="180" alt="微信支付">
+      <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/wechat-pay.png" width="180" alt="WeChat Pay">
       <br>
-      <b>微信支付</b>
+      <b>WeChat Pay</b>
     </td>
     <td align="center">
-      <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/alipay.png" width="180" alt="支付宝">
+      <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/alipay.png" width="180" alt="Alipay">
       <br>
-      <b>支付宝</b>
+      <b>Alipay</b>
     </td>
     <td align="center">
       <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/buymeacoffee.png" width="180" alt="Buy Me a Coffee">
@@ -408,6 +350,6 @@ graph TD
   </tr>
 </table>
 
-## 许可证 / License
+## License
 
-[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) — 免费用于非商业用途 / Free for non-commercial use.
+[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) — Free for non-commercial use.
