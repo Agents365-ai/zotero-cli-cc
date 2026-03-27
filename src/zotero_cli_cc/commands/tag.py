@@ -39,7 +39,7 @@ def tag_cmd(
         return
 
     if add_tag or remove_tag:
-        library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
+        library_id: str | int | None = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
         api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
         library_type = ctx.obj.get("library_type", "user")
         if library_type == "group" and ctx.obj.get("group_id"):
@@ -56,7 +56,7 @@ def tag_cmd(
                 )
             )
             return
-        writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
+        writer = ZoteroWriter(library_id=str(library_id), api_key=api_key, library_type=library_type)
         failed = []
         for key in keys:
             try:

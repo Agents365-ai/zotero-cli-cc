@@ -29,7 +29,7 @@ def note_cmd(ctx: click.Context, key: str, content: str | None) -> None:
 
     if content:
         # Write mode
-        library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
+        library_id: str | int | None = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
         api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
         library_type = ctx.obj.get("library_type", "user")
         if library_type == "group" and ctx.obj.get("group_id"):
@@ -46,7 +46,7 @@ def note_cmd(ctx: click.Context, key: str, content: str | None) -> None:
                 )
             )
             return
-        writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
+        writer = ZoteroWriter(library_id=str(library_id), api_key=api_key, library_type=library_type)
         try:
             note_key = writer.add_note(key, content)
             click.echo(f"Note added: {note_key}")

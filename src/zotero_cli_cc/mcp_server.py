@@ -631,7 +631,7 @@ def pdf(key: str, pages: str | None = None, library: str = "user") -> dict:
     return _handle_pdf(key, pages, library=library)
 
 
-@mcp.tool()
+@mcp.tool()  # type: ignore[no-redef]
 def annotations(key: str, library: str = "user") -> dict:
     """Extract annotations (highlights, notes, comments) from a PDF attachment.
 

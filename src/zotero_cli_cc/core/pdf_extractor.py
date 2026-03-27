@@ -55,7 +55,7 @@ def extract_annotations(pdf_path: Path) -> list[dict]:
         raise PdfExtractionError(f"Cannot open PDF: {e}") from e
     annotations: list[dict] = []
     try:
-        for page_num, page in enumerate(doc, start=1):
+        for page_num, page in enumerate(doc, start=1):  # type: ignore[var-annotated,arg-type]
             for annot in page.annots() or []:
                 entry: dict = {
                     "type": annot.type[1],  # e.g. "Highlight", "Text", "Underline"
