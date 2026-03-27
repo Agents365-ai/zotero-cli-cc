@@ -9,7 +9,11 @@ from zotero_cli_cc.formatter import format_items
 
 @click.command("search")
 @click.argument("query")
-@click.option("--collection", default=None, help="Filter by Zotero collection (folder) name")
+@click.option(
+    "--collection",
+    default=None,
+    help="Filter by Zotero collection (folder) name. Use 'zot collection list' to see available names.",
+)
 @click.option("--type", "item_type", default=None, help="Filter by item type (e.g. journalArticle, book, preprint)")
 @click.option(
     "--sort",
@@ -39,9 +43,13 @@ def search_cmd(
     \b
     Examples:
       zot search "transformer attention"
-      zot search "BERT" --collection "NLP"
       zot search "GAN" --limit 5
       zot --json search "single cell"
+
+    \b
+    Filter by Zotero collection (folder):
+      zot collection list                        # show available collections
+      zot search "BERT" --collection "NLP"       # search within "NLP" collection
     """
     cfg = load_config(profile=ctx.obj.get("profile"))
     data_dir = get_data_dir(cfg)

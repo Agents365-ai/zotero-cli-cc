@@ -8,7 +8,11 @@ from zotero_cli_cc.formatter import format_items
 
 
 @click.command("list")
-@click.option("--collection", default=None, help="Filter by Zotero collection (folder) name")
+@click.option(
+    "--collection",
+    default=None,
+    help="Filter by Zotero collection (folder) name. Use 'zot collection list' to see available names.",
+)
 @click.option("--type", "item_type", default=None, help="Filter by item type (e.g. journalArticle, book, preprint)")
 @click.option(
     "--sort",
@@ -37,9 +41,13 @@ def list_cmd(
     \b
     Examples:
       zot list
-      zot list --collection "Machine Learning" --limit 10
       zot list --type journalArticle
-      zot --json list --collection "NLP"
+      zot list --limit 10
+
+    \b
+    Filter by Zotero collection (folder):
+      zot collection list                                  # show available collections
+      zot list --collection "Machine Learning" --limit 10  # list within a collection
     """
     cfg = load_config(profile=ctx.obj.get("profile"))
     data_dir = get_data_dir(cfg)
