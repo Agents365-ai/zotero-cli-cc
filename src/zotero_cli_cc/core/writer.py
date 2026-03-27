@@ -6,7 +6,7 @@ import httpx
 from httpx import ConnectError as HttpxConnectError
 from httpx import TimeoutException as HttpxTimeoutException
 from pyzotero import zotero
-from pyzotero.zotero_errors import PyZoteroError, ResourceNotFoundError, UserNotAuthorisedError, UnsupportedParamsError
+from pyzotero.zotero_errors import PyZoteroError, ResourceNotFoundError, UnsupportedParamsError, UserNotAuthorisedError
 
 SYNC_REMINDER = "Change saved. Run Zotero sync to update local database."
 
