@@ -31,7 +31,7 @@ from zotero_cli_cc.core.workspace import (
     workspaces_dir,
 )
 from zotero_cli_cc.formatter import format_error, format_items
-from zotero_cli_cc.models import ErrorInfo, Item
+from zotero_cli_cc.models import Collection, ErrorInfo, Item
 
 
 @click.group("workspace")
@@ -517,7 +517,7 @@ def _resolve_collection_key(reader: ZoteroReader, name_or_key: str) -> str | Non
     """Resolve a collection name or key to a collection key."""
     collections = reader.get_collections()
 
-    def _search(colls: list) -> str | None:
+    def _search(colls: list[Collection]) -> str | None:
         for c in colls:
             if c.key == name_or_key or c.name.lower() == name_or_key.lower():
                 return c.key

@@ -43,7 +43,7 @@ class RagIndex:
             (item_key, source, content),
         )
         self._conn.commit()
-        return cur.lastrowid
+        return cur.lastrowid  # type: ignore[return-value]
 
     def insert_bm25_terms(self, chunk_id: int, term_tfs: dict[str, float]) -> None:
         self._conn.executemany(

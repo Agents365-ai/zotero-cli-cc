@@ -5,8 +5,10 @@ import math
 import re
 import urllib.request
 from collections import Counter
+from pathlib import Path
 
 from zotero_cli_cc.config import EmbeddingConfig
+from zotero_cli_cc.core.pdf_cache import PdfCache
 from zotero_cli_cc.core.rag_index import RagIndex
 
 
@@ -86,7 +88,7 @@ def chunk_text(text: str, paper_title: str, max_tokens: int = 500, overlap: int 
     return chunks if chunks else [f"[{paper_title}] {text.strip()}"]
 
 
-def convert_pdf_to_text(pdf_path, cache=None) -> str:
+def convert_pdf_to_text(pdf_path: Path, cache: PdfCache | None = None) -> str:
     """Convert PDF to text. Uses cache if provided, pymupdf4llm if available, else plain extraction."""
     if cache is not None:
         cached = cache.get(pdf_path)
@@ -95,7 +97,7 @@ def convert_pdf_to_text(pdf_path, cache=None) -> str:
     try:
         import pymupdf4llm
 
-        text = pymupdf4llm.to_markdown(str(pdf_path))
+        text: str = pymupdf4llm.to_markdown(str(pdf_path))
     except ImportError:
         from zotero_cli_cc.core.pdf_extractor import extract_text_from_pdf
 
