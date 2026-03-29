@@ -163,3 +163,50 @@ def test_save_and_load_config_with_backslashes(tmp_path):
     assert loaded.data_dir == windows_path
     assert loaded.library_id == "123"
     assert loaded.api_key == "abc"
+
+
+def test_load_embedding_config_from_toml(tmp_path):
+    config_file = tmp_path / "config.toml"
+    config_file.write_text("""
+[zotero]
+data_dir = '/tmp/zotero'
+
+[embedding]
+url = "https://api.jina.ai/v1/embeddings"
+api_key = "test-key"
+model = "jina-embeddings-v3"
+""")
+    from zotero_cli_cc.config import load_embedding_config
+    cfg = load_embedding_config(path=config_file)
+    assert cfg.url == "https://api.jina.ai/v1/embeddings"
+    assert cfg.api_key == "test-key"
+    assert cfg.model == "jina-embeddings-v3"
+
+
+def test_load_embedding_config_defaults(tmp_path):
+    config_file = tmp_path / "config.toml"
+    config_file.write_text("[zotero]\ndata_dir = '/tmp'\n")
+    from zotero_cli_cc.config import load_embedding_config
+    cfg = load_embedding_config(path=config_file)
+    assert cfg.url == "https://api.jina.ai/v1/embeddings"
+    assert cfg.api_key == ""
+    assert cfg.model == "jina-embeddings-v3"
+
+
+def test_load_embedding_config_env_override(tmp_path, monkeypatch):
+    config_file = tmp_path / "config.toml"
+    config_file.write_text("[zotero]\ndata_dir = '/tmp'\n")
+    monkeypatch.setenv("ZOT_EMBEDDING_URL", "http://localhost:11434/v1/embeddings")
+    monkeypatch.setenv("ZOT_EMBEDDING_KEY", "local-key")
+    monkeypatch.setenv("ZOT_EMBEDDING_MODEL", "custom-model")
+    from zotero_cli_cc.config import load_embedding_config
+    cfg = load_embedding_config(path=config_file)
+    assert cfg.url == "http://localhost:11434/v1/embeddings"
+    assert cfg.api_key == "local-key"
+    assert cfg.model == "custom-model"
+
+
+def test_embedding_config_is_configured():
+    from zotero_cli_cc.config import EmbeddingConfig
+    assert EmbeddingConfig(url="http://x", api_key="k", model="m").is_configured is True
+    assert EmbeddingConfig(url="http://x", api_key="", model="m").is_configured is False

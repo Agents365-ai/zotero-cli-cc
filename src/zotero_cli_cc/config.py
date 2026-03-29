@@ -97,6 +97,36 @@ def load_config(path: Path | None = None, profile: str | None = None) -> AppConf
     )
 
 
+@dataclass
+class EmbeddingConfig:
+    url: str = "https://api.jina.ai/v1/embeddings"
+    api_key: str = ""
+    model: str = "jina-embeddings-v3"
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.url and self.api_key)
+
+
+def load_embedding_config(path: Path | None = None) -> EmbeddingConfig:
+    path = path or CONFIG_FILE
+    defaults = EmbeddingConfig()
+    if path.exists():
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+        emb = data.get("embedding", {})
+        defaults = EmbeddingConfig(
+            url=emb.get("url", defaults.url),
+            api_key=emb.get("api_key", defaults.api_key),
+            model=emb.get("model", defaults.model),
+        )
+    # Environment overrides
+    defaults.url = os.environ.get("ZOT_EMBEDDING_URL", defaults.url)
+    defaults.api_key = os.environ.get("ZOT_EMBEDDING_KEY", defaults.api_key)
+    defaults.model = os.environ.get("ZOT_EMBEDDING_MODEL", defaults.model)
+    return defaults
+
+
 def list_profiles(path: Path | None = None) -> list[str]:
     """List all profile names from config."""
     path = path or CONFIG_FILE
