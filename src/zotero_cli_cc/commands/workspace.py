@@ -31,7 +31,7 @@ from zotero_cli_cc.core.workspace import (
     Workspace,
 )
 from zotero_cli_cc.formatter import format_error, format_items
-from zotero_cli_cc.models import ErrorInfo
+from zotero_cli_cc.models import ErrorInfo, Item
 
 
 @click.group("workspace")
@@ -268,6 +268,263 @@ def workspace_show(ctx: click.Context, name: str) -> None:
             click.echo(f"Warning: item '{key}' not found in Zotero library (may have been deleted)")
     finally:
         reader.close()
+
+
+@workspace_group.command("export")
+@click.argument("name")
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["json", "markdown", "bibtex"]),
+    default="markdown",
+    help="Export format (default: markdown)",
+)
+@click.pass_context
+def workspace_export(ctx: click.Context, name: str, fmt: str) -> None:
+    """Export workspace items for external use."""
+    json_out = ctx.obj.get("json", False)
+    if not workspace_exists(name):
+        click.echo(
+            format_error(
+                ErrorInfo(
+                    message=f"Workspace '{name}' not found",
+                    context="workspace export",
+                    hint="Use 'zot workspace list' to see available workspaces",
+                ),
+                output_json=json_out,
+            )
+        )
+        return
+
+    ws = load_workspace(name)
+    if not ws.items:
+        click.echo(f"Workspace '{name}' is empty.")
+        return
+
+    cfg = load_config(profile=ctx.obj.get("profile"))
+    data_dir = get_data_dir(cfg)
+    db_path = data_dir / "zotero.sqlite"
+    library_id = resolve_library_id(db_path, ctx.obj)
+    reader = ZoteroReader(db_path, library_id=library_id)
+    try:
+        items = []
+        for ws_item in ws.items:
+            item = reader.get_item(ws_item.key)
+            if item is not None:
+                items.append(item)
+
+        if not items:
+            click.echo("No items could be resolved from Zotero library.")
+            return
+
+        if fmt == "json":
+            click.echo(format_items(items, output_json=True))
+        elif fmt == "bibtex":
+            entries = []
+            for item in items:
+                bib = reader.export_citation(item.key, fmt="bibtex")
+                if bib:
+                    entries.append(bib)
+            click.echo("\n\n".join(entries))
+        else:
+            # markdown (default)
+            lines = [f"# Workspace: {name}"]
+            desc_part = f" {ws.description}" if ws.description else ""
+            lines.append(f"> {desc_part.strip()} ({len(items)} items)")
+            lines.append("")
+            for i, item in enumerate(items, 1):
+                lines.append("---")
+                lines.append(f"## {i}. {item.title}")
+                authors = ", ".join(c.full_name for c in item.creators[:3])
+                if len(item.creators) > 3:
+                    authors += " et al."
+                year = item.date or "N/A"
+                lines.append(f"**Authors:** {authors} | **Year:** {year} | **Key:** {item.key}")
+                if item.tags:
+                    lines.append(f"**Tags:** {', '.join(item.tags)}")
+                if item.abstract:
+                    lines.append(f"**Abstract:** {item.abstract}")
+                lines.append("")
+            click.echo("\n".join(lines))
+    finally:
+        reader.close()
+
+
+@workspace_group.command("import")
+@click.argument("name")
+@click.option("--collection", default=None, help="Import all items from a Zotero collection (name or key)")
+@click.option("--tag", default=None, help="Import all items with this tag")
+@click.option("--search", "search_query", default=None, help="Import items matching a search query")
+@click.pass_context
+def workspace_import_cmd(ctx: click.Context, name: str, collection: str | None, tag: str | None, search_query: str | None) -> None:
+    """Bulk import items into a workspace from collection, tag, or search."""
+    json_out = ctx.obj.get("json", False)
+    if not workspace_exists(name):
+        click.echo(
+            format_error(
+                ErrorInfo(
+                    message=f"Workspace '{name}' not found",
+                    context="workspace import",
+                    hint="Use 'zot workspace new' to create it first",
+                ),
+                output_json=json_out,
+            )
+        )
+        return
+
+    if not collection and not tag and not search_query:
+        click.echo(
+            format_error(
+                ErrorInfo(
+                    message="Must specify at least one of --collection, --tag, or --search",
+                    context="workspace import",
+                    hint="Example: zot workspace import my-ws --search 'attention'",
+                ),
+                output_json=json_out,
+            )
+        )
+        return
+
+    cfg = load_config(profile=ctx.obj.get("profile"))
+    data_dir = get_data_dir(cfg)
+    db_path = data_dir / "zotero.sqlite"
+    library_id = resolve_library_id(db_path, ctx.obj)
+    reader = ZoteroReader(db_path, library_id=library_id)
+    try:
+        ws = load_workspace(name)
+        items_to_import: list[Item] = []
+
+        if collection:
+            # Resolve collection name to key
+            col_key = _resolve_collection_key(reader, collection)
+            if col_key is None:
+                click.echo(
+                    format_error(
+                        ErrorInfo(
+                            message=f"Collection '{collection}' not found",
+                            context="workspace import",
+                            hint="Use 'zot collections' to list available collections",
+                        ),
+                        output_json=json_out,
+                    )
+                )
+                return
+            items_to_import.extend(reader.get_collection_items(col_key))
+
+        if tag:
+            # Search specifically for items with this tag
+            result = reader.search(tag, limit=500)
+            for item in result.items:
+                if tag.lower() in [t.lower() for t in item.tags]:
+                    items_to_import.append(item)
+
+        if search_query:
+            result = reader.search(search_query, limit=500)
+            items_to_import.extend(result.items)
+
+        # Dedup by key
+        seen: set[str] = set()
+        unique_items: list[Item] = []
+        for item in items_to_import:
+            if item.key not in seen:
+                seen.add(item.key)
+                unique_items.append(item)
+
+        added = 0
+        skipped = 0
+        for item in unique_items:
+            if ws.add_item(item.key, item.title):
+                added += 1
+            else:
+                skipped += 1
+
+        save_workspace(ws)
+        click.echo(
+            f"Imported {added} item(s) into workspace '{name}'"
+            + (f" ({skipped} skipped, already present)" if skipped else "")
+        )
+    finally:
+        reader.close()
+
+
+@workspace_group.command("search")
+@click.argument("query")
+@click.option("--workspace", "ws_name", required=True, help="Workspace to search")
+@click.pass_context
+def workspace_search(ctx: click.Context, query: str, ws_name: str) -> None:
+    """Search items within a workspace by title, author, or abstract."""
+    json_out = ctx.obj.get("json", False)
+    detail = ctx.obj.get("detail", "standard")
+    limit = ctx.obj.get("limit", 50)
+
+    if not workspace_exists(ws_name):
+        click.echo(
+            format_error(
+                ErrorInfo(
+                    message=f"Workspace '{ws_name}' not found",
+                    context="workspace search",
+                    hint="Use 'zot workspace list' to see available workspaces",
+                ),
+                output_json=json_out,
+            )
+        )
+        return
+
+    ws = load_workspace(ws_name)
+    if not ws.items:
+        click.echo(f"Workspace '{ws_name}' is empty.")
+        return
+
+    cfg = load_config(profile=ctx.obj.get("profile"))
+    data_dir = get_data_dir(cfg)
+    db_path = data_dir / "zotero.sqlite"
+    library_id = resolve_library_id(db_path, ctx.obj)
+    reader = ZoteroReader(db_path, library_id=library_id)
+    try:
+        query_lower = query.lower()
+        matches = []
+        for ws_item in ws.items:
+            item = reader.get_item(ws_item.key)
+            if item is None:
+                continue
+            # Case-insensitive substring match across title, authors, abstract, tags
+            searchable = " ".join(
+                filter(
+                    None,
+                    [
+                        item.title,
+                        " ".join(c.full_name for c in item.creators),
+                        item.abstract or "",
+                        " ".join(item.tags),
+                    ],
+                )
+            ).lower()
+            if query_lower in searchable:
+                matches.append(item)
+
+        if not matches:
+            click.echo("No matching items found.")
+            return
+
+        click.echo(format_items(matches[:limit], output_json=json_out, detail=detail))
+    finally:
+        reader.close()
+
+
+def _resolve_collection_key(reader: ZoteroReader, name_or_key: str) -> str | None:
+    """Resolve a collection name or key to a collection key."""
+    collections = reader.get_collections()
+
+    def _search(colls: list) -> str | None:
+        for c in colls:
+            if c.key == name_or_key or c.name.lower() == name_or_key.lower():
+                return c.key
+            found = _search(c.children)
+            if found:
+                return found
+        return None
+
+    return _search(collections)
 
 
 @workspace_group.command("index")

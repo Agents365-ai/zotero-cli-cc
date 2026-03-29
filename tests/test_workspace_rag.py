@@ -118,3 +118,115 @@ class TestWorkspaceQuery:
         with _patch_ws_dir(tmp_path):
             result = _invoke(["workspace", "query", "test", "--workspace", "nope"])
         assert "not found" in result.output
+
+
+class TestWorkspaceExport:
+    def test_export_markdown(self, tmp_path):
+        with _patch_ws_dir(tmp_path):
+            _invoke(["workspace", "new", "test-exp"])
+            _invoke(["workspace", "add", "test-exp", "ATTN001"])
+            result = _invoke(["workspace", "export", "test-exp"])
+        assert result.exit_code == 0
+        assert "Attention" in result.output
+        assert "ATTN001" in result.output
+        assert "# Workspace: test-exp" in result.output
+
+    def test_export_json(self, tmp_path):
+        with _patch_ws_dir(tmp_path):
+            _invoke(["workspace", "new", "test-exp"])
+            _invoke(["workspace", "add", "test-exp", "ATTN001"])
+            result = _invoke(["workspace", "export", "test-exp", "--format", "json"])
+        data = json.loads(result.output)
+        assert len(data) >= 1
+
+    def test_export_bibtex(self, tmp_path):
+        with _patch_ws_dir(tmp_path):
+            _invoke(["workspace", "new", "test-exp"])
+            _invoke(["workspace", "add", "test-exp", "ATTN001"])
+            result = _invoke(["workspace", "export", "test-exp", "--format", "bibtex"])
+        assert result.exit_code == 0
+        assert "@" in result.output
+        assert "Attention" in result.output
+
+    def test_export_nonexistent(self, tmp_path):
+        with _patch_ws_dir(tmp_path):
+            result = _invoke(["workspace", "export", "nope"])
+        assert "not found" in result.output
+
+    def test_export_empty_workspace(self, tmp_path):
+        with _patch_ws_dir(tmp_path):
+            _invoke(["workspace", "new", "test-exp"])
+            result = _invoke(["workspace", "export", "test-exp"])
+        assert "empty" in result.output.lower()
+
+
+class TestWorkspaceImport:
+    def test_import_from_search(self, tmp_path):
+        with _patch_ws_dir(tmp_path):
+            _invoke(["workspace", "new", "test-imp"])
+            result = _invoke(["workspace", "import", "test-imp", "--search", "attention"])
+        assert result.exit_code == 0
+        assert "Imported" in result.output
+
+    def test_import_from_collection(self, tmp_path):
+        with _patch_ws_dir(tmp_path):
+            _invoke(["workspace", "new", "test-imp"])
+            result = _invoke(["workspace", "import", "test-imp", "--collection", "Machine Learning"])
+        assert result.exit_code == 0
+        assert "Imported" in result.output
+
+    def test_import_from_tag(self, tmp_path):
+        with _patch_ws_dir(tmp_path):
+            _invoke(["workspace", "new", "test-imp"])
+            result = _invoke(["workspace", "import", "test-imp", "--tag", "transformer"])
+        assert result.exit_code == 0
+        assert "Imported" in result.output
+
+    def test_import_no_source(self, tmp_path):
+        with _patch_ws_dir(tmp_path):
+            _invoke(["workspace", "new", "test-imp"])
+            result = _invoke(["workspace", "import", "test-imp"])
+        assert "specify" in result.output.lower() or "at least" in result.output.lower()
+
+    def test_import_dedup(self, tmp_path):
+        with _patch_ws_dir(tmp_path):
+            _invoke(["workspace", "new", "test-imp"])
+            _invoke(["workspace", "add", "test-imp", "ATTN001"])
+            result = _invoke(["workspace", "import", "test-imp", "--search", "attention"])
+        assert result.exit_code == 0
+        assert "skipped" in result.output.lower()
+
+    def test_import_nonexistent_workspace(self, tmp_path):
+        with _patch_ws_dir(tmp_path):
+            result = _invoke(["workspace", "import", "nope", "--search", "test"])
+        assert "not found" in result.output
+
+
+class TestWorkspaceSearch:
+    def test_search_in_workspace(self, tmp_path):
+        with _patch_ws_dir(tmp_path):
+            _invoke(["workspace", "new", "test-src"])
+            _invoke(["workspace", "add", "test-src", "ATTN001"])
+            result = _invoke(["workspace", "search", "attention", "--workspace", "test-src"])
+        assert result.exit_code == 0
+        assert "ATTN001" in result.output
+
+    def test_search_no_results(self, tmp_path):
+        with _patch_ws_dir(tmp_path):
+            _invoke(["workspace", "new", "test-src"])
+            _invoke(["workspace", "add", "test-src", "ATTN001"])
+            result = _invoke(["workspace", "search", "xyznonexistent", "--workspace", "test-src"])
+        assert "No matching" in result.output or result.output.strip() == ""
+
+    def test_search_by_author(self, tmp_path):
+        with _patch_ws_dir(tmp_path):
+            _invoke(["workspace", "new", "test-src"])
+            _invoke(["workspace", "add", "test-src", "ATTN001"])
+            result = _invoke(["workspace", "search", "Vaswani", "--workspace", "test-src"])
+        assert result.exit_code == 0
+        assert "ATTN001" in result.output
+
+    def test_search_nonexistent_workspace(self, tmp_path):
+        with _patch_ws_dir(tmp_path):
+            result = _invoke(["workspace", "search", "test", "--workspace", "nope"])
+        assert "not found" in result.output
