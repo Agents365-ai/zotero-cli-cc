@@ -21,6 +21,7 @@
 - **Reads**: Direct local SQLite database access — zero config, offline, millisecond response
 - **Writes**: Safe writes through Zotero Web API — Zotero fully aware of changes
 - **PDF**: Extract full text from local PDF storage with automatic caching
+- **Workspace**: Organize papers by topic with local workspaces + built-in RAG search
 
 **Search and read papers without launching Zotero desktop.**
 
@@ -95,8 +96,7 @@ zot config init --data-dir "D:\MyZotero"
 export ZOT_DATA_DIR="/path/to/zotero/data"
 
 # Option 3: Edit config file manually
-# Edit ~/.config/zot/config.toml (Linux/macOS)
-# or %APPDATA%\zot\config.toml (Windows)
+# Edit ~/.config/zot/config.toml
 ```
 
 Example config file:
@@ -154,7 +154,7 @@ MCP mode provides 17 tools covering search, reading, PDF extraction, note manage
 
 ### Search & Browse
 
-> **How search works:** `zot search` matches keywords across four layers: ① titles & abstracts ② author names ③ tags ④ PDF fulltext index. The PDF fulltext search relies on Zotero's built-in `fulltextWords` word-level index — it only supports simple `LIKE` pattern matching with no relevance ranking, phrase matching, or semantic understanding. For advanced semantic search (vector search, BM25, cross-language matching), use [zotero-rag-cli (rak)](https://github.com/Agents365-ai/zotero-rag-cli).
+> **How search works:** `zot search` matches keywords across four layers: ① titles & abstracts ② author names ③ tags ④ PDF fulltext index. For deeper content search with BM25 ranking and optional semantic matching, use `zot workspace query` — it indexes metadata + full PDF text and supports hybrid BM25 + embedding retrieval.
 
 ```bash
 # Search across title, author, tags, fulltext
@@ -215,6 +215,46 @@ zot delete ABC123 --yes                           # Delete (move to trash)
 zot collection list                # List all collections (tree view)
 zot collection items COLML01       # View items in a collection
 zot collection create "New Project"  # Create a new collection
+```
+
+### Workspaces
+
+> **Why workspaces?** Zotero collections are great for permanent library organization, but research often requires temporary, cross-cutting groupings — "all papers for my ICML submission", "papers to discuss at lab meeting", or "references for Chapter 3". Workspaces fill this gap: they're lightweight, local-only views that don't modify your Zotero library. Each workspace is a simple TOML file at `~/.config/zot/workspaces/<name>.toml` containing item key references — no API key needed, no syncing side effects. Combined with built-in RAG indexing, workspaces become a powerful bridge between your Zotero library and AI coding assistants like Claude Code.
+
+```bash
+# Create and populate a workspace
+zot workspace new llm-safety --description "LLM alignment papers"
+zot workspace add llm-safety ABC123 DEF456 GHI789
+zot workspace import llm-safety --collection "Alignment"   # Bulk import from collection
+zot workspace import llm-safety --tag "safety"              # or by tag
+zot workspace import llm-safety --search "RLHF"            # or by search
+
+# Browse workspace
+zot workspace list                          # List all workspaces
+zot workspace show llm-safety               # View items with metadata
+zot workspace search "reward" --workspace llm-safety  # Search within workspace
+
+# Export for AI consumption
+zot workspace export llm-safety                       # Markdown (for Claude Code)
+zot workspace export llm-safety --format json         # JSON
+zot workspace export llm-safety --format bibtex       # BibTeX
+
+# Built-in RAG: index and query
+zot workspace index llm-safety              # Build BM25 index (metadata + PDF text)
+zot workspace query "reward hacking methods" --workspace llm-safety
+
+# Manage
+zot workspace remove llm-safety ABC123      # Remove item
+zot workspace delete llm-safety --yes       # Delete workspace
+```
+
+**Optional semantic search** — configure an embedding endpoint for hybrid BM25 + vector retrieval:
+
+```bash
+export ZOT_EMBEDDING_URL="https://api.jina.ai/v1/embeddings"
+export ZOT_EMBEDDING_KEY="your-jina-key"   # 10M free tokens
+zot workspace index llm-safety --force      # Rebuild with embeddings
+zot workspace query "reward hacking" --workspace llm-safety --mode hybrid
 ```
 
 ### Profiles & Cache
@@ -300,7 +340,7 @@ Restart your terminal or `source` the config file to enable tab completions.
 | **Note Management** | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
 | **Collections** | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | **Citation Export** | ✅ BibTeX/CSL-JSON/RIS | ✅ | ❌ | ✅ Excel | ❌ | ❌ | ❌ |
-| **Semantic Search** | [RAK](https://github.com/Agents365-ai/zotero-rag-cli) | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
+| **Semantic Search** | **✅ Built-in (workspace RAG)** | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
 | **Detail Levels** | **✅** | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
 | **Multi-Profile** | **✅** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **PDF Cache** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
@@ -323,17 +363,20 @@ Restart your terminal or `source` the config file to enable tab completions.
 
 ```mermaid
 graph TD
-    A["zot CLI (Click)<br>search | list | read | pdf | ..."] --> B["Core Services"]
+    A["zot CLI (Click)<br>search | list | read | workspace | ..."] --> B["Core Services"]
     C["MCP Server (FastMCP)<br>stdio transport"] --> B
 
     subgraph B["Core Services"]
         R["ZoteroReader<br>(SQLite read-only)"]
         W["ZoteroWriter<br>(Web API)"]
+        RAG["RAG Engine<br>(BM25 + Embeddings)"]
     end
 
     R --> D["SQLite<br>~/Zotero/zotero.sqlite"]
     W --> E["Zotero Web API<br>(remote)"]
     D --> F["~/Zotero/storage/*.pdf"]
+    RAG --> G["Workspace Index<br>~/.config/zot/workspaces/*.idx.sqlite"]
+    RAG -.->|optional| H["Embedding API<br>(Jina / OpenAI)"]
 ```
 
 ## Environment Variables
@@ -345,6 +388,9 @@ graph TD
 | `ZOT_API_KEY` | Override API Key (write operations) |
 | `ZOT_PROFILE` | Override default config profile |
 | `S2_API_KEY` | Semantic Scholar API key (for `update-status`) |
+| `ZOT_EMBEDDING_URL` | Embedding API endpoint (default: Jina AI) |
+| `ZOT_EMBEDDING_KEY` | Embedding API key (enables semantic workspace search) |
+| `ZOT_EMBEDDING_MODEL` | Embedding model name (default: `jina-embeddings-v3`) |
 
 ## TODO
 
@@ -384,7 +430,7 @@ graph TD
 
 ### Tier 4 — Nice to Have
 
-- [ ] Semantic search (vector embeddings + ChromaDB)
+- [x] Semantic search via workspace RAG (BM25 + optional embeddings, v0.2.0)
 - [ ] DOI-to-key index
 - [ ] Version tracking / incremental sync
 - [ ] Web interface (`zot serve`)
