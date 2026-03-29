@@ -1,7 +1,7 @@
 ---
 name: zotero-cli
 description: "Use when user mentions papers, references, citations, Zotero, literature, bibliography, workspaces, or needs to search/read/export academic papers. Uses zot CLI for all operations including workspace-based RAG."
-version: 0.5.0
+version: 0.5.1
 ---
 
 # Zotero CLI Skill for Claude Code
@@ -31,7 +31,10 @@ version: 0.5.0
 | Open PDF/URL | `zot open KEY` or `zot open --url KEY` | System open |
 | Group library access | `zot --library group:123 search "query"` | All commands |
 | Organize papers by topic | `zot workspace new llm-safety` | Local workspace, no API needed |
-| Search paper content (RAG) | `zot workspace query "question" --workspace name` | BM25 + optional semantic |
+| Bulk import to workspace | `zot workspace import name --collection/--tag/--search` | From collection, tag, or search |
+| Search within workspace | `zot workspace search "query" --workspace name` | Fast metadata match |
+| Export workspace for AI | `zot workspace export name` | Markdown/JSON/BibTeX |
+| Deep content search (RAG) | `zot workspace query "question" --workspace name` | BM25 + optional semantic |
 
 **Rule of thumb**: Use `zot search` for quick metadata lookups. Use `zot workspace query` for deep content search over a curated set of papers (indexes metadata + PDF fulltext).
 
@@ -155,6 +158,20 @@ zot workspace list                         # List all workspaces
 zot --json workspace list                  # JSON output
 zot workspace show llm-safety              # Show items with full metadata
 zot workspace delete llm-safety --yes
+
+# Bulk import from collection, tag, or search
+zot workspace import llm-safety --collection "Alignment"
+zot workspace import llm-safety --tag "safety"
+zot workspace import llm-safety --search "RLHF"
+
+# Search within workspace (metadata substring match)
+zot workspace search "reward" --workspace llm-safety
+zot --json workspace search "attention" --workspace llm-safety
+
+# Export for AI consumption
+zot workspace export llm-safety                       # Markdown (default)
+zot workspace export llm-safety --format json         # JSON
+zot workspace export llm-safety --format bibtex       # BibTeX
 
 # Build RAG index (BM25 over metadata + PDF text)
 zot workspace index llm-safety             # Incremental index
