@@ -356,7 +356,9 @@ def workspace_export(ctx: click.Context, name: str, fmt: str) -> None:
 @click.option("--tag", default=None, help="Import all items with this tag")
 @click.option("--search", "search_query", default=None, help="Import items matching a search query")
 @click.pass_context
-def workspace_import_cmd(ctx: click.Context, name: str, collection: str | None, tag: str | None, search_query: str | None) -> None:
+def workspace_import_cmd(
+    ctx: click.Context, name: str, collection: str | None, tag: str | None, search_query: str | None
+) -> None:
     """Bulk import items into a workspace from collection, tag, or search."""
     json_out = ctx.obj.get("json", False)
     if not workspace_exists(name):
@@ -643,10 +645,7 @@ def workspace_index(ctx: click.Context, name: str, force: bool) -> None:
                 pass  # embedding failures are non-fatal
 
         elapsed = time.monotonic() - t0
-        click.echo(
-            f"Indexed {len(to_index)} item(s) ({total_chunks} chunks) "
-            f"in {elapsed:.1f}s [{mode_label}]"
-        )
+        click.echo(f"Indexed {len(to_index)} item(s) ({total_chunks} chunks) in {elapsed:.1f}s [{mode_label}]")
     finally:
         md_cache.close()
         idx.close()
@@ -664,9 +663,7 @@ def workspace_index(ctx: click.Context, name: str, force: bool) -> None:
     help="Retrieval mode",
 )
 @click.pass_context
-def workspace_query(
-    ctx: click.Context, question: str, ws_name: str, top_k: int, mode: str
-) -> None:
+def workspace_query(ctx: click.Context, question: str, ws_name: str, top_k: int, mode: str) -> None:
     """Query workspace papers with natural language."""
     json_out = ctx.obj.get("json", False)
     if not workspace_exists(ws_name):
@@ -753,9 +750,7 @@ def workspace_query(
         else:
             for i, (_cid, score, chunk) in enumerate(top):
                 preview = chunk["content"][:120].replace("\n", " ")
-                click.echo(
-                    f"[{i + 1}] Score: {score:.2f} | {chunk['item_key']} | {chunk['source']}"
-                )
+                click.echo(f"[{i + 1}] Score: {score:.2f} | {chunk['item_key']} | {chunk['source']}")
                 click.echo(f"    {preview}...")
     finally:
         idx.close()

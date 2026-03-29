@@ -57,9 +57,7 @@ class RagIndex:
         return [dict(r) for r in rows]
 
     def get_bm25_terms_for_chunk(self, chunk_id: int) -> dict[str, float]:
-        rows = self._conn.execute(
-            "SELECT term, tf FROM bm25_terms WHERE chunk_id = ?", (chunk_id,)
-        ).fetchall()
+        rows = self._conn.execute("SELECT term, tf FROM bm25_terms WHERE chunk_id = ?", (chunk_id,)).fetchall()
         return {r["term"]: r["tf"] for r in rows}
 
     def get_indexed_keys(self) -> set[str]:
@@ -67,9 +65,7 @@ class RagIndex:
         return {r["item_key"] for r in rows}
 
     def set_meta(self, key: str, value: str) -> None:
-        self._conn.execute(
-            "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)", (key, value)
-        )
+        self._conn.execute("INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)", (key, value))
         self._conn.commit()
 
     def get_meta(self, key: str) -> str | None:

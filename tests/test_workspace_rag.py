@@ -24,12 +24,8 @@ def _invoke(args: list[str], json_output: bool = False):
 def _patch_ws_dir(tmp_path):
     """Patch workspaces_dir in both the core module and the commands module."""
     stack = ExitStack()
-    stack.enter_context(
-        patch("zotero_cli_cc.core.workspace.workspaces_dir", return_value=tmp_path)
-    )
-    stack.enter_context(
-        patch("zotero_cli_cc.commands.workspace.workspaces_dir", return_value=tmp_path)
-    )
+    stack.enter_context(patch("zotero_cli_cc.core.workspace.workspaces_dir", return_value=tmp_path))
+    stack.enter_context(patch("zotero_cli_cc.commands.workspace.workspaces_dir", return_value=tmp_path))
     return stack
 
 
@@ -103,9 +99,7 @@ class TestWorkspaceQuery:
             _invoke(["workspace", "new", "test-q"])
             _invoke(["workspace", "add", "test-q", "ATTN001"])
             _invoke(["workspace", "index", "test-q"])
-            result = _invoke(
-                ["workspace", "query", "zzzzqqqxxx999", "--workspace", "test-q"]
-            )
+            result = _invoke(["workspace", "query", "zzzzqqqxxx999", "--workspace", "test-q"])
         # Should either return no results or very low-scoring results
         assert result.exit_code == 0
 

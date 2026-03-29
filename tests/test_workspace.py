@@ -55,9 +55,13 @@ class TestValidateName:
 
 class TestWorkspaceModel:
     def test_has_item(self):
-        ws = Workspace(name="test", created="2026-01-01", items=[
-            WorkspaceItem(key="ABC", title="Paper A", added="2026-01-01"),
-        ])
+        ws = Workspace(
+            name="test",
+            created="2026-01-01",
+            items=[
+                WorkspaceItem(key="ABC", title="Paper A", added="2026-01-01"),
+            ],
+        )
         assert ws.has_item("ABC") is True
         assert ws.has_item("XYZ") is False
 
@@ -69,17 +73,25 @@ class TestWorkspaceModel:
         assert ws.items[0].title == "Paper A"
 
     def test_add_item_duplicate(self):
-        ws = Workspace(name="test", created="2026-01-01", items=[
-            WorkspaceItem(key="ABC", title="Paper A", added="2026-01-01"),
-        ])
+        ws = Workspace(
+            name="test",
+            created="2026-01-01",
+            items=[
+                WorkspaceItem(key="ABC", title="Paper A", added="2026-01-01"),
+            ],
+        )
         assert ws.add_item("ABC", "Paper A") is False
         assert len(ws.items) == 1
 
     def test_remove_item(self):
-        ws = Workspace(name="test", created="2026-01-01", items=[
-            WorkspaceItem(key="ABC", title="Paper A", added="2026-01-01"),
-            WorkspaceItem(key="DEF", title="Paper B", added="2026-01-01"),
-        ])
+        ws = Workspace(
+            name="test",
+            created="2026-01-01",
+            items=[
+                WorkspaceItem(key="ABC", title="Paper A", added="2026-01-01"),
+                WorkspaceItem(key="DEF", title="Paper B", added="2026-01-01"),
+            ],
+        )
         assert ws.remove_item("ABC") is True
         assert len(ws.items) == 1
         assert ws.items[0].key == "DEF"

@@ -177,6 +177,7 @@ api_key = "test-key"
 model = "jina-embeddings-v3"
 """)
     from zotero_cli_cc.config import load_embedding_config
+
     cfg = load_embedding_config(path=config_file)
     assert cfg.url == "https://api.jina.ai/v1/embeddings"
     assert cfg.api_key == "test-key"
@@ -187,6 +188,7 @@ def test_load_embedding_config_defaults(tmp_path):
     config_file = tmp_path / "config.toml"
     config_file.write_text("[zotero]\ndata_dir = '/tmp'\n")
     from zotero_cli_cc.config import load_embedding_config
+
     cfg = load_embedding_config(path=config_file)
     assert cfg.url == "https://api.jina.ai/v1/embeddings"
     assert cfg.api_key == ""
@@ -200,6 +202,7 @@ def test_load_embedding_config_env_override(tmp_path, monkeypatch):
     monkeypatch.setenv("ZOT_EMBEDDING_KEY", "local-key")
     monkeypatch.setenv("ZOT_EMBEDDING_MODEL", "custom-model")
     from zotero_cli_cc.config import load_embedding_config
+
     cfg = load_embedding_config(path=config_file)
     assert cfg.url == "http://localhost:11434/v1/embeddings"
     assert cfg.api_key == "local-key"
@@ -208,5 +211,6 @@ def test_load_embedding_config_env_override(tmp_path, monkeypatch):
 
 def test_embedding_config_is_configured():
     from zotero_cli_cc.config import EmbeddingConfig
+
     assert EmbeddingConfig(url="http://x", api_key="k", model="m").is_configured is True
     assert EmbeddingConfig(url="http://x", api_key="", model="m").is_configured is False

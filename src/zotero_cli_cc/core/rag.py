@@ -94,9 +94,11 @@ def convert_pdf_to_text(pdf_path, cache=None) -> str:
             return cached
     try:
         import pymupdf4llm
+
         text = pymupdf4llm.to_markdown(str(pdf_path))
     except ImportError:
         from zotero_cli_cc.core.pdf_extractor import extract_text_from_pdf
+
         text = extract_text_from_pdf(pdf_path)
     if cache is not None:
         cache.put(pdf_path, text)

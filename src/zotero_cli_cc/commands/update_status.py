@@ -204,8 +204,7 @@ def update_status_cmd(
 
     if not zot_library_id or not zot_api_key:
         click.echo(
-            "\nError: Zotero write credentials not configured. "
-            "Run 'zot config init' to set up API credentials.",
+            "\nError: Zotero write credentials not configured. Run 'zot config init' to set up API credentials.",
             err=True,
         )
         raise SystemExit(1)

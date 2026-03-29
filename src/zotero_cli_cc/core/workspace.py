@@ -46,11 +46,13 @@ class Workspace:
         """Add item. Returns False if already present."""
         if self.has_item(key):
             return False
-        self.items.append(WorkspaceItem(
-            key=key,
-            title=title,
-            added=datetime.now(timezone.utc).isoformat(),
-        ))
+        self.items.append(
+            WorkspaceItem(
+                key=key,
+                title=title,
+                added=datetime.now(timezone.utc).isoformat(),
+            )
+        )
         return True
 
     def remove_item(self, key: str) -> bool:
@@ -90,10 +92,7 @@ def load_workspace(name: str) -> Workspace:
     if not path.exists():
         raise FileNotFoundError(f"Workspace '{name}' not found")
     data = tomllib.loads(path.read_text(encoding="utf-8"))
-    items = [
-        WorkspaceItem(key=i["key"], title=i["title"], added=i["added"])
-        for i in data.get("items", [])
-    ]
+    items = [WorkspaceItem(key=i["key"], title=i["title"], added=i["added"]) for i in data.get("items", [])]
     return Workspace(
         name=name,
         created=data.get("created", ""),

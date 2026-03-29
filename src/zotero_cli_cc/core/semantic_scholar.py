@@ -82,9 +82,7 @@ def extract_preprint_info(
 
 
 # Backward-compatible alias
-def extract_arxiv_id(
-    url: str | None = None, doi: str | None = None, extra: str | None = None
-) -> str | None:
+def extract_arxiv_id(url: str | None = None, doi: str | None = None, extra: str | None = None) -> str | None:
     """Extract arXiv ID only (backward compatibility)."""
     info = extract_preprint_info(url=url, doi=doi, extra=extra)
     if info and info.source == "arxiv":
@@ -173,12 +171,7 @@ class SemanticScholarClient:
         if journal_name and any(name in journal_name.lower() for name in preprint_venue_names):
             venue_is_preprint = True
 
-        is_published = bool(
-            (venue or journal_name)
-            and not venue_is_preprint
-            and formal_doi
-            and not is_preprint_doi
-        )
+        is_published = bool((venue or journal_name) and not venue_is_preprint and formal_doi and not is_preprint_doi)
 
         return PublicationStatus(
             preprint_id=info.preprint_id,

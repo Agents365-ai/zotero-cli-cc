@@ -607,13 +607,10 @@ class ZoteroReader:
         item_ids = {r["itemID"] for r in rows}
 
         # Also find all items with itemType = preprint
-        preprint_type = conn.execute(
-            "SELECT itemTypeID FROM itemTypes WHERE typeName = 'preprint'"
-        ).fetchone()
+        preprint_type = conn.execute("SELECT itemTypeID FROM itemTypes WHERE typeName = 'preprint'").fetchone()
         if preprint_type:
             rows = conn.execute(
-                f"SELECT i.itemID FROM items i "
-                f"WHERE i.itemTypeID = ? {lib_sql}",
+                f"SELECT i.itemID FROM items i WHERE i.itemTypeID = ? {lib_sql}",
                 (preprint_type["itemTypeID"], *lib_params),
             ).fetchall()
             for r in rows:

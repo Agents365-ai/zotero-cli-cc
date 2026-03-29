@@ -74,7 +74,9 @@ class TestList:
         """Unknown collection should show error with available names (issue #8)."""
         result = _invoke(["list", "--collection", "NonExistent"], test_db_path)
         assert result.exit_code != 0
-        assert "Collection 'NonExistent' not found" in result.output or "Collection 'NonExistent' not found" in (result.output + (result.stderr or ""))
+        assert "Collection 'NonExistent' not found" in result.output or "Collection 'NonExistent' not found" in (
+            result.output + (result.stderr or "")
+        )
 
 
 class TestRead:
