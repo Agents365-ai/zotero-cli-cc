@@ -6,5 +6,5 @@ dist/
 build/
 .pytest_cache/
 .coverage
-docs/superpowers/
+docs/
 logs/

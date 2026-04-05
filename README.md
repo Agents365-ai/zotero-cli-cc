@@ -361,23 +361,9 @@ Restart your terminal or `source` the config file to enable tab completions.
 
 ## Architecture
 
-```mermaid
-graph TD
-    A["zot CLI (Click)<br>search | list | read | workspace | ..."] --> B["Core Services"]
-    C["MCP Server (FastMCP)<br>stdio transport"] --> B
-
-    subgraph B["Core Services"]
-        R["ZoteroReader<br>(SQLite read-only)"]
-        W["ZoteroWriter<br>(Web API)"]
-        RAG["RAG Engine<br>(BM25 + Embeddings)"]
-    end
-
-    R --> D["SQLite<br>~/Zotero/zotero.sqlite"]
-    W --> E["Zotero Web API<br>(remote)"]
-    D --> F["~/Zotero/storage/*.pdf"]
-    RAG --> G["Workspace Index<br>~/.config/zot/workspaces/*.idx.sqlite"]
-    RAG -.->|optional| H["Embedding API<br>(Jina / OpenAI)"]
-```
+<p align="center">
+  <img src="asserts/architecture.png" alt="Architecture diagram" width="720">
+</p>
 
 ## Environment Variables
 
