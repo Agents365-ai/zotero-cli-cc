@@ -214,6 +214,12 @@ def create_test_db() -> None:
     c.execute("INSERT INTO creators VALUES (7, 'Alice', 'Wong')")
     c.execute("INSERT INTO itemCreators VALUES (9, 7, 1, 0)")
 
+    # Item 10: Attachment for group item (for fulltext search isolation test)
+    c.execute("INSERT INTO items VALUES (10, 3, '2024-06-01', '2024-06-02', '2024-06-02', 2, 'GRPATT10')")
+    c.execute("INSERT INTO itemAttachments VALUES (10, 9, 0, 'application/pdf', NULL, 'storage:protein.pdf')")
+    c.execute("INSERT INTO fulltextWords VALUES (4, 'protein')")
+    c.execute("INSERT INTO fulltextItemWords VALUES (4, 10)")  # group attachment
+
     # Group collection
     c.execute("INSERT INTO collections VALUES (3, 'Group Papers', NULL, 2, 'GRPCOL03')")
     c.execute("INSERT INTO collectionItems VALUES (3, 9, 0)")

@@ -239,13 +239,14 @@ class ZoteroReader:
             ).fetchall()
             item_ids.update(r["itemID"] for r in rows)
 
-            # Search fulltext
+            # Search fulltext (with library filter)
             rows = conn.execute(
                 "SELECT DISTINCT ia.parentItemID FROM fulltextItemWords fw "
                 "JOIN fulltextWords w ON fw.wordID = w.wordID "
                 "JOIN itemAttachments ia ON fw.itemID = ia.itemID "
-                "WHERE w.word LIKE ? AND ia.parentItemID IS NOT NULL",
-                (like,),
+                "JOIN items i ON ia.parentItemID = i.itemID "
+                f"WHERE w.word LIKE ? AND ia.parentItemID IS NOT NULL AND i.itemTypeID {excl_sql} {lib_sql}",
+                (like, *excl_params, *lib_params),
             ).fetchall()
             item_ids.update(r["parentItemID"] for r in rows)
         else:
@@ -491,16 +492,25 @@ class ZoteroReader:
         if parent is None:
             return []
         rows = conn.execute(
-            "SELECT i.key, n.note FROM itemNotes n JOIN items i ON n.itemID = i.itemID WHERE n.parentItemID = ?",
+            "SELECT i.itemID, i.key, n.note FROM itemNotes n JOIN items i ON n.itemID = i.itemID WHERE n.parentItemID = ?",
             (parent["itemID"],),
         ).fetchall()
+        if not rows:
+            return []
+        # Batch-fetch tags for all note items
+        note_ids = [r["itemID"] for r in rows]
+        ph = ",".join("?" * len(note_ids))
+        tag_rows = conn.execute(
+            f"SELECT it.itemID, t.name FROM itemTags it JOIN tags t ON it.tagID = t.tagID WHERE it.itemID IN ({ph})",
+            note_ids,
+        ).fetchall()
+        tags_by_id: dict[int, list[str]] = {}
+        for tr in tag_rows:
+            tags_by_id.setdefault(tr["itemID"], []).append(tr["name"])
         notes = []
         for r in rows:
             content = self._html_to_markdown(r["note"] or "")
-            tags = self._get_item_tags(
-                conn,
-                conn.execute("SELECT itemID FROM items WHERE key = ?", (r["key"],)).fetchone()["itemID"],
-            )
+            tags = tags_by_id.get(r["itemID"], [])
             notes.append(Note(key=r["key"], parent_key=key, content=content, tags=tags))
         return notes
 

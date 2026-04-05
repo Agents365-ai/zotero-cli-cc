@@ -203,7 +203,7 @@ def test_load_embedding_config_env_override(tmp_path, monkeypatch):
     monkeypatch.setenv("ZOT_EMBEDDING_MODEL", "custom-model")
     from zotero_cli_cc.config import load_embedding_config
 
-    cfg = load_embedding_config(path=config_file)
+    cfg = load_embedding_config(path=config_file, apply_env_overrides=True)
     assert cfg.url == "http://localhost:11434/v1/embeddings"
     assert cfg.api_key == "local-key"
     assert cfg.model == "custom-model"

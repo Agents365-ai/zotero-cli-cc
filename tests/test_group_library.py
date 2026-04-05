@@ -95,6 +95,20 @@ class TestGroupReader:
         finally:
             reader.close()
 
+    def test_fulltext_search_respects_library_isolation(self):
+        """Fulltext search for a word in the group library must not return user-library items."""
+        reader = ZoteroReader(FIXTURES_DIR / "zotero.sqlite", library_id=2)
+        try:
+            result = reader.search("protein")
+            keys = [i.key for i in result.items]
+            assert "GRPITM09" in keys
+            # "transformer" is a fulltext word only in user library — must not appear
+            result2 = reader.search("transformer")
+            keys2 = [i.key for i in result2.items]
+            assert "ATTN001" not in keys2
+        finally:
+            reader.close()
+
 
 class TestGroupCLI:
     def test_library_option_user(self):

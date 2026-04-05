@@ -106,7 +106,13 @@ class EmbeddingConfig:
         return bool(self.url and self.api_key)
 
 
-def load_embedding_config(path: Path | None = None) -> EmbeddingConfig:
+_SENTINEL = object()
+
+
+def load_embedding_config(
+    path: Path | None = None, *, apply_env_overrides: object = _SENTINEL
+) -> EmbeddingConfig:
+    explicit_path = path is not None
     path = path or CONFIG_FILE
     defaults = EmbeddingConfig()
     if path.exists():
@@ -118,10 +124,16 @@ def load_embedding_config(path: Path | None = None) -> EmbeddingConfig:
             api_key=emb.get("api_key", defaults.api_key),
             model=emb.get("model", defaults.model),
         )
-    # Environment overrides
-    defaults.url = os.environ.get("ZOT_EMBEDDING_URL", defaults.url)
-    defaults.api_key = os.environ.get("ZOT_EMBEDDING_KEY", defaults.api_key)
-    defaults.model = os.environ.get("ZOT_EMBEDDING_MODEL", defaults.model)
+    # Apply env overrides: always when explicitly requested or using default path;
+    # skip when an explicit path is provided and caller didn't opt in.
+    should_apply_env = (
+        apply_env_overrides is True
+        or (apply_env_overrides is _SENTINEL and not explicit_path)
+    )
+    if should_apply_env:
+        defaults.url = os.environ.get("ZOT_EMBEDDING_URL", defaults.url)
+        defaults.api_key = os.environ.get("ZOT_EMBEDDING_KEY", defaults.api_key)
+        defaults.model = os.environ.get("ZOT_EMBEDDING_MODEL", defaults.model)
     return defaults
 
 

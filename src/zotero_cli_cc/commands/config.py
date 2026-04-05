@@ -132,25 +132,44 @@ def cache_group() -> None:
 @cache_group.command("clear")
 def cache_clear() -> None:
     """Clear the PDF text cache."""
+    import sqlite3
+
     from zotero_cli_cc.core.pdf_cache import PdfCache
 
-    cache = PdfCache()
-    stats = cache.stats()
-    cache.clear()
-    cache.close()
-    click.echo(f"Cache cleared. Removed {stats['entries']} entries.")
+    try:
+        cache = PdfCache()
+    except (sqlite3.OperationalError, OSError) as e:
+        click.echo(f"Error: Could not open cache database: {e}", err=True)
+        raise SystemExit(1)
+    try:
+        stats = cache.stats()
+        cache.clear()
+        click.echo(f"Cache cleared. Removed {stats['entries']} entries.")
+    except sqlite3.OperationalError as e:
+        click.echo(f"Error: Could not modify cache database: {e}", err=True)
+        raise SystemExit(1)
+    finally:
+        cache.close()
 
 
 @cache_group.command("stats")
 def cache_stats() -> None:
     """Show PDF cache statistics."""
+    import sqlite3
+
     from zotero_cli_cc.core.pdf_cache import PdfCache
 
-    cache = PdfCache()
-    stats = cache.stats()
-    cache.close()
-    click.echo(f"Cached PDFs: {stats['entries']}")
-    click.echo(f"Total chars: {stats['total_chars']:,}")
+    try:
+        cache = PdfCache()
+    except (sqlite3.OperationalError, OSError) as e:
+        click.echo(f"Error: Could not open cache database: {e}", err=True)
+        raise SystemExit(1)
+    try:
+        stats = cache.stats()
+        click.echo(f"Cached PDFs: {stats['entries']}")
+        click.echo(f"Total chars: {stats['total_chars']:,}")
+    finally:
+        cache.close()
 
 
 @profile_group.command("set")
