@@ -22,6 +22,11 @@ dependencies = [
 
 [project.optional-dependencies]
 mcp = ["mcp>=1.0"]
+docs = [
+    "mkdocs-material>=9.5",
+    "mkdocs-static-i18n>=1.2",
+    "mkdocs-click>=0.8",
+]
 
 [project.scripts]
 zot = "zotero_cli_cc.cli:main"

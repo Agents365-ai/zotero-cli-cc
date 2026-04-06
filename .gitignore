@@ -6,5 +6,9 @@ dist/
 build/
 .pytest_cache/
 .coverage
-docs/
+# Docs build output
+site/
+# Internal dev docs (plans, specs)
+docs/superpowers/
+docs/gap-analysis.md
 logs/
