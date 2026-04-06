@@ -4,7 +4,7 @@ hide:
 ---
 
 <p align="center">
-  <img src="../assets/banner_official.png" alt="zotero-cli-cc banner" width="720">
+  <img src="assets/banner_official.png" alt="zotero-cli-cc banner" width="720">
 </p>
 
 # zot — Let Zotero Fly in Your Terminal
@@ -13,7 +13,7 @@ hide:
 
 **Core Features:**
 
-- **Reads**: Direct local SQLite database access ��� zero config, offline, millisecond response
+- **Reads**: Direct local SQLite database access — zero config, offline, millisecond response
 - **Writes**: Safe writes through Zotero Web API — Zotero fully aware of changes
 - **PDF**: Extract full text from local PDF storage with automatic caching
 - **Workspace**: Organize papers by topic with local workspaces + built-in RAG search
