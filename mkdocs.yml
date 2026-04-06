@@ -1,0 +1,82 @@
+site_name: zot — Zotero CLI for Claude Code
+site_url: https://agents365-ai.github.io/zotero-cli-cc
+repo_url: https://github.com/Agents365-ai/zotero-cli-cc
+repo_name: Agents365-ai/zotero-cli-cc
+
+theme:
+  name: material
+  language: en
+  palette:
+    - scheme: default
+      primary: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+exclude_docs: |
+  superpowers/
+  gap-analysis.md
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: folder
+      languages:
+        - locale: en
+          name: English
+          build: true
+          default: true
+        - locale: zh
+          name: 中文
+          build: true
+
+markdown_extensions:
+  - mkdocs-click
+  - admonition
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Setup: getting-started/setup.md
+    - Quickstart: getting-started/quickstart.md
+  - Guide:
+    - Search & Browse: guide/search.md
+    - Notes & Tags: guide/notes-tags.md
+    - Collections: guide/collections.md
+    - Citations & Export: guide/citations.md
+    - PDF: guide/pdf.md
+    - Workspaces: guide/workspace.md
+    - Item Management: guide/item-management.md
+    - Preprint Status: guide/update-status.md
+  - MCP Server:
+    - Setup: mcp/setup.md
+    - Tools Reference: mcp/tools.md
+    - Claude Code: mcp/claude-code.md
+  - Reference:
+    - CLI Reference: reference/cli.md
+  - Changelog: changelog.md
