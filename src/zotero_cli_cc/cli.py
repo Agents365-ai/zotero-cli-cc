@@ -85,6 +85,30 @@ def main(
         raise click.BadParameter(f"Invalid --library format: '{library}'. Use 'user' or 'group:<id>'")
 
 
+@main.result_callback()
+@click.pass_context
+def _after_command(ctx: click.Context, *_args: object, **_kwargs: object) -> None:
+    """Show update notice after command completes (interactive mode only)."""
+    import sys
+
+    obj = ctx.obj or {}
+    if obj.get("json") or obj.get("no_interaction") or not sys.stderr.isatty():
+        return
+    from zotero_cli_cc import __version__
+    from zotero_cli_cc.core.version_check import check_for_update
+
+    latest = check_for_update(__version__)
+    if latest:
+        click.echo(
+            click.style(
+                f"\n Update available: v{__version__} → v{latest}. "
+                f"Run: uv tool upgrade zotero-cli-cc",
+                fg="yellow",
+            ),
+            err=True,
+        )
+
+
 main.add_command(config_group, "config")
 main.add_command(search_cmd, "search")
 main.add_command(list_cmd, "list")
