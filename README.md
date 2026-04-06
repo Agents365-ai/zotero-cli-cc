@@ -442,6 +442,13 @@ Restart your terminal or `source` the config file to enable tab completions.
 
 ---
 
+## Author
+
+**Agents365-ai**
+
+- GitHub: [https://github.com/Agents365-ai](https://github.com/Agents365-ai)
+- Bilibili: [https://space.bilibili.com/441831884](https://space.bilibili.com/441831884)
+
 ## Support
 
 <table>

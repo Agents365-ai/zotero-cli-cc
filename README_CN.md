@@ -456,6 +456,13 @@ graph TD
 
 ---
 
+## 作者
+
+**Agents365-ai**
+
+- GitHub: [https://github.com/Agents365-ai](https://github.com/Agents365-ai)
+- Bilibili: [https://space.bilibili.com/441831884](https://space.bilibili.com/441831884)
+
 ## 支持作者 / Support
 
 <table>
