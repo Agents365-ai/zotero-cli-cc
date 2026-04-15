@@ -15,8 +15,15 @@ from zotero_cli_cc.formatter import envelope_ok, envelope_partial
 @click.argument("keys", nargs=-1, required=True)
 @click.option("--yes", is_flag=True, help="Skip confirmation")
 @click.option("--dry-run", is_flag=True, help="Show what would be deleted without executing")
+@click.option("--idempotency-key", default=None, help="Key so retries are safe; same key returns the original result")
 @click.pass_context
-def delete_cmd(ctx: click.Context, keys: tuple[str, ...], yes: bool, dry_run: bool) -> None:
+def delete_cmd(
+    ctx: click.Context,
+    keys: tuple[str, ...],
+    yes: bool,
+    dry_run: bool,
+    idempotency_key: str | None,
+) -> None:
     """Delete one or more items (move to trash). MUTATES LIBRARY.
 
     Accepts multiple keys: zot delete KEY1 KEY2 KEY3
@@ -63,6 +70,18 @@ def delete_cmd(ctx: click.Context, keys: tuple[str, ...], yes: bool, dry_run: bo
             else:
                 click.echo("Cancelled.", err=True)
             return
+    from zotero_cli_cc.core.idempotency import get_cached, store_cached
+
+    cache_scope = "delete:" + ",".join(sorted(keys))
+    if idempotency_key:
+        cached = get_cached(cache_scope, idempotency_key)
+        if cached is not None:
+            if json_out:
+                click.echo(json.dumps(cached, indent=2, ensure_ascii=False))
+            else:
+                click.echo(f"Deleted {len(keys)} item(s) (cached).")
+            return
+
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     succeeded: list[dict] = []
     failed: list[dict] = []
@@ -73,7 +92,7 @@ def delete_cmd(ctx: click.Context, keys: tuple[str, ...], yes: bool, dry_run: bo
             if not json_out:
                 click.echo(f"Item '{key}' moved to trash.")
         except ZoteroWriteError as e:
-            failed.append({"key": key, "error": {"code": "api_error", "message": str(e), "retryable": True}})
+            failed.append({"key": key, "error": {"code": e.code, "message": str(e), "retryable": e.retryable}})
             if not json_out:
                 click.echo(f"Error: delete failed for '{key}': {e}", err=True)
     if json_out:
@@ -83,7 +102,12 @@ def delete_cmd(ctx: click.Context, keys: tuple[str, ...], yes: bool, dry_run: bo
             click.echo(json.dumps({"ok": False, "error": {"code": "api_error", "message": f"{len(failed)} delete(s) failed", "retryable": True, "failed": failed}}, indent=2, ensure_ascii=False))
             raise SystemExit(EXIT_RUNTIME)
         else:
-            env = envelope_ok({"deleted": [s["key"] for s in succeeded], "sync_required": True})
+            env = envelope_ok(
+                {"deleted": [s["key"] for s in succeeded], "sync_required": True},
+                extra={"next": ["zot trash list", "zot trash empty --yes"]},
+            )
+        if idempotency_key and not failed:
+            store_cached(cache_scope, idempotency_key, env)
         click.echo(json.dumps(env, indent=2, ensure_ascii=False))
     else:
         if not failed:

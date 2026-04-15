@@ -29,9 +29,19 @@ from zotero_cli_cc.formatter import envelope_ok, envelope_partial
     type=click.Path(exists=True),
     help="PDF file to extract DOI from and attach (metadata not auto-resolved by API)",
 )
+@click.option("--dry-run", is_flag=True, help="Preview what would be added without calling the API")
+@click.option("--idempotency-key", default=None, help="Key so retries are safe; same key returns the original result")
 @click.pass_context
-def add_cmd(ctx: click.Context, doi: str | None, url: str | None, from_file: str | None, pdf_file: str | None) -> None:
-    """Add items to the Zotero library via DOI, URL, batch file, or PDF.
+def add_cmd(
+    ctx: click.Context,
+    doi: str | None,
+    url: str | None,
+    from_file: str | None,
+    pdf_file: str | None,
+    dry_run: bool,
+    idempotency_key: str | None,
+) -> None:
+    """Add items to the Zotero library via DOI, URL, batch file, or PDF. MUTATES LIBRARY.
 
     Requires API credentials (run 'zot config init' first).
 
@@ -45,6 +55,31 @@ def add_cmd(ctx: click.Context, doi: str | None, url: str | None, from_file: str
     """
     cfg = load_config(profile=ctx.obj.get("profile"))
     json_out = ctx.obj.get("json", False)
+
+    if dry_run:
+        would: dict = {}
+        if pdf_file:
+            would = {"source": "pdf", "pdf": str(pdf_file), "doi_override": doi}
+        elif from_file:
+            would = {"source": "file", "path": str(from_file)}
+        elif doi:
+            would = {"source": "doi", "doi": doi}
+        elif url:
+            would = {"source": "url", "url": url}
+        else:
+            emit_error(
+                "validation_error",
+                "Provide --doi, --url, --from-file, or --pdf",
+                output_json=json_out,
+                hint="Example: zot add --doi '10.1038/...' --dry-run",
+                context="add",
+            )
+        if json_out:
+            click.echo(json.dumps(envelope_ok({"would": would}, extra={"dry_run": True}), indent=2, ensure_ascii=False))
+        else:
+            click.echo(f"[dry-run] Would add: {would}")
+        return
+
     library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
     api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
     library_type = ctx.obj.get("library_type", "user")
@@ -76,13 +111,31 @@ def add_cmd(ctx: click.Context, doi: str | None, url: str | None, from_file: str
             context="add",
         )
 
+    from zotero_cli_cc.core.idempotency import get_cached, store_cached
+
+    cache_scope = f"add:{'doi:' + doi if doi else 'url:' + (url or '')}"
+    if idempotency_key:
+        cached = get_cached(cache_scope, idempotency_key)
+        if cached is not None:
+            if json_out:
+                click.echo(json.dumps(cached, indent=2, ensure_ascii=False))
+            else:
+                click.echo(f"Item added: {cached.get('data', {}).get('key', '?')} (cached).")
+            return
+
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
         key = writer.add_item(doi=doi, url=url)
     except ZoteroWriteError as e:
-        emit_error("api_error", str(e), output_json=json_out, retryable=True, hint="Check API credentials and network", context="add")
+        emit_error(e.code, str(e), output_json=json_out, retryable=e.retryable, hint="Check API credentials and network", context="add")
+    env = envelope_ok(
+        {"key": key, "doi": doi, "url": url, "sync_required": True},
+        extra={"next": [f"zot read {key}", f"zot attach {key} --file <path>"]},
+    )
+    if idempotency_key:
+        store_cached(cache_scope, idempotency_key, env)
     if json_out:
-        click.echo(json.dumps(envelope_ok({"key": key, "doi": doi, "url": url, "sync_required": True}), indent=2, ensure_ascii=False))
+        click.echo(json.dumps(env, indent=2, ensure_ascii=False))
     else:
         click.echo(f"Item added: {key}")
         click.echo(SYNC_REMINDER, err=True)
@@ -110,7 +163,7 @@ def _add_from_pdf(
     try:
         key = writer.add_item(doi=doi)
     except ZoteroWriteError as e:
-        emit_error("api_error", str(e), output_json=json_out, retryable=True, context="add")
+        emit_error(e.code, str(e), output_json=json_out, retryable=e.retryable, context="add")
 
     att_key = None
     attach_error: str | None = None
@@ -169,7 +222,7 @@ def _add_from_file(file_path: Path, library_id: str, api_key: str, json_out: boo
             failed.append(
                 {
                     "entry": entry,
-                    "error": {"code": "api_error", "message": str(e), "retryable": True},
+                    "error": {"code": e.code, "message": str(e), "retryable": e.retryable},
                 }
             )
             if not json_out:

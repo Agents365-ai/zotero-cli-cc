@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import contextvars
 import json
+import time
+import uuid
+from contextlib import contextmanager
 from dataclasses import asdict
 from io import StringIO
-from typing import Any
+from typing import Any, Iterator
 
 from rich.console import Console
 from rich.table import Table
@@ -14,12 +18,43 @@ from zotero_cli_cc.models import Collection, DuplicateGroup, ErrorInfo, Item, No
 
 SCHEMA_VERSION = "1.0.0"
 
+_request_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("_request_id", default=None)
+_request_start: contextvars.ContextVar[float | None] = contextvars.ContextVar("_request_start", default=None)
+
+
+@contextmanager
+def request_scope() -> Iterator[str]:
+    """Bind a request_id and start time to the current context.
+
+    Envelopes emitted inside this scope automatically carry request_id and
+    latency_ms in meta, so commands don't have to pass them explicitly.
+    """
+    rid = uuid.uuid4().hex[:12]
+    rid_tok = _request_id.set(rid)
+    start_tok = _request_start.set(time.monotonic())
+    try:
+        yield rid
+    finally:
+        _request_id.reset(rid_tok)
+        _request_start.reset(start_tok)
+
+
+def _base_meta() -> dict[str, Any]:
+    meta: dict[str, Any] = {"schema_version": SCHEMA_VERSION, "cli_version": __version__}
+    rid = _request_id.get()
+    if rid:
+        meta["request_id"] = rid
+    start = _request_start.get()
+    if start is not None:
+        meta["latency_ms"] = int((time.monotonic() - start) * 1000)
+    return meta
+
 
 def envelope_ok(data: Any, meta: dict | None = None, extra: dict | None = None) -> dict:
     env: dict[str, Any] = {"ok": True, "data": data}
     if extra:
         env.update(extra)
-    env["meta"] = {"schema_version": SCHEMA_VERSION, "cli_version": __version__, **(meta or {})}
+    env["meta"] = {**_base_meta(), **(meta or {})}
     return env
 
 
@@ -36,7 +71,7 @@ def envelope_error(
     return {
         "ok": False,
         "error": err,
-        "meta": {"schema_version": SCHEMA_VERSION, "cli_version": __version__},
+        "meta": _base_meta(),
     }
 
 
@@ -44,7 +79,7 @@ def envelope_partial(succeeded: list, failed: list, meta: dict | None = None) ->
     return {
         "ok": "partial",
         "data": {"succeeded": succeeded, "failed": failed},
-        "meta": {"schema_version": SCHEMA_VERSION, "cli_version": __version__, **(meta or {})},
+        "meta": {**_base_meta(), **(meta or {})},
     }
 
 

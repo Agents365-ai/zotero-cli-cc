@@ -35,7 +35,54 @@ from zotero_cli_cc.commands.update_status import update_status_cmd
 from zotero_cli_cc.commands.workspace import workspace_group
 
 
-@click.group()
+# Safety tiers: classifies each command so `zot --help` groups them by risk.
+# Agents browsing help see read commands first; mutating and destructive
+# commands appear under separate headers so they are not accidentally
+# invoked from a generic-looking list.
+_READ_COMMANDS = {
+    "search", "list", "read", "export", "recent", "stats", "open", "cite",
+    "pdf", "relate", "summarize", "summarize-all", "duplicates", "collection",
+    "tag", "config", "completions", "mcp", "workspace", "schema", "trash",
+}
+_WRITE_COMMANDS = {"add", "update", "note", "attach"}
+_DESTRUCTIVE_COMMANDS = {"delete", "update-status"}
+
+
+class TieredGroup(click.Group):
+    """A Click Group that renders the command list grouped by safety tier."""
+
+    def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        commands: list[tuple[str, click.Command]] = []
+        for name in self.list_commands(ctx):
+            cmd = self.get_command(ctx, name)
+            if cmd is None or getattr(cmd, "hidden", False):
+                continue
+            commands.append((name, cmd))
+
+        def rows_for(names: set[str]) -> list[tuple[str, str]]:
+            rows = []
+            for name, cmd in commands:
+                if name in names:
+                    rows.append((name, cmd.get_short_help_str(limit=70)))
+            return rows
+
+        sections = [
+            ("Read commands", rows_for(_READ_COMMANDS)),
+            ("Write commands (MUTATES LIBRARY)", rows_for(_WRITE_COMMANDS)),
+            ("Destructive commands (MUTATES LIBRARY)", rows_for(_DESTRUCTIVE_COMMANDS)),
+        ]
+        other = rows_for({n for n, _ in commands} - _READ_COMMANDS - _WRITE_COMMANDS - _DESTRUCTIVE_COMMANDS)
+        if other:
+            sections.append(("Other", other))
+
+        for title, rows in sections:
+            if not rows:
+                continue
+            with formatter.section(title):
+                formatter.write_dl(rows)
+
+
+@click.group(cls=TieredGroup)
 @click.version_option(version=__version__, prog_name="zot")
 @click.option(
     "--json",
@@ -71,7 +118,15 @@ def main(
       zot read ABC123                     View paper details
       zot --json search "BERT"            JSON output for AI
     """
+    # Bind a request_id + start time for the duration of this invocation so
+    # every envelope (success, error, partial) carries them automatically.
+    from zotero_cli_cc.formatter import request_scope
+
+    scope = request_scope()
+    rid = scope.__enter__()
+    ctx.call_on_close(lambda: scope.__exit__(None, None, None))
     ctx.ensure_object(dict)
+    ctx.obj["request_id"] = rid
     # TTY auto-detect: when stdout is redirected/piped, default to JSON so agents
     # never have to remember --json. Explicit --json or ZOT_FORMAT env var override.
     if output_json is None:

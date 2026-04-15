@@ -51,17 +51,31 @@ def trash_list_cmd(ctx: click.Context, limit: int | None) -> None:
 
 @trash_group.command("restore")
 @click.argument("keys", nargs=-1, required=True)
+@click.option("--dry-run", is_flag=True, help="Show what would be restored without executing")
 @click.pass_context
-def trash_restore_cmd(ctx: click.Context, keys: tuple[str, ...]) -> None:
-    """Restore item(s) from trash.
+def trash_restore_cmd(ctx: click.Context, keys: tuple[str, ...], dry_run: bool) -> None:
+    """Restore item(s) from trash. MUTATES LIBRARY.
 
     \b
     Examples:
       zot trash restore ABC123
       zot trash restore KEY1 KEY2 KEY3
+      zot trash restore ABC123 --dry-run
     """
+    import json as _json
+
+    from zotero_cli_cc.formatter import envelope_ok
+
     cfg = load_config(profile=ctx.obj.get("profile"))
     json_out = ctx.obj.get("json", False)
+    if dry_run:
+        data = {"would_restore": list(keys), "count": len(keys)}
+        if json_out:
+            click.echo(_json.dumps(envelope_ok(data, extra={"dry_run": True}), indent=2, ensure_ascii=False))
+        else:
+            for k in keys:
+                click.echo(f"[dry-run] Would restore '{k}'")
+        return
     library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
     api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
     library_type = ctx.obj.get("library_type", "user")
