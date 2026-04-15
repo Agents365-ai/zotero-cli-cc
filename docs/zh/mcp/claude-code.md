@@ -1,5 +1,11 @@
 # 搭配 Claude Code 使用
 
+!!! tip "Agent-native 接口（0.3.0+）"
+    当 stdout 不是 TTY 时，`zot` 自动输出 JSON envelope，Claude Code 无需加
+    `--json` 就能拿到可解析的结构化输出。退出码已按类别细分（校验、鉴权、
+    未找到、网络、冲突），每个 envelope 携带 `meta.request_id`，所有写命令
+    支持 `--dry-run` 和 `--idempotency-key`。完整契约见：[Agent Interface](../reference/agent-interface.md)。
+
 ## 安装 Skill
 
 复制 zotero-cli-cc skill，让 Claude Code 自动识别文献相关请求：

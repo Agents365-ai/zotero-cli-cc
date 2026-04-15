@@ -1,5 +1,12 @@
 # Using with Claude Code
 
+!!! tip "Agent-native interface (0.3.0+)"
+    `zot` auto-emits JSON envelopes when stdout is not a TTY, so Claude Code gets
+    parseable output without `--json`. Exit codes are typed (validation, auth,
+    not-found, network, conflict), every envelope carries a `meta.request_id`,
+    and mutating commands support `--dry-run` and `--idempotency-key`.
+    Full contract: [Agent Interface](../reference/agent-interface.md).
+
 ## Install the Skill
 
 Copy the zotero-cli-cc skill so Claude Code automatically recognizes literature-related requests:

@@ -29,6 +29,7 @@ theme:
 exclude_docs: |
   superpowers/
   gap-analysis.md
+  agent-interface.md
 
 plugins:
   - search
@@ -79,4 +80,5 @@ nav:
     - Claude Code: mcp/claude-code.md
   - Reference:
     - CLI Reference: reference/cli.md
+    - Agent Interface: reference/agent-interface.md
   - Changelog: changelog.md
