@@ -34,7 +34,7 @@ def check_for_update(current_version: str) -> str | None:
             if time.time() - cache.get("checked_at", 0) < _CHECK_INTERVAL:
                 latest = cache.get("latest_version", "")
                 if latest and _parse_version(latest) > _parse_version(current_version):
-                    return latest
+                    return str(latest)
                 return None
 
         # Fetch from PyPI
@@ -49,7 +49,7 @@ def check_for_update(current_version: str) -> str | None:
         )
 
         if _parse_version(latest) > _parse_version(current_version):
-            return latest
+            return str(latest)
         return None
     except Exception:
         return None

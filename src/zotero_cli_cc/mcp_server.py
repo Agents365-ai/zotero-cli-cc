@@ -1080,16 +1080,16 @@ def _handle_update_status(
                 continue
             fields: dict[str, str] = {}
             if r.get("doi"):
-                fields["DOI"] = r["doi"]
+                fields["DOI"] = str(r["doi"])
             if r.get("venue"):
-                fields["publicationTitle"] = r["venue"]
+                fields["publicationTitle"] = str(r["venue"])
             elif r.get("journal"):
-                fields["publicationTitle"] = r["journal"]
+                fields["publicationTitle"] = str(r["journal"])
             if r.get("date"):
-                fields["date"] = r["date"]
+                fields["date"] = str(r["date"])
             if fields:
                 try:
-                    writer.update_item(r["key"], fields)
+                    writer.update_item(str(r["key"]), fields)
                     r["updated"] = True
                     updated += 1
                 except ZoteroWriteError as e:
