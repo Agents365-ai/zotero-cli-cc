@@ -3,12 +3,53 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 from io import StringIO
+from typing import Any
 
 from rich.console import Console
 from rich.table import Table
 from rich.tree import Tree
 
+from zotero_cli_cc import __version__
 from zotero_cli_cc.models import Collection, DuplicateGroup, ErrorInfo, Item, Note
+
+SCHEMA_VERSION = "1.0.0"
+
+
+def envelope_ok(data: Any, meta: dict | None = None, extra: dict | None = None) -> dict:
+    env: dict[str, Any] = {"ok": True, "data": data}
+    if extra:
+        env.update(extra)
+    env["meta"] = {"schema_version": SCHEMA_VERSION, "cli_version": __version__, **(meta or {})}
+    return env
+
+
+def envelope_error(
+    code: str,
+    message: str,
+    retryable: bool = False,
+    **extra: Any,
+) -> dict:
+    err: dict[str, Any] = {"code": code, "message": message, "retryable": retryable}
+    for k, v in extra.items():
+        if v is not None and v != "":
+            err[k] = v
+    return {
+        "ok": False,
+        "error": err,
+        "meta": {"schema_version": SCHEMA_VERSION, "cli_version": __version__},
+    }
+
+
+def envelope_partial(succeeded: list, failed: list, meta: dict | None = None) -> dict:
+    return {
+        "ok": "partial",
+        "data": {"succeeded": succeeded, "failed": failed},
+        "meta": {"schema_version": SCHEMA_VERSION, "cli_version": __version__, **(meta or {})},
+    }
+
+
+def _dump(obj: Any) -> str:
+    return json.dumps(obj, indent=2, ensure_ascii=False)
 
 
 def format_items(items: list[Item], output_json: bool = False, detail: str = "standard") -> str:
@@ -18,7 +59,7 @@ def format_items(items: list[Item], output_json: bool = False, detail: str = "st
             data = [{k: v for k, v in asdict(i).items() if k in minimal_keys} for i in items]
         else:
             data = [asdict(i) for i in items]
-        return json.dumps(data, indent=2, ensure_ascii=False)
+        return _dump(envelope_ok(data, meta={"count": len(items)}))
     buf = StringIO()
     console = Console(file=buf, force_terminal=False, width=120)
     table = Table(show_header=True, header_style="bold")
@@ -44,10 +85,7 @@ def format_item_detail(item: Item, notes: list[Note], output_json: bool = False,
         else:
             data = asdict(item)
             data["notes"] = [asdict(n) for n in notes]
-            if detail == "full":
-                # extra is already included via asdict; ensure it's present explicitly
-                pass
-        return json.dumps(data, indent=2, ensure_ascii=False)
+        return _dump(envelope_ok(data))
     buf = StringIO()
     console = Console(file=buf, force_terminal=False, width=120)
     console.print(f"[bold cyan]{item.title}[/bold cyan]")
@@ -81,7 +119,6 @@ def format_item_detail(item: Item, notes: list[Note], output_json: bool = False,
                 console.print("\n[bold]Metadata:[/bold]")
                 for line in shown:
                     console.print(line)
-            # Show remaining extra fields not in display_keys
             skip = {k for k, _ in display_keys} | {
                 "libraryCatalog",
                 "accessDate",
@@ -102,11 +139,8 @@ def format_item_detail(item: Item, notes: list[Note], output_json: bool = False,
 
 def format_collections(collections: list[Collection], output_json: bool = False) -> str:
     if output_json:
-        return json.dumps(
-            [_collection_to_dict(c) for c in collections],
-            indent=2,
-            ensure_ascii=False,
-        )
+        data = [_collection_to_dict(c) for c in collections]
+        return _dump(envelope_ok(data, meta={"count": len(collections)}))
     buf = StringIO()
     console = Console(file=buf, force_terminal=False, width=120)
     tree = Tree("[bold]Collections[/bold]")
@@ -118,7 +152,8 @@ def format_collections(collections: list[Collection], output_json: bool = False)
 
 def format_notes(notes: list[Note], output_json: bool = False) -> str:
     if output_json:
-        return json.dumps([asdict(n) for n in notes], indent=2, ensure_ascii=False)
+        data = [asdict(n) for n in notes]
+        return _dump(envelope_ok(data, meta={"count": len(notes)}))
     buf = StringIO()
     console = Console(file=buf, force_terminal=False, width=120)
     for n in notes:
@@ -140,7 +175,7 @@ def format_duplicates(groups: list[DuplicateGroup], output_json: bool = False) -
                     "items": [asdict(item) for item in g.items],
                 }
             )
-        return json.dumps(data, indent=2, ensure_ascii=False)
+        return _dump(envelope_ok(data, meta={"count": len(groups)}))
     buf = StringIO()
     console = Console(file=buf, force_terminal=False, width=120)
     table = Table(show_header=True, header_style="bold")
@@ -161,16 +196,43 @@ def format_error(error: str | ErrorInfo, output_json: bool = False) -> str:
     if isinstance(error, str):
         error = ErrorInfo(message=error)
     if output_json:
-        data: dict[str, str] = {"error": error.message}
-        if error.context:
-            data["context"] = error.context
-        if error.hint:
-            data["hint"] = error.hint
-        return json.dumps(data, ensure_ascii=False)
+        env = envelope_error(
+            code=error.code or "runtime_error",
+            message=error.message,
+            retryable=error.retryable,
+            hint=error.hint,
+            context=error.context,
+        )
+        return _dump(env)
     lines = [f"Error: {error.message}"]
     if error.hint:
         lines.append(f"Hint: {error.hint}")
     return "\n".join(lines)
+
+
+def print_error(error: str | ErrorInfo, output_json: bool = False) -> None:
+    """Emit a structured error to the correct channel.
+
+    JSON mode: envelope to stdout (parseable result for agents).
+    Text mode: human line(s) to stderr (human-facing diagnostic).
+
+    Does not exit. Use zotero_cli_cc.exit_codes.emit_error when you want to exit.
+    """
+    import sys as _sys
+
+    rendered = format_error(error, output_json=output_json)
+    if output_json:
+        click.echo(rendered)
+    else:
+        click.echo(rendered, err=True)
+    _sys.stdout.flush() if output_json else _sys.stderr.flush()
+
+
+def format_success(data: Any, output_json: bool = False, human_text: str = "", meta: dict | None = None) -> str:
+    """Format a success result. JSON mode emits envelope; text mode emits `human_text`."""
+    if output_json:
+        return _dump(envelope_ok(data, meta=meta))
+    return human_text
 
 
 def _collection_to_dict(c: Collection) -> dict:

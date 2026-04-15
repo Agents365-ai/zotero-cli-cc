@@ -4,6 +4,7 @@ import click
 
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
+from zotero_cli_cc.exit_codes import emit_error
 from zotero_cli_cc.formatter import format_items
 
 
@@ -61,8 +62,7 @@ def list_cmd(
                 "", collection=collection, item_type=item_type, sort=sort, direction=direction, limit=limit
             )
         except ValueError as e:
-            click.echo(f"Error: {e}", err=True)
-            raise SystemExit(1)
+            emit_error("validation_error", str(e), output_json=ctx.obj.get("json", False))
         detail = ctx.obj.get("detail", "standard")
         click.echo(format_items(result.items, output_json=ctx.obj.get("json", False), detail=detail))
     finally:

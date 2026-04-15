@@ -8,7 +8,7 @@ import click
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
-from zotero_cli_cc.formatter import format_error
+from zotero_cli_cc.formatter import format_error, print_error
 from zotero_cli_cc.models import ErrorInfo
 
 
@@ -45,8 +45,7 @@ def tag_cmd(
         if library_type == "group" and ctx.obj.get("group_id"):
             library_id = ctx.obj["group_id"]
         if not library_id or not api_key:
-            click.echo(
-                format_error(
+            print_error(
                     ErrorInfo(
                         message="Write credentials not configured",
                         context="tag",
@@ -54,7 +53,6 @@ def tag_cmd(
                     ),
                     output_json=json_out,
                 )
-            )
             return
         writer = ZoteroWriter(library_id=str(library_id), api_key=api_key, library_type=library_type)
         failed = []
@@ -68,11 +66,9 @@ def tag_cmd(
                     click.echo(f"Tag '{remove_tag}' removed from '{key}'.")
             except ZoteroWriteError as e:
                 failed.append(key)
-                click.echo(
-                    format_error(
+                print_error(
                         ErrorInfo(message=str(e), context="tag", hint=f"Failed for key '{key}'"), output_json=json_out
                     )
-                )
         if not failed:
             click.echo(SYNC_REMINDER)
     else:
@@ -85,8 +81,7 @@ def tag_cmd(
             for key in keys:
                 item = reader.get_item(key)
                 if item is None:
-                    click.echo(
-                        format_error(
+                    print_error(
                             ErrorInfo(
                                 message=f"Item '{key}' not found",
                                 context="tag",
@@ -94,7 +89,6 @@ def tag_cmd(
                             ),
                             output_json=json_out,
                         )
-                    )
                     continue
                 if json_out:
                     click.echo(json.dumps({"key": key, "tags": item.tags}))

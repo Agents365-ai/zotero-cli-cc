@@ -7,7 +7,7 @@ import click
 
 from zotero_cli_cc.config import load_config
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
-from zotero_cli_cc.formatter import format_error
+from zotero_cli_cc.formatter import format_error, print_error
 from zotero_cli_cc.models import ErrorInfo
 
 
@@ -31,8 +31,7 @@ def attach_cmd(ctx: click.Context, key: str, file_path: str) -> None:
     if library_type == "group" and ctx.obj.get("group_id"):
         library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message="Write credentials not configured",
                     context="attach",
@@ -40,7 +39,6 @@ def attach_cmd(ctx: click.Context, key: str, file_path: str) -> None:
                 ),
                 output_json=json_out,
             )
-        )
         return
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
@@ -48,9 +46,7 @@ def attach_cmd(ctx: click.Context, key: str, file_path: str) -> None:
         click.echo(f"Attachment uploaded: {att_key}")
         click.echo(SYNC_REMINDER)
     except ZoteroWriteError as e:
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(message=str(e), context="attach", hint="Check the item key and file path"),
                 output_json=json_out,
             )
-        )

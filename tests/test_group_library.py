@@ -16,7 +16,7 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 def _invoke(args: list[str], json_output: bool = False):
     runner = CliRunner()
     base = ["--json"] if json_output else []
-    env = {"ZOT_DATA_DIR": str(FIXTURES_DIR)}
+    env = {"ZOT_DATA_DIR": str(FIXTURES_DIR), "ZOT_FORMAT": "table"}
     return runner.invoke(main, base + args, env=env)
 
 
@@ -114,14 +114,14 @@ class TestGroupCLI:
     def test_library_option_user(self):
         result = _invoke(["--library", "user", "search", "attention"], json_output=True)
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.output)["data"]
         keys = [i["key"] for i in data]
         assert "ATTN001" in keys
 
     def test_library_option_group(self):
         result = _invoke(["--library", "group:99999", "search", ""], json_output=True)
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.output)["data"]
         keys = [i["key"] for i in data]
         assert "GRPITM09" in keys
 

@@ -7,7 +7,7 @@ import click
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
-from zotero_cli_cc.formatter import format_collections, format_error, format_items
+from zotero_cli_cc.formatter import format_collections, format_error, format_items, print_error
 from zotero_cli_cc.models import ErrorInfo
 
 
@@ -64,8 +64,7 @@ def collection_create(ctx: click.Context, name: str, parent: str | None) -> None
     if library_type == "group" and ctx.obj.get("group_id"):
         library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message="Write credentials not configured",
                     context="collection",
@@ -73,7 +72,6 @@ def collection_create(ctx: click.Context, name: str, parent: str | None) -> None
                 ),
                 output_json=json_out,
             )
-        )
         return
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
@@ -81,12 +79,10 @@ def collection_create(ctx: click.Context, name: str, parent: str | None) -> None
         click.echo(f"Collection created: {key}")
         click.echo(SYNC_REMINDER)
     except ZoteroWriteError as e:
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(message=str(e), context="collection create", hint="Check API credentials and network"),
                 output_json=json_out,
             )
-        )
 
 
 @collection_group.command("move")
@@ -103,8 +99,7 @@ def collection_move(ctx: click.Context, item_key: str, collection_key: str) -> N
     if library_type == "group" and ctx.obj.get("group_id"):
         library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message="Write credentials not configured",
                     context="collection",
@@ -112,7 +107,6 @@ def collection_move(ctx: click.Context, item_key: str, collection_key: str) -> N
                 ),
                 output_json=json_out,
             )
-        )
         return
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
@@ -120,12 +114,10 @@ def collection_move(ctx: click.Context, item_key: str, collection_key: str) -> N
         click.echo(f"Item {item_key} moved to collection {collection_key}")
         click.echo(SYNC_REMINDER)
     except ZoteroWriteError as e:
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(message=str(e), context="collection move", hint="Check item and collection keys"),
                 output_json=json_out,
             )
-        )
 
 
 @collection_group.command("delete")
@@ -145,8 +137,7 @@ def collection_delete(ctx: click.Context, key: str, dry_run: bool) -> None:
     if library_type == "group" and ctx.obj.get("group_id"):
         library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message="Write credentials not configured",
                     context="collection",
@@ -154,7 +145,6 @@ def collection_delete(ctx: click.Context, key: str, dry_run: bool) -> None:
                 ),
                 output_json=json_out,
             )
-        )
         return
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
@@ -162,12 +152,10 @@ def collection_delete(ctx: click.Context, key: str, dry_run: bool) -> None:
         click.echo(f"Collection {key} deleted")
         click.echo(SYNC_REMINDER)
     except ZoteroWriteError as e:
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(message=str(e), context="collection delete", hint="Check collection key"),
                 output_json=json_out,
             )
-        )
 
 
 @collection_group.command("reorganize")
@@ -214,8 +202,7 @@ def collection_reorganize(ctx: click.Context, plan_file: str, dry_run: bool) -> 
     if library_type == "group" and ctx.obj.get("group_id"):
         library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message="Write credentials not configured",
                     context="collection reorganize",
@@ -223,7 +210,6 @@ def collection_reorganize(ctx: click.Context, plan_file: str, dry_run: bool) -> 
                 ),
                 output_json=json_out,
             )
-        )
         return
 
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
@@ -267,8 +253,7 @@ def collection_rename(ctx: click.Context, key: str, new_name: str) -> None:
     if library_type == "group" and ctx.obj.get("group_id"):
         library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message="Write credentials not configured",
                     context="collection",
@@ -276,7 +261,6 @@ def collection_rename(ctx: click.Context, key: str, new_name: str) -> None:
                 ),
                 output_json=json_out,
             )
-        )
         return
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
@@ -284,9 +268,7 @@ def collection_rename(ctx: click.Context, key: str, new_name: str) -> None:
         click.echo(f"Collection {key} renamed to '{new_name}'")
         click.echo(SYNC_REMINDER)
     except ZoteroWriteError as e:
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(message=str(e), context="collection rename", hint="Check collection key"),
                 output_json=json_out,
             )
-        )

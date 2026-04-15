@@ -7,7 +7,7 @@ import click
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
-from zotero_cli_cc.formatter import format_error, format_notes
+from zotero_cli_cc.formatter import format_error, format_notes, print_error
 from zotero_cli_cc.models import ErrorInfo
 
 
@@ -35,8 +35,7 @@ def note_cmd(ctx: click.Context, key: str, content: str | None) -> None:
         if library_type == "group" and ctx.obj.get("group_id"):
             library_id = ctx.obj["group_id"]
         if not library_id or not api_key:
-            click.echo(
-                format_error(
+            print_error(
                     ErrorInfo(
                         message="Write credentials not configured",
                         context="note",
@@ -44,7 +43,6 @@ def note_cmd(ctx: click.Context, key: str, content: str | None) -> None:
                     ),
                     output_json=json_out,
                 )
-            )
             return
         writer = ZoteroWriter(library_id=str(library_id), api_key=api_key, library_type=library_type)
         try:
@@ -52,12 +50,10 @@ def note_cmd(ctx: click.Context, key: str, content: str | None) -> None:
             click.echo(f"Note added: {note_key}")
             click.echo(SYNC_REMINDER)
         except ZoteroWriteError as e:
-            click.echo(
-                format_error(
+            print_error(
                     ErrorInfo(message=str(e), context="note", hint="Check item key and API credentials"),
                     output_json=json_out,
                 )
-            )
     else:
         # Read mode
         data_dir = get_data_dir(cfg)
@@ -67,8 +63,7 @@ def note_cmd(ctx: click.Context, key: str, content: str | None) -> None:
         try:
             notes = reader.get_notes(key)
             if not notes:
-                click.echo(
-                    format_error(
+                print_error(
                         ErrorInfo(
                             message=f"No notes found for '{key}'",
                             context="note",
@@ -76,7 +71,6 @@ def note_cmd(ctx: click.Context, key: str, content: str | None) -> None:
                         ),
                         output_json=json_out,
                     )
-                )
                 return
             click.echo(format_notes(notes, output_json=json_out))
         finally:

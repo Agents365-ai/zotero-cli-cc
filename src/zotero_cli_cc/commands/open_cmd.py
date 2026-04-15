@@ -7,7 +7,7 @@ import click
 
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
-from zotero_cli_cc.formatter import format_error
+from zotero_cli_cc.formatter import format_error, print_error
 from zotero_cli_cc.models import ErrorInfo
 
 
@@ -42,8 +42,7 @@ def open_cmd(ctx: click.Context, key: str, open_url: bool) -> None:
     try:
         item = reader.get_item(key)
         if item is None:
-            click.echo(
-                format_error(
+            print_error(
                     ErrorInfo(
                         message=f"Item '{key}' not found",
                         context="open",
@@ -51,7 +50,6 @@ def open_cmd(ctx: click.Context, key: str, open_url: bool) -> None:
                     ),
                     output_json=json_out,
                 )
-            )
             return
 
         if open_url:
@@ -59,15 +57,13 @@ def open_cmd(ctx: click.Context, key: str, open_url: bool) -> None:
             if item.doi and not item.url:
                 target = f"https://doi.org/{item.doi}"
             if not target:
-                click.echo(
-                    format_error(
+                print_error(
                         ErrorInfo(
                             message=f"No URL or DOI for item '{key}'",
                             context="open",
                         ),
                         output_json=json_out,
                     )
-                )
                 return
             click.echo(f"Opening {target}")
             _open_path(target)
@@ -76,8 +72,7 @@ def open_cmd(ctx: click.Context, key: str, open_url: bool) -> None:
         # Default: open PDF
         att = reader.get_pdf_attachment(key)
         if att is None:
-            click.echo(
-                format_error(
+            print_error(
                     ErrorInfo(
                         message=f"No PDF attachment for '{key}'",
                         context="open",
@@ -85,19 +80,16 @@ def open_cmd(ctx: click.Context, key: str, open_url: bool) -> None:
                     ),
                     output_json=json_out,
                 )
-            )
             return
         pdf_path = data_dir / "storage" / att.key / att.filename
         if not pdf_path.exists():
-            click.echo(
-                format_error(
+            print_error(
                     ErrorInfo(
                         message=f"PDF file not found at {pdf_path}",
                         context="open",
                     ),
                     output_json=json_out,
                 )
-            )
             return
         click.echo(f"Opening {pdf_path}")
         _open_path(str(pdf_path))

@@ -7,7 +7,7 @@ import click
 
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
-from zotero_cli_cc.formatter import format_error
+from zotero_cli_cc.formatter import format_error, print_error
 from zotero_cli_cc.models import ErrorInfo, Item
 
 
@@ -211,8 +211,7 @@ def cite_cmd(ctx: click.Context, key: str, style: str, no_copy: bool) -> None:
     try:
         item = reader.get_item(key)
         if item is None:
-            click.echo(
-                format_error(
+            print_error(
                     ErrorInfo(
                         message=f"Item '{key}' not found",
                         context="cite",
@@ -220,7 +219,6 @@ def cite_cmd(ctx: click.Context, key: str, style: str, no_copy: bool) -> None:
                     ),
                     output_json=json_out,
                 )
-            )
             return
         formatter = STYLES[style]
         citation = formatter(item)

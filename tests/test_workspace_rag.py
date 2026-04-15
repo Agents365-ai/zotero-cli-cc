@@ -17,7 +17,7 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 def _invoke(args: list[str], json_output: bool = False):
     runner = CliRunner()
     base = ["--json"] if json_output else []
-    env = {"ZOT_DATA_DIR": str(FIXTURES_DIR)}
+    env = {"ZOT_DATA_DIR": str(FIXTURES_DIR), "ZOT_FORMAT": "table"}
     return runner.invoke(main, base + args, env=env)
 
 
@@ -89,7 +89,7 @@ class TestWorkspaceQuery:
                 ["workspace", "query", "attention", "--workspace", "test-q"],
                 json_output=True,
             )
-        data = json.loads(result.output)
+        data = json.loads(result.output)["data"]
         assert isinstance(data, list)
         assert len(data) > 0
         assert "item_key" in data[0]
@@ -131,7 +131,7 @@ class TestWorkspaceExport:
             _invoke(["workspace", "new", "test-exp"])
             _invoke(["workspace", "add", "test-exp", "ATTN001"])
             result = _invoke(["workspace", "export", "test-exp", "--format", "json"])
-        data = json.loads(result.output)
+        data = json.loads(result.output)["data"]
         assert len(data) >= 1
 
     def test_export_bibtex(self, tmp_path):

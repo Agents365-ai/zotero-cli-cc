@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 
 import click
 
@@ -22,6 +23,7 @@ from zotero_cli_cc.commands.pdf import pdf_cmd
 from zotero_cli_cc.commands.read import read_cmd
 from zotero_cli_cc.commands.recent import recent_cmd
 from zotero_cli_cc.commands.relate import relate_cmd
+from zotero_cli_cc.commands.schema import schema_cmd
 from zotero_cli_cc.commands.search import search_cmd
 from zotero_cli_cc.commands.stats import stats_cmd
 from zotero_cli_cc.commands.summarize import summarize_cmd
@@ -35,7 +37,13 @@ from zotero_cli_cc.commands.workspace import workspace_group
 
 @click.group()
 @click.version_option(version=__version__, prog_name="zot")
-@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
+@click.option(
+    "--json",
+    "output_json",
+    is_flag=True,
+    default=None,
+    help="Output as JSON (auto-enabled when stdout is not a TTY)",
+)
 @click.option("--limit", default=50, help="Limit results")
 @click.option(
     "--detail", type=click.Choice(["minimal", "standard", "full"]), default="standard", help="Output detail level"
@@ -47,7 +55,7 @@ from zotero_cli_cc.commands.workspace import workspace_group
 @click.pass_context
 def main(
     ctx: click.Context,
-    output_json: bool,
+    output_json: bool | None,
     limit: int,
     detail: str,
     no_interaction: bool,
@@ -64,6 +72,16 @@ def main(
       zot --json search "BERT"            JSON output for AI
     """
     ctx.ensure_object(dict)
+    # TTY auto-detect: when stdout is redirected/piped, default to JSON so agents
+    # never have to remember --json. Explicit --json or ZOT_FORMAT env var override.
+    if output_json is None:
+        env_fmt = os.environ.get("ZOT_FORMAT", "").lower()
+        if env_fmt == "json":
+            output_json = True
+        elif env_fmt in ("table", "text"):
+            output_json = False
+        else:
+            output_json = not sys.stdout.isatty()
     ctx.obj["json"] = output_json
     ctx.obj["limit"] = limit
     ctx.obj["detail"] = detail
@@ -135,3 +153,4 @@ main.add_command(duplicates_cmd, "duplicates")
 main.add_command(attach_cmd, "attach")
 main.add_command(update_status_cmd, "update-status")
 main.add_command(workspace_group, "workspace")
+main.add_command(schema_cmd, "schema")

@@ -63,6 +63,8 @@ class ErrorInfo:
     message: str
     context: str = ""
     hint: str = ""
+    code: str = "runtime_error"
+    retryable: bool = False
 
 
 @dataclass

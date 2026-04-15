@@ -4,7 +4,8 @@ import click
 
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
-from zotero_cli_cc.formatter import format_items
+from zotero_cli_cc.exit_codes import emit_error
+from zotero_cli_cc.formatter import format_items, format_success
 
 
 @click.command("search")
@@ -58,20 +59,20 @@ def search_cmd(
     reader = ZoteroReader(db_path, library_id=library_id)
     try:
         limit = limit if limit is not None else ctx.obj.get("limit", cfg.default_limit)
+        json_out = ctx.obj.get("json", False)
         try:
             result = reader.search(
                 query, collection=collection, item_type=item_type, sort=sort, direction=direction, limit=limit
             )
         except ValueError as e:
-            click.echo(f"Error: {e}", err=True)
-            raise SystemExit(1)
+            emit_error("validation_error", str(e), output_json=json_out)
         if not result.items:
-            if ctx.obj.get("json"):
-                click.echo("[]")
+            if json_out:
+                click.echo(format_items([], output_json=True))
             else:
-                click.echo("No results found.")
+                click.echo("No results found.", err=True)
             return
         detail = ctx.obj.get("detail", "standard")
-        click.echo(format_items(result.items, output_json=ctx.obj.get("json", False), detail=detail))
+        click.echo(format_items(result.items, output_json=json_out, detail=detail))
     finally:
         reader.close()

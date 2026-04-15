@@ -31,7 +31,7 @@ class TestDryRun:
         """--dry-run should work even without API credentials."""
         runner = CliRunner()
         result = runner.invoke(main, ["delete", "K1", "--dry-run"])
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         assert "[dry-run]" in result.output
 
     def test_collection_reorganize_dry_run(self, tmp_path):
@@ -141,10 +141,10 @@ class TestOffset:
         result = runner.invoke(
             main,
             ["summarize-all", "--offset", "1"],
-            env={"ZOT_DATA_DIR": str(test_db_path.parent)},
+            env = {"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"},
         )
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.output)["data"]
         assert isinstance(data, list)
 
 
@@ -217,7 +217,7 @@ class TestBatchDelete:
             ["delete", "K1", "K2", "K3", "--yes"],
             env=WRITE_ENV,
         )
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         assert "K1" in result.output
         assert "Not found" in result.output
         assert "K3" in result.output
@@ -271,7 +271,7 @@ class TestBatchTag:
         result = runner.invoke(
             main,
             ["tag", "ATTN001", "BERT002"],
-            env={"ZOT_DATA_DIR": str(test_db_path.parent)},
+            env = {"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"},
         )
         assert result.exit_code == 0
         assert "ATTN001" in result.output
@@ -319,7 +319,7 @@ class TestWriteErrorInCommands:
 
         runner = CliRunner()
         result = runner.invoke(main, ["add", "--doi", "10.1234/test"], env=WRITE_ENV)
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         assert "Bad request" in result.output
 
     @patch("zotero_cli_cc.commands.delete.ZoteroWriter")
@@ -330,7 +330,7 @@ class TestWriteErrorInCommands:
 
         runner = CliRunner()
         result = runner.invoke(main, ["delete", "K1", "--yes"], env=WRITE_ENV)
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         assert "not found" in result.output
 
     @patch("zotero_cli_cc.commands.tag.ZoteroWriter")
@@ -341,7 +341,7 @@ class TestWriteErrorInCommands:
 
         runner = CliRunner()
         result = runner.invoke(main, ["tag", "K1", "--add", "t"], env=WRITE_ENV)
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         assert "not found" in result.output
 
     @patch("zotero_cli_cc.commands.note.ZoteroWriter")
@@ -352,7 +352,7 @@ class TestWriteErrorInCommands:
 
         runner = CliRunner()
         result = runner.invoke(main, ["note", "K1", "--add", "text"], env=WRITE_ENV)
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         assert "timeout" in result.output
 
     @patch("zotero_cli_cc.commands.collection.ZoteroWriter")
@@ -363,5 +363,5 @@ class TestWriteErrorInCommands:
 
         runner = CliRunner()
         result = runner.invoke(main, ["collection", "create", "Test"], env=WRITE_ENV)
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         assert "Network error" in result.output

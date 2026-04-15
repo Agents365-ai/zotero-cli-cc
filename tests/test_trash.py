@@ -19,7 +19,7 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 def _invoke(args: list[str], json_output: bool = False):
     runner = CliRunner()
     base = ["--json"] if json_output else []
-    env = {"ZOT_DATA_DIR": str(FIXTURES_DIR)}
+    env = {"ZOT_DATA_DIR": str(FIXTURES_DIR), "ZOT_FORMAT": "table"}
     return runner.invoke(main, base + args, env=env)
 
 
@@ -90,7 +90,7 @@ class TestTrashCLI:
     def test_trash_list(self):
         result = _invoke(["trash", "list"], json_output=True)
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.output)["data"]
         keys = [i["key"] for i in data]
         assert "TRSH007" in keys
 

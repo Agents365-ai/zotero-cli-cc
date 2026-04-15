@@ -30,7 +30,7 @@ from zotero_cli_cc.core.workspace import (
     workspace_exists,
     workspaces_dir,
 )
-from zotero_cli_cc.formatter import format_error, format_items
+from zotero_cli_cc.formatter import format_error, format_items, print_error
 from zotero_cli_cc.models import Collection, ErrorInfo, Item
 
 
@@ -48,8 +48,7 @@ def workspace_new(ctx: click.Context, name: str, description: str) -> None:
     """Create a new workspace."""
     json_out = ctx.obj.get("json", False)
     if not validate_name(name):
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message=f"Invalid workspace name: '{name}'",
                     context="workspace new",
@@ -57,11 +56,9 @@ def workspace_new(ctx: click.Context, name: str, description: str) -> None:
                 ),
                 output_json=json_out,
             )
-        )
         return
     if workspace_exists(name):
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message=f"Workspace '{name}' already exists",
                     context="workspace new",
@@ -69,7 +66,6 @@ def workspace_new(ctx: click.Context, name: str, description: str) -> None:
                 ),
                 output_json=json_out,
             )
-        )
         return
     ws = Workspace(
         name=name,
@@ -88,8 +84,7 @@ def workspace_delete(ctx: click.Context, name: str, yes: bool) -> None:
     """Delete a workspace."""
     json_out = ctx.obj.get("json", False)
     if not workspace_exists(name):
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message=f"Workspace '{name}' not found",
                     context="workspace delete",
@@ -97,7 +92,6 @@ def workspace_delete(ctx: click.Context, name: str, yes: bool) -> None:
                 ),
                 output_json=json_out,
             )
-        )
         return
     no_interaction = ctx.obj.get("no_interaction", False)
     if not yes and not no_interaction:
@@ -116,8 +110,7 @@ def workspace_add(ctx: click.Context, name: str, keys: tuple[str, ...]) -> None:
     """Add items to a workspace by Zotero key."""
     json_out = ctx.obj.get("json", False)
     if not workspace_exists(name):
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message=f"Workspace '{name}' not found",
                     context="workspace add",
@@ -125,7 +118,6 @@ def workspace_add(ctx: click.Context, name: str, keys: tuple[str, ...]) -> None:
                 ),
                 output_json=json_out,
             )
-        )
         return
 
     cfg = load_config(profile=ctx.obj.get("profile"))
@@ -159,8 +151,7 @@ def workspace_remove(ctx: click.Context, name: str, keys: tuple[str, ...]) -> No
     """Remove items from a workspace by key."""
     json_out = ctx.obj.get("json", False)
     if not workspace_exists(name):
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message=f"Workspace '{name}' not found",
                     context="workspace remove",
@@ -168,7 +159,6 @@ def workspace_remove(ctx: click.Context, name: str, keys: tuple[str, ...]) -> No
                 ),
                 output_json=json_out,
             )
-        )
         return
     ws = load_workspace(name)
     removed = 0
@@ -231,8 +221,7 @@ def workspace_show(ctx: click.Context, name: str) -> None:
     limit = ctx.obj.get("limit", 50)
 
     if not workspace_exists(name):
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message=f"Workspace '{name}' not found",
                     context="workspace show",
@@ -240,7 +229,6 @@ def workspace_show(ctx: click.Context, name: str) -> None:
                 ),
                 output_json=json_out,
             )
-        )
         return
 
     ws = load_workspace(name)
@@ -284,8 +272,7 @@ def workspace_export(ctx: click.Context, name: str, fmt: str) -> None:
     """Export workspace items for external use."""
     json_out = ctx.obj.get("json", False)
     if not workspace_exists(name):
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message=f"Workspace '{name}' not found",
                     context="workspace export",
@@ -293,7 +280,6 @@ def workspace_export(ctx: click.Context, name: str, fmt: str) -> None:
                 ),
                 output_json=json_out,
             )
-        )
         return
 
     ws = load_workspace(name)
@@ -362,8 +348,7 @@ def workspace_import_cmd(
     """Bulk import items into a workspace from collection, tag, or search."""
     json_out = ctx.obj.get("json", False)
     if not workspace_exists(name):
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message=f"Workspace '{name}' not found",
                     context="workspace import",
@@ -371,12 +356,10 @@ def workspace_import_cmd(
                 ),
                 output_json=json_out,
             )
-        )
         return
 
     if not collection and not tag and not search_query:
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message="Must specify at least one of --collection, --tag, or --search",
                     context="workspace import",
@@ -384,7 +367,6 @@ def workspace_import_cmd(
                 ),
                 output_json=json_out,
             )
-        )
         return
 
     cfg = load_config(profile=ctx.obj.get("profile"))
@@ -400,8 +382,7 @@ def workspace_import_cmd(
             # Resolve collection name to key
             col_key = _resolve_collection_key(reader, collection)
             if col_key is None:
-                click.echo(
-                    format_error(
+                print_error(
                         ErrorInfo(
                             message=f"Collection '{collection}' not found",
                             context="workspace import",
@@ -409,7 +390,6 @@ def workspace_import_cmd(
                         ),
                         output_json=json_out,
                     )
-                )
                 return
             items_to_import.extend(reader.get_collection_items(col_key))
 
@@ -460,8 +440,7 @@ def workspace_search(ctx: click.Context, query: str, ws_name: str) -> None:
     limit = ctx.obj.get("limit", 50)
 
     if not workspace_exists(ws_name):
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message=f"Workspace '{ws_name}' not found",
                     context="workspace search",
@@ -469,7 +448,6 @@ def workspace_search(ctx: click.Context, query: str, ws_name: str) -> None:
                 ),
                 output_json=json_out,
             )
-        )
         return
 
     ws = load_workspace(ws_name)
@@ -537,8 +515,7 @@ def workspace_index(ctx: click.Context, name: str, force: bool) -> None:
     """Build RAG index for a workspace."""
     json_out = ctx.obj.get("json", False)
     if not workspace_exists(name):
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message=f"Workspace '{name}' not found",
                     context="workspace index",
@@ -546,7 +523,6 @@ def workspace_index(ctx: click.Context, name: str, force: bool) -> None:
                 ),
                 output_json=json_out,
             )
-        )
         return
 
     ws = load_workspace(name)
@@ -667,8 +643,7 @@ def workspace_query(ctx: click.Context, question: str, ws_name: str, top_k: int,
     """Query workspace papers with natural language."""
     json_out = ctx.obj.get("json", False)
     if not workspace_exists(ws_name):
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message=f"Workspace '{ws_name}' not found",
                     context="workspace query",
@@ -676,13 +651,11 @@ def workspace_query(ctx: click.Context, question: str, ws_name: str, top_k: int,
                 ),
                 output_json=json_out,
             )
-        )
         return
 
     idx_path = workspaces_dir() / f"{ws_name}.idx.sqlite"
     if not idx_path.exists():
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message=f"No index found for workspace '{ws_name}'",
                     context="workspace query",
@@ -690,7 +663,6 @@ def workspace_query(ctx: click.Context, question: str, ws_name: str, top_k: int,
                 ),
                 output_json=json_out,
             )
-        )
         return
 
     idx = RagIndex(idx_path)

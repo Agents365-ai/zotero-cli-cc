@@ -36,13 +36,14 @@ def recent_cmd(ctx: click.Context, days: int, modified: bool, limit: int | None)
         since_str = since.strftime("%Y-%m-%d %H:%M:%S")
 
         items = reader.get_recent_items(since=since_str, sort=sort_field, limit=limit)
+        json_out = ctx.obj.get("json", False)
         if not items:
-            if ctx.obj.get("json"):
-                click.echo("[]")
+            if json_out:
+                click.echo(format_items([], output_json=True))
             else:
-                click.echo(f"No items {'modified' if modified else 'added'} in the last {days} day(s).")
+                click.echo(f"No items {'modified' if modified else 'added'} in the last {days} day(s).", err=True)
             return
         detail = ctx.obj.get("detail", "standard")
-        click.echo(format_items(items, output_json=ctx.obj.get("json", False), detail=detail))
+        click.echo(format_items(items, output_json=json_out, detail=detail))
     finally:
         reader.close()

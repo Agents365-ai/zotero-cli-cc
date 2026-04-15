@@ -11,7 +11,7 @@ def test_note_read(test_db_path):
     result = runner.invoke(
         main,
         ["note", "ATTN001"],
-        env={"ZOT_DATA_DIR": str(test_db_path.parent)},
+        env = {"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"},
     )
     assert result.exit_code == 0
     assert "transformer architecture" in result.output
@@ -22,10 +22,10 @@ def test_note_read_json(test_db_path):
     result = runner.invoke(
         main,
         ["--json", "note", "ATTN001"],
-        env={"ZOT_DATA_DIR": str(test_db_path.parent)},
+        env = {"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"},
     )
     assert result.exit_code == 0
-    data = json.loads(result.output)
+    data = json.loads(result.output)["data"]
     assert len(data) >= 1
 
 
@@ -39,11 +39,11 @@ def test_note_add(mock_writer_cls, test_db_path):
     result = runner.invoke(
         main,
         ["note", "ATTN001", "--add", "New note"],
-        env={
+        env = {
             "ZOT_DATA_DIR": str(test_db_path.parent),
             "ZOT_LIBRARY_ID": "123",
             "ZOT_API_KEY": "abc",
-        },
+        "ZOT_FORMAT": "table", },
     )
     assert result.exit_code == 0
     mock_writer.add_note.assert_called_once()

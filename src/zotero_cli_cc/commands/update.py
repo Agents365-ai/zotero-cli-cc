@@ -7,7 +7,7 @@ import click
 
 from zotero_cli_cc.config import load_config
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
-from zotero_cli_cc.formatter import format_error
+from zotero_cli_cc.formatter import format_error, print_error
 from zotero_cli_cc.models import ErrorInfo
 
 
@@ -38,19 +38,16 @@ def update_cmd(ctx: click.Context, key: str, title: str | None, date: str | None
         fields["date"] = date
     for f in field:
         if "=" not in f:
-            click.echo(
-                format_error(
+            print_error(
                     ErrorInfo(message=f"Invalid field format: '{f}'", context="update", hint="Use key=value format"),
                     output_json=json_out,
                 )
-            )
             return
         k, v = f.split("=", 1)
         fields[k] = v
 
     if not fields:
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message="No fields to update",
                     context="update",
@@ -58,7 +55,6 @@ def update_cmd(ctx: click.Context, key: str, title: str | None, date: str | None
                 ),
                 output_json=json_out,
             )
-        )
         return
 
     library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
@@ -67,8 +63,7 @@ def update_cmd(ctx: click.Context, key: str, title: str | None, date: str | None
     if library_type == "group" and ctx.obj.get("group_id"):
         library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message="Write credentials not configured",
                     context="update",
@@ -76,7 +71,6 @@ def update_cmd(ctx: click.Context, key: str, title: str | None, date: str | None
                 ),
                 output_json=json_out,
             )
-        )
         return
 
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
@@ -88,9 +82,7 @@ def update_cmd(ctx: click.Context, key: str, title: str | None, date: str | None
             click.echo(f"Updated {len(fields)} field(s) for '{key}'.")
             click.echo(SYNC_REMINDER)
     except ZoteroWriteError as e:
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(message=str(e), context="update", hint=f"Failed to update '{key}'"),
                 output_json=json_out,
             )
-        )

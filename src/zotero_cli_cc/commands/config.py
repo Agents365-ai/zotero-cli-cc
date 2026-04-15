@@ -178,20 +178,18 @@ def cache_stats() -> None:
 def profile_set(name: str, config_path: str | None) -> None:
     """Set the default profile."""
     path = Path(config_path) if config_path else CONFIG_FILE
-    from zotero_cli_cc.formatter import format_error
+    from zotero_cli_cc.formatter import format_error, print_error
     from zotero_cli_cc.models import ErrorInfo
 
     profiles = list_profiles(path)
     if name not in profiles:
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message=f"Profile '{name}' not found",
                     context="config",
                     hint=f"Available profiles: {', '.join(profiles)}",
                 )
             )
-        )
         return
     content = path.read_text()
     if "[default]" in content:

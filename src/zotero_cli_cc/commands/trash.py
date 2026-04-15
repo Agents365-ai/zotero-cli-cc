@@ -7,7 +7,7 @@ import click
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
-from zotero_cli_cc.formatter import format_error, format_items
+from zotero_cli_cc.formatter import format_error, format_items, print_error
 from zotero_cli_cc.models import ErrorInfo
 
 
@@ -68,8 +68,7 @@ def trash_restore_cmd(ctx: click.Context, keys: tuple[str, ...]) -> None:
     if library_type == "group" and ctx.obj.get("group_id"):
         library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
-        click.echo(
-            format_error(
+        print_error(
                 ErrorInfo(
                     message="Write credentials not configured",
                     context="trash restore",
@@ -77,7 +76,6 @@ def trash_restore_cmd(ctx: click.Context, keys: tuple[str, ...]) -> None:
                 ),
                 output_json=json_out,
             )
-        )
         return
 
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
@@ -88,11 +86,9 @@ def trash_restore_cmd(ctx: click.Context, keys: tuple[str, ...]) -> None:
             click.echo(f"Restored: {key}")
             any_success = True
         except ZoteroWriteError as e:
-            click.echo(
-                format_error(
+            print_error(
                     ErrorInfo(message=str(e), context="trash restore", hint=f"Failed for key '{key}'"),
                     output_json=json_out,
                 )
-            )
     if any_success:
         click.echo(SYNC_REMINDER)

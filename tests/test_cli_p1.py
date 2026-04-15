@@ -54,7 +54,7 @@ def test_tag_list(test_db_path):
     result = runner.invoke(
         main,
         ["tag", "ATTN001"],
-        env={"ZOT_DATA_DIR": str(test_db_path.parent)},
+        env = {"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"},
     )
     assert result.exit_code == 0
     assert "transformer" in result.output
@@ -65,7 +65,7 @@ def test_collection_list(test_db_path):
     result = runner.invoke(
         main,
         ["collection", "list"],
-        env={"ZOT_DATA_DIR": str(test_db_path.parent)},
+        env = {"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"},
     )
     assert result.exit_code == 0
     assert "Machine Learning" in result.output
