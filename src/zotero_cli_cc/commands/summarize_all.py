@@ -8,6 +8,7 @@ import click
 
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
+from zotero_cli_cc.formatter import emit_progress, envelope_ok
 
 
 @click.command("summarize-all")
@@ -30,9 +31,13 @@ def summarize_all_cmd(ctx: click.Context, offset: int, limit: int | None) -> Non
     library_id = resolve_library_id(db_path, ctx.obj)
     reader = ZoteroReader(db_path, library_id=library_id)
     try:
+        emit_progress("start", phase="summarize_all", offset=offset, limit=limit)
         result = reader.search("", limit=limit, offset=offset)
+        total = len(result.items)
         items = []
-        for item in result.items:
+        for i, item in enumerate(result.items, 1):
+            if total >= 100 and i % max(1, total // 20) == 0:
+                emit_progress("progress", phase="summarize_all", done=i, total=total)
             items.append(
                 {
                     "key": item.key,
@@ -43,6 +48,11 @@ def summarize_all_cmd(ctx: click.Context, offset: int, limit: int | None) -> Non
                     "date": item.date,
                 }
             )
-        click.echo(json.dumps(items, indent=2, ensure_ascii=False))
+        emit_progress("complete", phase="summarize_all", done=total, total=total)
+        json_out = ctx.obj.get("json", False)
+        if json_out:
+            click.echo(json.dumps(envelope_ok(items, meta={"count": total}), indent=2, ensure_ascii=False))
+        else:
+            click.echo(json.dumps(items, indent=2, ensure_ascii=False))
     finally:
         reader.close()

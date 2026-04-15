@@ -5,7 +5,7 @@ import click
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.exit_codes import emit_error
-from zotero_cli_cc.formatter import format_items
+from zotero_cli_cc.formatter import format_items, stream_items
 
 
 @click.command("list")
@@ -28,6 +28,7 @@ from zotero_cli_cc.formatter import format_items
     help="Sort direction (default: desc)",
 )
 @click.option("--limit", default=None, type=int, help="Limit results (overrides global --limit)")
+@click.option("--stream", is_flag=True, help="Emit NDJSON (one item per line) for incremental processing")
 @click.pass_context
 def list_cmd(
     ctx: click.Context,
@@ -36,6 +37,7 @@ def list_cmd(
     sort: str | None,
     direction: str,
     limit: int | None,
+    stream: bool,
 ) -> None:
     """List items in the Zotero library.
 
@@ -64,6 +66,9 @@ def list_cmd(
         except ValueError as e:
             emit_error("validation_error", str(e), output_json=ctx.obj.get("json", False))
         detail = ctx.obj.get("detail", "standard")
+        if stream:
+            click.echo(stream_items(result.items, detail=detail))
+            return
         click.echo(format_items(result.items, output_json=ctx.obj.get("json", False), detail=detail))
     finally:
         reader.close()

@@ -9,7 +9,7 @@ import click
 from zotero_cli_cc.config import load_config
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
 from zotero_cli_cc.exit_codes import emit_error
-from zotero_cli_cc.formatter import envelope_ok, envelope_partial
+from zotero_cli_cc.formatter import emit_progress, envelope_ok, envelope_partial
 
 
 @click.command("add")
@@ -203,12 +203,14 @@ def _add_from_file(file_path: Path, library_id: str, api_key: str, json_out: boo
             context="add",
         )
 
+    emit_progress("start", phase="batch_add", total=len(lines), source=str(file_path))
     if not json_out:
         click.echo(f"Adding {len(lines)} items from {file_path}...", err=True)
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     succeeded: list[dict] = []
     failed: list[dict] = []
     for i, entry in enumerate(lines, 1):
+        emit_progress("progress", phase="batch_add", done=i - 1, total=len(lines))
         is_doi = not entry.startswith("http")
         try:
             if is_doi:
@@ -228,6 +230,8 @@ def _add_from_file(file_path: Path, library_id: str, api_key: str, json_out: boo
             if not json_out:
                 click.echo(f"  [{i}/{len(lines)}] Failed: {entry} ({e})", err=True)
 
+    emit_progress("complete", phase="batch_add", done=len(lines), total=len(lines),
+                  succeeded=len(succeeded), failed=len(failed))
     if json_out:
         env = envelope_partial(succeeded, failed, meta={"total": len(lines), "sync_required": bool(succeeded)})
         if not failed:

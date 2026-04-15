@@ -5,7 +5,7 @@ import click
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.exit_codes import emit_error
-from zotero_cli_cc.formatter import format_items, format_success
+from zotero_cli_cc.formatter import format_items, format_success, stream_items
 
 
 @click.command("search")
@@ -29,6 +29,7 @@ from zotero_cli_cc.formatter import format_items, format_success
     help="Sort direction (default: desc)",
 )
 @click.option("--limit", default=None, type=int, help="Limit results (overrides global --limit)")
+@click.option("--stream", is_flag=True, help="Emit NDJSON (one item per line) for incremental processing")
 @click.pass_context
 def search_cmd(
     ctx: click.Context,
@@ -38,6 +39,7 @@ def search_cmd(
     sort: str | None,
     direction: str,
     limit: int | None,
+    stream: bool,
 ) -> None:
     """Search the Zotero library by title, author, tag, or full text.
 
@@ -66,13 +68,16 @@ def search_cmd(
             )
         except ValueError as e:
             emit_error("validation_error", str(e), output_json=json_out)
+        detail = ctx.obj.get("detail", "standard")
+        if stream:
+            click.echo(stream_items(result.items, detail=detail))
+            return
         if not result.items:
             if json_out:
                 click.echo(format_items([], output_json=True))
             else:
                 click.echo("No results found.", err=True)
             return
-        detail = ctx.obj.get("detail", "standard")
         click.echo(format_items(result.items, output_json=json_out, detail=detail))
     finally:
         reader.close()
