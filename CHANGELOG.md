@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-04-15
+
+Agent-native CLI interface. `zot` now serves humans, AI agents (Claude Code,
+Codex), and orchestrators from a single surface. See `docs/agent-interface.md`
+for the full contract.
+
+### Added
+
+- **Stable JSON envelope** for every command: `{"ok": true, "data": ..., "meta": {...}}` on success, `{"ok": false, "error": {"code", "message", "retryable"}, "meta": {...}}` on failure, `{"ok": "partial", "data": {"succeeded", "failed"}}` for batch operations.
+- **TTY auto-detection**: `--json` is now implicit when stdout is not a TTY. Agents piping `zot` output always get parseable JSON without remembering a flag. Override with `ZOT_FORMAT=json|table|text`.
+- **Typed exit codes**: 0 success, 1 runtime error, 2 auth error, 3 validation error, 4 not-found, 5 network error, 6 conflict. Orchestrators can route failures deterministically.
+- `zot schema [command...]` — machine-readable introspection for the full CLI tree. Each entry carries `name`, `params` (typed), `safety_tier`, `since`, `deprecated`, and nested `subcommands`. Agents can discover every command without a README.
+- **Safety tiers in `--help`**: top-level help groups commands into Read / Write (MUTATES LIBRARY) / Destructive sections. Destructive command help carries a "MUTATES LIBRARY" warning.
+- **`--dry-run`** on all mutating commands: `add`, `update`, `note --add`, `attach`, `delete`, `trash restore`. Preview shape: `{"ok": true, "dry_run": true, "data": {"would": ...}}`.
+- **`--idempotency-key`** on `add`, `update`, `note --add`, `attach`, `delete`. SQLite-backed cache at `$ZOT_CACHE_DIR/idempotency.db` (default `~/.cache/zotero-cli-cc`) with 24h TTL. Retried calls carrying the same key return the original envelope and never duplicate the upstream mutation.
+- **`meta` slot** on every envelope: `request_id` (uuid), `latency_ms`, `schema_version`, `cli_version`. Mutating commands also set `sync_required: true`.
+- **`next` hints** in success envelopes: `add`, `update`, `delete`, `note --add`, `attach` suggest plausible follow-up commands so the agent saves a planning turn.
+- **`retryable` field on every error**: network / 5xx / rate-limit → `retryable: true`; not-found / validation / 4xx → `retryable: false`. `ZoteroWriteError` carries `code`, `retryable`, `retry_after_seconds`.
+- **`--stream` mode** on `search`, `list`, `recent` — emits NDJSON (one item per line) plus a summary line. Agents can process long result sets incrementally.
+- **Structured stderr progress events** for long-running commands (`add --from-file`, `summarize-all`): NDJSON `{event, phase, done, total, elapsed_ms, request_id}` so agents can detect liveness without blocking on the final stdout envelope.
+- **Confirmation-required guard** on destructive commands: `zot delete K1` with non-interactive stdin and no `--yes`/`--dry-run` returns a structured `confirmation_required` error instead of blocking.
+- New `exit_codes.py`, `core/idempotency.py` modules.
+- 43 new tests across `test_agent_interface.py`, `test_agent_p1.py`, `test_agent_p2.py`.
+
+### Changed
+
+- `format_error` / `format_items` / `format_item_detail` / `format_collections` / `format_notes` / `format_duplicates` now wrap JSON output in the envelope. Callers that parsed raw arrays must unwrap via `env["data"]`.
+- Human error messages moved from stdout to stderr via the new `print_error` helper.
+- `ErrorInfo` dataclass gains `code` and `retryable` fields.
+- Top-level CLI group uses a custom `TieredGroup` help renderer.
+
+### Breaking
+
+- JSON output contract: callers parsing bare arrays or dicts must now read from `env["data"]`. Error responses now nest under `env["error"]` with `code` / `message` / `retryable` fields instead of a flat `{"error": "..."}`.
+- Exit codes: previously `1` for all failures; now distinct codes per failure class. Scripts checking for any non-zero exit remain valid.
+
 ## [0.1.6] - 2026-03-24
 
 ### Added

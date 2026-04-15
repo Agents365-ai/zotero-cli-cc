@@ -22,6 +22,7 @@ def _invoke(args: list[str], json_output: bool = False):
         "ZOT_DATA_DIR": str(FIXTURES_DIR),
         "ZOT_LIBRARY_ID": "test_lib",
         "ZOT_API_KEY": "test_key",
+        "ZOT_FORMAT": "table",
     }
     return runner.invoke(main, base + args, env=env)
 
@@ -76,19 +77,19 @@ class TestUpdateCommand:
 
     def test_update_no_fields(self):
         result = _invoke(["update", "ATTN001"])
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         assert "No fields" in result.output
 
     def test_update_no_credentials(self):
         runner = CliRunner()
-        env = {"ZOT_DATA_DIR": str(FIXTURES_DIR), "ZOT_LIBRARY_ID": "", "ZOT_API_KEY": ""}
+        env = {"ZOT_DATA_DIR": str(FIXTURES_DIR), "ZOT_LIBRARY_ID": "", "ZOT_API_KEY": "", "ZOT_FORMAT": "table"}
         result = runner.invoke(main, ["update", "ATTN001", "--title", "X"], env=env)
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         assert "credentials" in result.output.lower() or "config" in result.output.lower()
 
     def test_update_invalid_field_format(self):
         result = _invoke(["update", "ATTN001", "--field", "no_equals_sign"])
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         assert "Invalid" in result.output or "key=value" in result.output
 
     @patch("zotero_cli_cc.commands.update.ZoteroWriter")
@@ -97,7 +98,7 @@ class TestUpdateCommand:
         mock_writer_cls.return_value = mock_writer
         result = _invoke(["update", "ATTN001", "--title", "New"], json_output=True)
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.output)["data"]
         assert data["status"] == "updated"
         assert data["key"] == "ATTN001"
 
@@ -107,7 +108,7 @@ class TestUpdateCommand:
         mock_writer_cls.return_value = mock_writer
         mock_writer.update_item.side_effect = ZoteroWriteError("Item 'X' not found")
         result = _invoke(["update", "X", "--title", "Y"])
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         assert "not found" in result.output
 
 

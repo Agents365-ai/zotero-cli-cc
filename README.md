@@ -23,6 +23,7 @@
 - **Writes**: Safe writes through Zotero Web API — Zotero fully aware of changes
 - **PDF**: Extract full text from local PDF storage with automatic caching
 - **Workspace**: Organize papers by topic with local workspaces + built-in RAG search
+- **Agent-native**: Stable JSON envelope, typed exit codes, `zot schema`, `--dry-run`, `--idempotency-key`, NDJSON streaming — see [`docs/agent-interface.md`](docs/agent-interface.md)
 
 **Search and read papers without launching Zotero desktop.**
 
@@ -32,14 +33,24 @@ In any Claude Code session, use natural language:
 
 ```
 Search my Zotero for single cell papers
-→ Claude runs: zot --json search "single cell"
+→ Claude runs: zot search "single cell"
 
 Show me details of this paper
-→ Claude runs: zot --json read ABC123
+→ Claude runs: zot read ABC123
 
 Export BibTeX for this paper
 → Claude runs: zot export ABC123
 ```
+
+When `zot` detects that stdout is not a TTY (agents, pipelines, subprocess calls) it automatically emits JSON. Humans still see tables. Agents never have to pass `--json`.
+
+Every command response is a stable envelope:
+
+```json
+{ "ok": true, "data": { ... }, "meta": { "request_id": "...", "cli_version": "0.3.0" } }
+```
+
+Errors carry machine-routable `code` and `retryable` fields; exit codes are distinct per failure class (2 auth, 3 validation, 4 not-found, 5 network). Mutating commands support `--dry-run` and `--idempotency-key` so retries are safe. See [`docs/agent-interface.md`](docs/agent-interface.md) for the full contract, or run `zot schema` to introspect the CLI tree programmatically.
 
 Install the zotero-cli skill so Claude Code automatically recognizes literature-related requests:
 

@@ -4,7 +4,8 @@ import click
 
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
-from zotero_cli_cc.formatter import format_items
+from zotero_cli_cc.exit_codes import emit_error
+from zotero_cli_cc.formatter import format_items, stream_items
 
 
 @click.command("search")
@@ -28,6 +29,7 @@ from zotero_cli_cc.formatter import format_items
     help="Sort direction (default: desc)",
 )
 @click.option("--limit", default=None, type=int, help="Limit results (overrides global --limit)")
+@click.option("--stream", is_flag=True, help="Emit NDJSON (one item per line) for incremental processing")
 @click.pass_context
 def search_cmd(
     ctx: click.Context,
@@ -37,6 +39,7 @@ def search_cmd(
     sort: str | None,
     direction: str,
     limit: int | None,
+    stream: bool,
 ) -> None:
     """Search the Zotero library by title, author, tag, or full text.
 
@@ -58,20 +61,23 @@ def search_cmd(
     reader = ZoteroReader(db_path, library_id=library_id)
     try:
         limit = limit if limit is not None else ctx.obj.get("limit", cfg.default_limit)
+        json_out = ctx.obj.get("json", False)
         try:
             result = reader.search(
                 query, collection=collection, item_type=item_type, sort=sort, direction=direction, limit=limit
             )
         except ValueError as e:
-            click.echo(f"Error: {e}", err=True)
-            raise SystemExit(1)
-        if not result.items:
-            if ctx.obj.get("json"):
-                click.echo("[]")
-            else:
-                click.echo("No results found.")
-            return
+            emit_error("validation_error", str(e), output_json=json_out)
         detail = ctx.obj.get("detail", "standard")
-        click.echo(format_items(result.items, output_json=ctx.obj.get("json", False), detail=detail))
+        if stream:
+            click.echo(stream_items(result.items, detail=detail))
+            return
+        if not result.items:
+            if json_out:
+                click.echo(format_items([], output_json=True))
+            else:
+                click.echo("No results found.", err=True)
+            return
+        click.echo(format_items(result.items, output_json=json_out, detail=detail))
     finally:
         reader.close()

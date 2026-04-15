@@ -6,15 +6,16 @@ import click
 
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
-from zotero_cli_cc.formatter import format_items
+from zotero_cli_cc.formatter import format_items, stream_items
 
 
 @click.command("recent")
 @click.option("--days", default=7, type=int, help="Number of days to look back (default: 7)")
 @click.option("--modified", is_flag=True, help="Sort by date modified instead of date added")
 @click.option("--limit", default=None, type=int, help="Limit results (overrides global --limit)")
+@click.option("--stream", is_flag=True, help="Emit NDJSON (one item per line) for incremental processing")
 @click.pass_context
-def recent_cmd(ctx: click.Context, days: int, modified: bool, limit: int | None) -> None:
+def recent_cmd(ctx: click.Context, days: int, modified: bool, limit: int | None, stream: bool) -> None:
     """Show recently added or modified items.
 
     \b
@@ -36,13 +37,17 @@ def recent_cmd(ctx: click.Context, days: int, modified: bool, limit: int | None)
         since_str = since.strftime("%Y-%m-%d %H:%M:%S")
 
         items = reader.get_recent_items(since=since_str, sort=sort_field, limit=limit)
-        if not items:
-            if ctx.obj.get("json"):
-                click.echo("[]")
-            else:
-                click.echo(f"No items {'modified' if modified else 'added'} in the last {days} day(s).")
-            return
+        json_out = ctx.obj.get("json", False)
         detail = ctx.obj.get("detail", "standard")
-        click.echo(format_items(items, output_json=ctx.obj.get("json", False), detail=detail))
+        if stream:
+            click.echo(stream_items(items, detail=detail))
+            return
+        if not items:
+            if json_out:
+                click.echo(format_items([], output_json=True))
+            else:
+                click.echo(f"No items {'modified' if modified else 'added'} in the last {days} day(s).", err=True)
+            return
+        click.echo(format_items(items, output_json=json_out, detail=detail))
     finally:
         reader.close()

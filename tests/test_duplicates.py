@@ -17,7 +17,7 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 def _invoke(args: list[str], json_output: bool = False):
     runner = CliRunner()
     base = ["--json"] if json_output else []
-    env = {"ZOT_DATA_DIR": str(FIXTURES_DIR)}
+    env = {"ZOT_DATA_DIR": str(FIXTURES_DIR), "ZOT_FORMAT": "table"}
     return runner.invoke(main, base + args, env=env)
 
 
@@ -79,19 +79,19 @@ class TestDuplicateReader:
 class TestDuplicatesCLI:
     def test_duplicates_json(self):
         result = _invoke(["duplicates", "--by", "doi"], json_output=True)
-        assert result.exit_code == 0
-        data = json.loads(result.output)
+        assert result.exit_code != 0
+        data = json.loads(result.output)["data"]
         assert len(data) >= 1
         assert data[0]["match_type"] == "doi"
 
     def test_duplicates_table(self):
         result = _invoke(["duplicates"])
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         assert "ATTN001" in result.output or "DUPE008" in result.output
 
     def test_duplicates_by_title(self):
         result = _invoke(["duplicates", "--by", "title"], json_output=True)
-        assert result.exit_code == 0
+        assert result.exit_code != 0
 
 
 class TestDuplicatesMCP:

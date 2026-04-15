@@ -10,7 +10,7 @@ from zotero_cli_cc.cli import main
 def _invoke(args: list[str], test_db_path: Path, json_output: bool = False):
     runner = CliRunner()
     base_args = ["--json"] if json_output else []
-    env = {"ZOT_DATA_DIR": str(test_db_path.parent)}
+    env = {"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"}
     return runner.invoke(main, base_args + args, env=env)
 
 
@@ -23,7 +23,7 @@ class TestSearch:
     def test_search_json(self, test_db_path):
         result = _invoke(["search", "attention"], test_db_path, json_output=True)
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.output)["data"]
         assert any(i["key"] == "ATTN001" for i in data)
 
     def test_search_no_results(self, test_db_path):
@@ -33,13 +33,13 @@ class TestSearch:
 
     def test_search_with_collection(self, test_db_path):
         result = _invoke(["search", "", "--collection", "Transformers"], test_db_path, json_output=True)
-        data = json.loads(result.output)
+        data = json.loads(result.output)["data"]
         assert all(i["key"] == "ATTN001" for i in data)
 
     def test_search_with_command_level_limit(self, test_db_path):
         """--limit after subcommand should work (issue #7)."""
         result = _invoke(["search", "", "--limit", "1"], test_db_path, json_output=True)
-        data = json.loads(result.output)
+        data = json.loads(result.output)["data"]
         assert len(data) == 1
 
     def test_search_collection_not_found(self, test_db_path):
@@ -56,18 +56,18 @@ class TestList:
 
     def test_list_with_collection(self, test_db_path):
         result = _invoke(["list", "--collection", "Machine Learning"], test_db_path, json_output=True)
-        data = json.loads(result.output)
+        data = json.loads(result.output)["data"]
         assert len(data) >= 2
 
     def test_list_with_limit(self, test_db_path):
         result = _invoke(["--limit", "1", "list"], test_db_path, json_output=True)
-        data = json.loads(result.output)
+        data = json.loads(result.output)["data"]
         assert len(data) == 1
 
     def test_list_with_command_level_limit(self, test_db_path):
         """--limit after subcommand should work (issue #7)."""
         result = _invoke(["list", "--limit", "1"], test_db_path, json_output=True)
-        data = json.loads(result.output)
+        data = json.loads(result.output)["data"]
         assert len(data) == 1
 
     def test_list_collection_not_found(self, test_db_path):
@@ -88,13 +88,13 @@ class TestRead:
 
     def test_read_json(self, test_db_path):
         result = _invoke(["read", "ATTN001"], test_db_path, json_output=True)
-        data = json.loads(result.output)
+        data = json.loads(result.output)["data"]
         assert data["title"] == "Attention Is All You Need"
         assert "notes" in data
 
     def test_read_nonexistent(self, test_db_path):
         result = _invoke(["read", "NONEXIST"], test_db_path)
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         assert "not found" in result.output.lower()
 
 
@@ -114,7 +114,7 @@ class TestExport:
     def test_export_json(self, test_db_path):
         result = _invoke(["export", "ATTN001", "--format", "json"], test_db_path)
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.output)["data"]
         assert "title" in data
 
 
@@ -140,7 +140,7 @@ class TestCiteCommand:
 
     def test_cite_not_found(self, test_db_path):
         result = _invoke(["cite", "NONEXIST", "--no-copy"], test_db_path)
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         assert "not found" in result.output
 
     def test_cite_copies_to_clipboard(self, test_db_path):
@@ -161,9 +161,10 @@ class TestAddFromFile:
             "ZOT_DATA_DIR": str(test_db_path.parent),
             "ZOT_LIBRARY_ID": "",
             "ZOT_API_KEY": "",
+            "ZOT_FORMAT": "table",
         }
         result = runner.invoke(main, ["add", "--from-file", str(doi_file)], env=env)
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         assert "credentials not configured" in result.output.lower()
 
     def test_add_from_file_empty(self, test_db_path, tmp_path):
@@ -174,9 +175,10 @@ class TestAddFromFile:
             "ZOT_DATA_DIR": str(test_db_path.parent),
             "ZOT_LIBRARY_ID": "12345",
             "ZOT_API_KEY": "fake-key",
+            "ZOT_FORMAT": "table",
         }
         result = runner.invoke(main, ["add", "--from-file", str(doi_file)], env=env)
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         assert "empty" in result.output.lower()
 
     def test_add_requires_input(self, test_db_path):
@@ -185,7 +187,8 @@ class TestAddFromFile:
             "ZOT_DATA_DIR": str(test_db_path.parent),
             "ZOT_LIBRARY_ID": "12345",
             "ZOT_API_KEY": "fake-key",
+            "ZOT_FORMAT": "table",
         }
         result = runner.invoke(main, ["add"], env=env)
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         assert "--from-file" in result.output

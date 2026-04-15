@@ -27,7 +27,7 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 def _invoke(args: list[str], json_output: bool = False):
     runner = CliRunner()
     base = ["--json"] if json_output else []
-    env = {"ZOT_DATA_DIR": str(FIXTURES_DIR)}
+    env = {"ZOT_DATA_DIR": str(FIXTURES_DIR), "ZOT_FORMAT": "table"}
     return runner.invoke(main, base + args, env=env)
 
 
@@ -182,7 +182,7 @@ class TestWorkspaceCLI:
     def test_new_workspace_invalid_name(self, tmp_path):
         with patch("zotero_cli_cc.core.workspace.workspaces_dir", return_value=tmp_path):
             result = _invoke(["workspace", "new", "Bad Name"])
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         assert "Invalid workspace name" in result.output
 
     def test_new_workspace_duplicate(self, tmp_path):
@@ -208,7 +208,7 @@ class TestWorkspaceCLI:
         with patch("zotero_cli_cc.core.workspace.workspaces_dir", return_value=tmp_path):
             _invoke(["workspace", "new", "ws-json"])
             result = _invoke(["workspace", "list"], json_output=True)
-        data = json.loads(result.output)
+        data = json.loads(result.output)["data"]
         assert len(data) == 1
         assert data[0]["name"] == "ws-json"
 
@@ -274,7 +274,7 @@ class TestWorkspaceCLI:
             _invoke(["workspace", "new", "test-ws"])
             _invoke(["workspace", "add", "test-ws", "ATTN001"])
             result = _invoke(["workspace", "show", "test-ws"], json_output=True)
-        data = json.loads(result.output)
+        data = json.loads(result.output)["data"]
         assert len(data) == 1
         assert data[0]["key"] == "ATTN001"
 
