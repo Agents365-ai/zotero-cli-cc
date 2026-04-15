@@ -5,7 +5,6 @@ import pytest
 
 from zotero_cli_cc.config import AppConfig
 
-
 # Default ZOT_FORMAT for tests.
 # Many existing tests assert `"some text" in result.output`. Under the new
 # contract, human prose goes to stderr while JSON envelopes go to stdout. The

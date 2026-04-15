@@ -141,7 +141,7 @@ class TestOffset:
         result = runner.invoke(
             main,
             ["summarize-all", "--offset", "1"],
-            env = {"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"},
+            env={"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"},
         )
         assert result.exit_code == 0
         data = json.loads(result.output)["data"]
@@ -271,7 +271,7 @@ class TestBatchTag:
         result = runner.invoke(
             main,
             ["tag", "ATTN001", "BERT002"],
-            env = {"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"},
+            env={"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"},
         )
         assert result.exit_code == 0
         assert "ATTN001" in result.output

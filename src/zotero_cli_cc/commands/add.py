@@ -127,7 +127,14 @@ def add_cmd(
     try:
         key = writer.add_item(doi=doi, url=url)
     except ZoteroWriteError as e:
-        emit_error(e.code, str(e), output_json=json_out, retryable=e.retryable, hint="Check API credentials and network", context="add")
+        emit_error(
+            e.code,
+            str(e),
+            output_json=json_out,
+            retryable=e.retryable,
+            hint="Check API credentials and network",
+            context="add",
+        )
     env = envelope_ok(
         {"key": key, "doi": doi, "url": url, "sync_required": True},
         extra={"next": [f"zot read {key}", f"zot attach {key} --file <path>"]},
@@ -185,7 +192,9 @@ def _add_from_pdf(
         if att_key:
             click.echo(f"Attachment uploaded: {att_key}")
             click.echo(SYNC_REMINDER, err=True)
-            click.echo("Note: Zotero API creates bare items. Sync and use Zotero desktop to retrieve full metadata.", err=True)
+            click.echo(
+                "Note: Zotero API creates bare items. Sync and use Zotero desktop to retrieve full metadata.", err=True
+            )
         else:
             click.echo(f"Item created ({key}) but attachment upload failed: {attach_error}", err=True)
             click.echo(f"Retry with: zot attach {key} --file {pdf_path}", err=True)
@@ -230,8 +239,9 @@ def _add_from_file(file_path: Path, library_id: str, api_key: str, json_out: boo
             if not json_out:
                 click.echo(f"  [{i}/{len(lines)}] Failed: {entry} ({e})", err=True)
 
-    emit_progress("complete", phase="batch_add", done=len(lines), total=len(lines),
-                  succeeded=len(succeeded), failed=len(failed))
+    emit_progress(
+        "complete", phase="batch_add", done=len(lines), total=len(lines), succeeded=len(succeeded), failed=len(failed)
+    )
     if json_out:
         env = envelope_partial(succeeded, failed, meta={"total": len(lines), "sync_required": bool(succeeded)})
         if not failed:

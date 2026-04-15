@@ -1,8 +1,8 @@
 """Stable CLI exit codes for orchestrators and agents."""
+
 from __future__ import annotations
 
 import json
-import sys
 from typing import NoReturn
 
 import click

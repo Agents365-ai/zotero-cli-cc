@@ -1,4 +1,5 @@
 """P2 tests: NDJSON streaming, structured stderr progress, schema metadata."""
+
 from __future__ import annotations
 
 import json
@@ -76,8 +77,8 @@ class TestSchemaMetadata:
 
 class TestEmitProgress:
     def test_emit_progress_writes_ndjson_to_stderr(self):
-        from io import StringIO
         import sys
+        from io import StringIO
 
         from zotero_cli_cc.formatter import emit_progress, request_scope
 

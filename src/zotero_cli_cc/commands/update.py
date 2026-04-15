@@ -103,7 +103,14 @@ def update_cmd(
     try:
         writer.update_item(key, fields)
     except ZoteroWriteError as e:
-        emit_error(e.code, str(e), output_json=json_out, retryable=e.retryable, context="update", hint=f"Failed to update '{key}'")
+        emit_error(
+            e.code,
+            str(e),
+            output_json=json_out,
+            retryable=e.retryable,
+            context="update",
+            hint=f"Failed to update '{key}'",
+        )
 
     env = envelope_ok(
         {"key": key, "fields": fields, "sync_required": True},

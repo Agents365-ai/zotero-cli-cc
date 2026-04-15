@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import time
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from zotero_cli_cc.core.version_check import _parse_version, check_for_update
@@ -57,10 +56,12 @@ class TestCheckForUpdate:
     @patch("zotero_cli_cc.core.version_check._CACHE_FILE")
     def test_cache_hit_newer(self, mock_cache_file):
         mock_cache_file.exists.return_value = True
-        mock_cache_file.read_text.return_value = json.dumps({
-            "latest_version": "0.3.0",
-            "checked_at": time.time(),
-        })
+        mock_cache_file.read_text.return_value = json.dumps(
+            {
+                "latest_version": "0.3.0",
+                "checked_at": time.time(),
+            }
+        )
 
         result = check_for_update("0.2.3")
         assert result == "0.3.0"
@@ -68,10 +69,12 @@ class TestCheckForUpdate:
     @patch("zotero_cli_cc.core.version_check._CACHE_FILE")
     def test_cache_hit_same(self, mock_cache_file):
         mock_cache_file.exists.return_value = True
-        mock_cache_file.read_text.return_value = json.dumps({
-            "latest_version": "0.2.3",
-            "checked_at": time.time(),
-        })
+        mock_cache_file.read_text.return_value = json.dumps(
+            {
+                "latest_version": "0.2.3",
+                "checked_at": time.time(),
+            }
+        )
 
         result = check_for_update("0.2.3")
         assert result is None
@@ -79,10 +82,12 @@ class TestCheckForUpdate:
     @patch("zotero_cli_cc.core.version_check._CACHE_FILE")
     def test_cache_expired(self, mock_cache_file):
         mock_cache_file.exists.return_value = True
-        mock_cache_file.read_text.return_value = json.dumps({
-            "latest_version": "0.2.3",
-            "checked_at": time.time() - 100000,  # expired
-        })
+        mock_cache_file.read_text.return_value = json.dumps(
+            {
+                "latest_version": "0.2.3",
+                "checked_at": time.time() - 100000,  # expired
+            }
+        )
         mock_cache_file.parent = MagicMock()
 
         with patch("zotero_cli_cc.core.version_check.urlopen") as mock_urlopen:

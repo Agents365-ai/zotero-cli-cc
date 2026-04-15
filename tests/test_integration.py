@@ -11,7 +11,7 @@ from zotero_cli_cc.cli import main
 def _run(args, test_db_path, json_out=False):
     runner = CliRunner()
     base = ["--json"] if json_out else []
-    return runner.invoke(main, base + args, env = {"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"})
+    return runner.invoke(main, base + args, env={"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"})
 
 
 def test_full_read_workflow(test_db_path):

@@ -99,7 +99,21 @@ def delete_cmd(
         if failed and succeeded:
             env = envelope_partial(succeeded, failed, meta={"sync_required": True})
         elif failed:
-            click.echo(json.dumps({"ok": False, "error": {"code": "api_error", "message": f"{len(failed)} delete(s) failed", "retryable": True, "failed": failed}}, indent=2, ensure_ascii=False))
+            click.echo(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": {
+                            "code": "api_error",
+                            "message": f"{len(failed)} delete(s) failed",
+                            "retryable": True,
+                            "failed": failed,
+                        },
+                    },
+                    indent=2,
+                    ensure_ascii=False,
+                )
+            )
             raise SystemExit(EXIT_RUNTIME)
         else:
             env = envelope_ok(

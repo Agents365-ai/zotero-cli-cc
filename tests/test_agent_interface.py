@@ -1,4 +1,5 @@
 """Tests for the agent-native CLI interface: envelope, TTY detect, exit codes, schema."""
+
 from __future__ import annotations
 
 import json

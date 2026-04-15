@@ -4,10 +4,11 @@ import contextvars
 import json
 import time
 import uuid
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict
 from io import StringIO
-from typing import Any, Iterator
+from typing import Any
 
 from rich.console import Console
 from rich.table import Table
@@ -315,6 +316,8 @@ def print_error(error: str | ErrorInfo, output_json: bool = False) -> None:
     Does not exit. Use zotero_cli_cc.exit_codes.emit_error when you want to exit.
     """
     import sys as _sys
+
+    import click
 
     rendered = format_error(error, output_json=output_json)
     if output_json:

@@ -9,6 +9,7 @@ The cache is keyed by (scope, key). Scope is command-specific
 ("add:doi:10.1/x", "update:ABC123", etc.) so two commands using the same
 user-supplied key don't collide.
 """
+
 from __future__ import annotations
 
 import json

@@ -1,4 +1,5 @@
 """P1 tests: dry-run coverage, idempotency, meta slot, safety tiers, next hints."""
+
 from __future__ import annotations
 
 import json

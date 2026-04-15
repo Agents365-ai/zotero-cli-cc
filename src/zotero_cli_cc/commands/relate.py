@@ -4,7 +4,7 @@ import click
 
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
-from zotero_cli_cc.formatter import format_error, format_items, print_error
+from zotero_cli_cc.formatter import format_items, print_error
 from zotero_cli_cc.models import ErrorInfo
 
 
@@ -31,13 +31,13 @@ def relate_cmd(ctx: click.Context, key: str, limit: int | None) -> None:
         items = reader.get_related_items(key, limit=limit)
         if not items:
             print_error(
-                    ErrorInfo(
-                        message=f"No related items found for '{key}'",
-                        context="relate",
-                        hint="Items need shared tags or collections to find relations",
-                    ),
-                    output_json=json_out,
-                )
+                ErrorInfo(
+                    message=f"No related items found for '{key}'",
+                    context="relate",
+                    hint="Items need shared tags or collections to find relations",
+                ),
+                output_json=json_out,
+            )
             return
         detail = ctx.obj.get("detail", "standard")
         click.echo(format_items(items, output_json=json_out, detail=detail))

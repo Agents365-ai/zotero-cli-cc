@@ -34,15 +34,32 @@ from zotero_cli_cc.commands.update import update_cmd
 from zotero_cli_cc.commands.update_status import update_status_cmd
 from zotero_cli_cc.commands.workspace import workspace_group
 
-
 # Safety tiers: classifies each command so `zot --help` groups them by risk.
 # Agents browsing help see read commands first; mutating and destructive
 # commands appear under separate headers so they are not accidentally
 # invoked from a generic-looking list.
 _READ_COMMANDS = {
-    "search", "list", "read", "export", "recent", "stats", "open", "cite",
-    "pdf", "relate", "summarize", "summarize-all", "duplicates", "collection",
-    "tag", "config", "completions", "mcp", "workspace", "schema", "trash",
+    "search",
+    "list",
+    "read",
+    "export",
+    "recent",
+    "stats",
+    "open",
+    "cite",
+    "pdf",
+    "relate",
+    "summarize",
+    "summarize-all",
+    "duplicates",
+    "collection",
+    "tag",
+    "config",
+    "completions",
+    "mcp",
+    "workspace",
+    "schema",
+    "trash",
 }
 _WRITE_COMMANDS = {"add", "update", "note", "attach"}
 _DESTRUCTIVE_COMMANDS = {"delete", "update-status"}
@@ -174,8 +191,7 @@ def _after_command(ctx: click.Context, *_args: object, **_kwargs: object) -> Non
     if latest:
         click.echo(
             click.style(
-                f"\n Update available: v{__version__} → v{latest}. "
-                f"Run: uv tool upgrade zotero-cli-cc",
+                f"\n Update available: v{__version__} → v{latest}. Run: uv tool upgrade zotero-cli-cc",
                 fg="yellow",
             ),
             err=True,

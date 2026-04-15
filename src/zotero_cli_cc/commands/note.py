@@ -76,7 +76,14 @@ def note_cmd(
         try:
             note_key = writer.add_note(key, content)
         except ZoteroWriteError as e:
-            emit_error(e.code, str(e), output_json=json_out, retryable=e.retryable, hint="Check item key and API credentials", context="note")
+            emit_error(
+                e.code,
+                str(e),
+                output_json=json_out,
+                retryable=e.retryable,
+                hint="Check item key and API credentials",
+                context="note",
+            )
 
         env = envelope_ok(
             {"note_key": note_key, "parent_key": key, "sync_required": True},

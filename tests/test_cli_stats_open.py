@@ -14,7 +14,7 @@ from zotero_cli_cc.cli import main
 class TestStatsCmd:
     def test_stats_human(self, test_db_path: Path):
         runner = CliRunner()
-        result = runner.invoke(main, ["stats"], env = {"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"})
+        result = runner.invoke(main, ["stats"], env={"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"})
         assert result.exit_code == 0
         assert "Total items:" in result.output
         assert "Items by type:" in result.output
@@ -23,7 +23,9 @@ class TestStatsCmd:
 
     def test_stats_json(self, test_db_path: Path):
         runner = CliRunner()
-        result = runner.invoke(main, ["--json", "stats"], env = {"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"})
+        result = runner.invoke(
+            main, ["--json", "stats"], env={"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"}
+        )
         assert result.exit_code == 0
         data = json.loads(result.output)["data"]
         assert "total_items" in data
@@ -38,20 +40,26 @@ class TestStatsCmd:
 class TestOpenCmd:
     def test_open_nonexistent_item(self, test_db_path: Path):
         runner = CliRunner()
-        result = runner.invoke(main, ["open", "NONEXIST"], env = {"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"})
+        result = runner.invoke(
+            main, ["open", "NONEXIST"], env={"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"}
+        )
         assert result.exit_code != 0
         assert "not found" in result.output
 
     def test_open_no_pdf(self, test_db_path: Path):
         runner = CliRunner()
-        result = runner.invoke(main, ["open", "DEEP003"], env = {"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"})
+        result = runner.invoke(
+            main, ["open", "DEEP003"], env={"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"}
+        )
         assert result.exit_code != 0
         assert "No PDF" in result.output
 
     @patch("zotero_cli_cc.commands.open_cmd._open_path")
     def test_open_url(self, mock_open, test_db_path: Path):
         runner = CliRunner()
-        result = runner.invoke(main, ["open", "--url", "ATTN001"], env = {"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"})
+        result = runner.invoke(
+            main, ["open", "--url", "ATTN001"], env={"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"}
+        )
         assert result.exit_code == 0
         assert "Opening" in result.output
         mock_open.assert_called_once()
@@ -59,7 +67,9 @@ class TestOpenCmd:
     def test_open_url_no_url(self, test_db_path: Path):
         runner = CliRunner()
         # DEEP003 is a book, might not have URL - test the error path
-        result = runner.invoke(main, ["open", "--url", "DEEP003"], env = {"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"})
+        result = runner.invoke(
+            main, ["open", "--url", "DEEP003"], env={"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"}
+        )
         assert result.exit_code != 0
 
 

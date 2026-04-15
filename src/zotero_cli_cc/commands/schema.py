@@ -2,10 +2,10 @@
 
 Derived from the Click command tree so the schema cannot drift from the actual CLI.
 """
+
 from __future__ import annotations
 
 import json
-import sys
 from typing import Any
 
 import click
@@ -65,9 +65,13 @@ def _param_to_dict(param: click.Parameter) -> dict:
 
 _SAFETY_TIER: dict[str, str] = {
     # write
-    "add": "write", "update": "write", "note": "write", "attach": "write",
+    "add": "write",
+    "update": "write",
+    "note": "write",
+    "attach": "write",
     # destructive
-    "delete": "destructive", "update-status": "destructive",
+    "delete": "destructive",
+    "update-status": "destructive",
 }
 
 
@@ -115,7 +119,6 @@ def schema_cmd(ctx: click.Context, command_path: tuple[str, ...]) -> None:
       zot schema collection add     # nested subcommand
     """
     root = ctx.find_root().command
-    json_out = True  # schema is always JSON
 
     if command_path:
         joined = " ".join(command_path)

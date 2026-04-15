@@ -889,9 +889,7 @@ def _handle_workspace_index(name: str, force: bool = False, library: str = "user
         idx.close()
 
 
-def _handle_workspace_query(
-    name: str, question: str, top_k: int = 5, mode: str = "auto"
-) -> dict:
+def _handle_workspace_query(name: str, question: str, top_k: int = 5, mode: str = "auto") -> dict:
     from zotero_cli_cc.core.rag import (
         bm25_score_chunks,
         embed_texts,
@@ -1004,8 +1002,6 @@ def _handle_update_status(
     from zotero_cli_cc.core.semantic_scholar import SemanticScholarClient, extract_preprint_info
 
     cfg = load_config()
-    data_dir = get_data_dir(cfg)
-    db_path = data_dir / "zotero.sqlite"
     reader = _get_reader(library)
 
     if key:
@@ -1046,21 +1042,25 @@ def _handle_update_status(
             status = client.check_publication(info)
             if status and status.is_published:
                 published_count += 1
-                results.append({
-                    "key": item_key,
-                    "title": title,
-                    "published": True,
-                    "venue": status.venue,
-                    "journal": status.journal_name,
-                    "doi": status.doi,
-                    "date": status.publication_date,
-                })
+                results.append(
+                    {
+                        "key": item_key,
+                        "title": title,
+                        "published": True,
+                        "venue": status.venue,
+                        "journal": status.journal_name,
+                        "doi": status.doi,
+                        "date": status.publication_date,
+                    }
+                )
             else:
-                results.append({
-                    "key": item_key,
-                    "title": title,
-                    "published": False,
-                })
+                results.append(
+                    {
+                        "key": item_key,
+                        "title": title,
+                        "published": False,
+                    }
+                )
     finally:
         client.close()
 
@@ -1068,8 +1068,12 @@ def _handle_update_status(
         try:
             writer = _get_writer(library)
         except ValueError:
-            return {"results": results, "published": published_count, "checked": len(preprint_items),
-                    "error": "Write credentials not configured. Cannot apply updates."}
+            return {
+                "results": results,
+                "published": published_count,
+                "checked": len(preprint_items),
+                "error": "Write credentials not configured. Cannot apply updates.",
+            }
         updated = 0
         for r in results:
             if not r["published"]:

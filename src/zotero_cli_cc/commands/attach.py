@@ -77,7 +77,14 @@ def attach_cmd(
     try:
         att_key = writer.upload_attachment(key, fp)
     except ZoteroWriteError as e:
-        emit_error(e.code, str(e), output_json=json_out, retryable=e.retryable, hint="Check the item key and file path", context="attach")
+        emit_error(
+            e.code,
+            str(e),
+            output_json=json_out,
+            retryable=e.retryable,
+            hint="Check the item key and file path",
+            context="attach",
+        )
 
     env = envelope_ok(
         {"attachment_key": att_key, "parent_key": key, "file": str(fp), "sync_required": True},

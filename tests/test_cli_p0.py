@@ -161,7 +161,8 @@ class TestAddFromFile:
             "ZOT_DATA_DIR": str(test_db_path.parent),
             "ZOT_LIBRARY_ID": "",
             "ZOT_API_KEY": "",
-        "ZOT_FORMAT": "table", }
+            "ZOT_FORMAT": "table",
+        }
         result = runner.invoke(main, ["add", "--from-file", str(doi_file)], env=env)
         assert result.exit_code != 0
         assert "credentials not configured" in result.output.lower()
@@ -174,7 +175,8 @@ class TestAddFromFile:
             "ZOT_DATA_DIR": str(test_db_path.parent),
             "ZOT_LIBRARY_ID": "12345",
             "ZOT_API_KEY": "fake-key",
-        "ZOT_FORMAT": "table", }
+            "ZOT_FORMAT": "table",
+        }
         result = runner.invoke(main, ["add", "--from-file", str(doi_file)], env=env)
         assert result.exit_code != 0
         assert "empty" in result.output.lower()
@@ -185,7 +187,8 @@ class TestAddFromFile:
             "ZOT_DATA_DIR": str(test_db_path.parent),
             "ZOT_LIBRARY_ID": "12345",
             "ZOT_API_KEY": "fake-key",
-        "ZOT_FORMAT": "table", }
+            "ZOT_FORMAT": "table",
+        }
         result = runner.invoke(main, ["add"], env=env)
         assert result.exit_code != 0
         assert "--from-file" in result.output

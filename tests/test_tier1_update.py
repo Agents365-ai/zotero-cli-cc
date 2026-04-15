@@ -22,7 +22,8 @@ def _invoke(args: list[str], json_output: bool = False):
         "ZOT_DATA_DIR": str(FIXTURES_DIR),
         "ZOT_LIBRARY_ID": "test_lib",
         "ZOT_API_KEY": "test_key",
-    "ZOT_FORMAT": "table", }
+        "ZOT_FORMAT": "table",
+    }
     return runner.invoke(main, base + args, env=env)
 
 

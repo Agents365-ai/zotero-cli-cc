@@ -5,7 +5,7 @@ import click
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.exit_codes import emit_error
-from zotero_cli_cc.formatter import format_items, format_success, stream_items
+from zotero_cli_cc.formatter import format_items, stream_items
 
 
 @click.command("search")

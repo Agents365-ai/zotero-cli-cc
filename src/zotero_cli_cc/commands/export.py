@@ -6,7 +6,7 @@ import click
 
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
-from zotero_cli_cc.formatter import format_error, print_error
+from zotero_cli_cc.formatter import print_error
 from zotero_cli_cc.models import ErrorInfo
 
 
@@ -37,13 +37,13 @@ def export_cmd(ctx: click.Context, key: str, fmt: str) -> None:
             item = reader.get_item(key)
             if item is None:
                 print_error(
-                        ErrorInfo(
-                            message=f"Item '{key}' not found",
-                            context="export",
-                            hint="Run 'zot search' to find valid item keys",
-                        ),
-                        output_json=json_out,
-                    )
+                    ErrorInfo(
+                        message=f"Item '{key}' not found",
+                        context="export",
+                        hint="Run 'zot search' to find valid item keys",
+                    ),
+                    output_json=json_out,
+                )
                 return
             from dataclasses import asdict
 
@@ -52,13 +52,13 @@ def export_cmd(ctx: click.Context, key: str, fmt: str) -> None:
             result = reader.export_citation(key, fmt=fmt)
             if result is None:
                 print_error(
-                        ErrorInfo(
-                            message=f"Item '{key}' not found",
-                            context="export",
-                            hint="Run 'zot search' to find valid item keys",
-                        ),
-                        output_json=json_out,
-                    )
+                    ErrorInfo(
+                        message=f"Item '{key}' not found",
+                        context="export",
+                        hint="Run 'zot search' to find valid item keys",
+                    ),
+                    output_json=json_out,
+                )
                 return
             click.echo(result)
     finally:
