@@ -94,15 +94,16 @@ def _command_to_dict(cmd: click.Command, path: list[str]) -> dict:
     return data
 
 
-def _resolve_command(root: click.Group, target: str) -> click.Command | None:
+def _resolve_command(root: click.Command, target: str) -> click.Command | None:
     parts = target.replace(".", " ").split()
     current: click.Command = root
     for part in parts:
         if not isinstance(current, click.Group):
             return None
-        current = current.commands.get(part)
-        if current is None:
+        nxt = current.commands.get(part)
+        if nxt is None:
             return None
+        current = nxt
     return current
 
 

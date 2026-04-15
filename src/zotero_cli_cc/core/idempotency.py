@@ -53,9 +53,10 @@ def get_cached(scope: str, key: str) -> dict | None:
     if now - created_at > TTL_SECONDS:
         return None
     try:
-        return json.loads(value_json)
+        loaded = json.loads(value_json)
     except json.JSONDecodeError:
         return None
+    return loaded if isinstance(loaded, dict) else None
 
 
 def store_cached(scope: str, key: str, envelope: dict) -> None:
