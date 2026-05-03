@@ -170,13 +170,17 @@ def chunk_text(text: str, paper_title: str, max_tokens: int = 500, overlap: int 
     return chunks if chunks else [f"[{paper_title}] {text.strip()}"]
 
 
-def convert_pdf_to_text(pdf_path: Path, extractor_name: str = "pymupdf") -> str:
+def convert_pdf_to_text(
+    pdf_path: Path,
+    extractor_name: str = "pymupdf",
+    progress_callback: Callable[[str, int, int, int], None] | None = None,
+) -> str:
     cache = PdfCache()
     cached = cache.get(pdf_path, extractor_name)
     if cached is not None:
         return cached
     extractor = get_extractor(extractor_name)
-    text = extractor.extract_text(pdf_path)
+    text = extractor.extract_text(pdf_path, progress_callback=progress_callback)  # type: ignore[reportCallIssue]
     cache.put(pdf_path, extractor_name, text)
     return text
 
@@ -215,7 +219,7 @@ def convert_pdfs_to_text(
         if progress_callback:
             progress_callback("extract", idx, total, 0)
         try:
-            text = convert_pdf_to_text(pdf_path, "pymupdf")
+            text = convert_pdf_to_text(pdf_path, extractor_name, progress_callback)
             results[pdf_path] = text
         except Exception as e:
             results[pdf_path] = e
