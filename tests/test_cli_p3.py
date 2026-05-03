@@ -66,17 +66,31 @@ def test_profile_flag():
     assert result.exit_code == 0
 
 
-def test_cache_clear_command():
-    runner = CliRunner()
-    result = runner.invoke(main, ["config", "cache", "clear"])
-    assert result.exit_code == 0
+def test_cache_clear_command(tmp_path):
+    from zotero_cli_cc.core import pdf_cache as pdf_cache_module
+
+    old_default = pdf_cache_module.DEFAULT_CACHE_PATH
+    try:
+        pdf_cache_module.DEFAULT_CACHE_PATH = tmp_path / "pdf_cache.sqlite"
+        runner = CliRunner()
+        result = runner.invoke(main, ["config", "cache", "clear"])
+        assert result.exit_code == 0
+    finally:
+        pdf_cache_module.DEFAULT_CACHE_PATH = old_default
 
 
-def test_cache_stats_command():
-    runner = CliRunner()
-    result = runner.invoke(main, ["config", "cache", "stats"])
-    assert result.exit_code == 0
-    assert "Cached PDFs" in result.output
+def test_cache_stats_command(tmp_path):
+    from zotero_cli_cc.core import pdf_cache as pdf_cache_module
+
+    old_default = pdf_cache_module.DEFAULT_CACHE_PATH
+    try:
+        pdf_cache_module.DEFAULT_CACHE_PATH = tmp_path / "pdf_cache.sqlite"
+        runner = CliRunner()
+        result = runner.invoke(main, ["config", "cache", "stats"])
+        assert result.exit_code == 0
+        assert "Cached PDFs" in result.output
+    finally:
+        pdf_cache_module.DEFAULT_CACHE_PATH = old_default
 
 
 def test_profile_list_no_profiles():

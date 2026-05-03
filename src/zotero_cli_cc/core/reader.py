@@ -28,7 +28,7 @@ MAX_SCHEMA_VERSION = 200
 
 
 class ZoteroReader:
-    def __init__(self, db_path: Path, library_id: int = 1) -> None:
+    def __init__(self, db_path: Path, library_id: int = 1, prefs_js_path: Path | None = None) -> None:
         self._db_path = db_path
         self._library_id = library_id
         self._conn: sqlite3.Connection | None = None
@@ -36,6 +36,8 @@ class ZoteroReader:
         self._excluded_sql: str | None = None
         self._excluded_ids: tuple[int, ...] | None = None
         self._tmp_dir_obj: tempfile.TemporaryDirectory[str] | None = None
+        from zotero_cli_cc.core.attachment_resolver import AttachmentResolver
+        self._resolver = AttachmentResolver(db_path, prefs_js_path)
 
     def _connect(self) -> sqlite3.Connection:
         if self._conn is not None:
@@ -574,14 +576,21 @@ class ZoteroReader:
         attachments = []
         for r in rows:
             raw_path = r["path"] or ""
-            filename = raw_path.replace("storage:", "") if raw_path.startswith("storage:") else raw_path
+            resolved = self._resolver.resolve(r["key"], raw_path)
+            if resolved:
+                filename = resolved.name
+            elif raw_path.startswith("storage:"):
+                parts = raw_path.replace("storage:", "").split("/")
+                filename = parts[-1] if parts else ""
+            else:
+                filename = raw_path.split("/")[-1] if raw_path else ""
             attachments.append(
                 Attachment(
                     key=r["key"],
                     parent_key=key,
                     filename=filename,
                     content_type=r["contentType"] or "",
-                    path=None,
+                    path=resolved,
                 )
             )
         return attachments
