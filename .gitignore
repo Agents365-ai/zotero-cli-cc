@@ -12,3 +12,6 @@ site/
 docs/superpowers/
 docs/gap-analysis.md
 logs/
+.vscode/
+my-docs/
+.sisyphus/
