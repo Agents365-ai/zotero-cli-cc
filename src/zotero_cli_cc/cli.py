@@ -108,6 +108,13 @@ class TieredGroup(click.Group):
     default=None,
     help="Output as JSON (auto-enabled when stdout is not a TTY)",
 )
+@click.option(
+    "--no-json",
+    "output_no_json",
+    is_flag=True,
+    default=False,
+    help="Force human-readable output even when stdout is not a TTY",
+)
 @click.option("--limit", default=50, help="Limit results")
 @click.option(
     "--detail", type=click.Choice(["minimal", "standard", "full"]), default="standard", help="Output detail level"
@@ -120,6 +127,7 @@ class TieredGroup(click.Group):
 def main(
     ctx: click.Context,
     output_json: bool | None,
+    output_no_json: bool,
     limit: int,
     detail: str,
     no_interaction: bool,
@@ -144,8 +152,11 @@ def main(
     ctx.call_on_close(lambda: scope.__exit__(None, None, None))
     ctx.ensure_object(dict)
     ctx.obj["request_id"] = rid
+    # Mutual exclusion check: --json and --no-json cannot be used together
+    if output_json is not None and output_no_json:
+        raise click.BadParameter("Cannot use both --json and --no-json")
     # TTY auto-detect: when stdout is redirected/piped, default to JSON so agents
-    # never have to remember --json. Explicit --json or ZOT_FORMAT env var override.
+    # never have to remember --json. Explicit --json, --no-json, or ZOT_FORMAT env var override.
     if output_json is None:
         env_fmt = os.environ.get("ZOT_FORMAT", "").lower()
         if env_fmt == "json":
@@ -154,6 +165,9 @@ def main(
             output_json = False
         else:
             output_json = not sys.stdout.isatty()
+    # --no-json forces human-readable output regardless of auto-detect
+    if output_no_json:
+        output_json = False
     ctx.obj["json"] = output_json
     ctx.obj["limit"] = limit
     ctx.obj["detail"] = detail
@@ -225,3 +239,8 @@ main.add_command(attach_cmd, "attach")
 main.add_command(update_status_cmd, "update-status")
 main.add_command(workspace_group, "workspace")
 main.add_command(schema_cmd, "schema")
+
+
+if __name__ == "__main__":
+    main()
+
