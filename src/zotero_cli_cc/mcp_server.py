@@ -9,7 +9,7 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from zotero_cli_cc.config import get_data_dir, get_prefs_js_path, load_config, load_embedding_config
+from zotero_cli_cc.config import get_data_dir, get_prefs_js_path, load_config, load_embedding_config, load_pdf_config
 from zotero_cli_cc.core.pdf_cache import PdfCache
 from zotero_cli_cc.core.pdf_extractor import PdfExtractionError, extract_text_from_pdf
 from zotero_cli_cc.core.reader import ZoteroReader
@@ -187,15 +187,17 @@ def _handle_pdf(key: str, pages: str | None, library: str = "user") -> dict:
         end = int(parts[1]) if len(parts) > 1 else start
         page_range = (start, end)
 
+    extractor_name = load_pdf_config().extractor
+
     cache = PdfCache()
     try:
         if page_range is None:
-            cached = cache.get(pdf_path)
+            cached = cache.get(pdf_path, extractor_name)
             if cached is not None:
                 text = cached
             else:
                 text = extract_text_from_pdf(pdf_path)
-                cache.put(pdf_path, text)
+                cache.put(pdf_path, extractor_name, text)
         else:
             text = extract_text_from_pdf(pdf_path, pages=page_range)
     except PdfExtractionError as e:
