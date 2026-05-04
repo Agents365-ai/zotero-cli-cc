@@ -14,34 +14,41 @@ class PdfCache:
         self._conn = sqlite3.connect(str(self._db_path))
         self._conn.execute(
             "CREATE TABLE IF NOT EXISTS pdf_cache ("
-            "  pdf_path TEXT PRIMARY KEY,"
+            "  pdf_path TEXT NOT NULL,"
+            "  extractor TEXT NOT NULL DEFAULT '',"
             "  mtime REAL NOT NULL,"
             "  content TEXT NOT NULL,"
-            "  extracted_at TEXT NOT NULL"
+            "  extracted_at TEXT NOT NULL,"
+            "  PRIMARY KEY (pdf_path, extractor)"
             ")"
         )
         self._conn.commit()
 
-    def get(self, pdf_path: Path) -> str | None:
+    def get(self, pdf_path: Path, extractor_name: str = "") -> str | None:
         if not pdf_path.exists():
             return None
         current_mtime = pdf_path.stat().st_mtime
         row = self._conn.execute(
-            "SELECT content, mtime FROM pdf_cache WHERE pdf_path = ?",
-            (str(pdf_path),),
+            "SELECT content, mtime FROM pdf_cache WHERE pdf_path = ? AND extractor = ?",
+            (str(pdf_path), extractor_name),
         ).fetchone()
         if row is None:
             return None
         if abs(row[1] - current_mtime) > 0.001:
-            return None  # stale
+            return None
         return str(row[0])
 
-    def put(self, pdf_path: Path, content: str) -> None:
+    def put(self, pdf_path: Path, extractor_name_or_content: str, content: str | None = None) -> None:
+        if content is None:
+            content = extractor_name_or_content
+            extractor_name = ""
+        else:
+            extractor_name = extractor_name_or_content
         mtime = pdf_path.stat().st_mtime
         now = datetime.now(timezone.utc).isoformat()
         self._conn.execute(
-            "INSERT OR REPLACE INTO pdf_cache (pdf_path, mtime, content, extracted_at) VALUES (?, ?, ?, ?)",
-            (str(pdf_path), mtime, content, now),
+            "INSERT OR REPLACE INTO pdf_cache (pdf_path, extractor, mtime, content, extracted_at) VALUES (?, ?, ?, ?, ?)",
+            (str(pdf_path), extractor_name, mtime, content, now),
         )
         self._conn.commit()
 
@@ -55,3 +62,6 @@ class PdfCache:
 
     def close(self) -> None:
         self._conn.close()
+
+
+UnifiedPdfCache = PdfCache

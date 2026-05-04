@@ -5,7 +5,7 @@ import sys
 
 import click
 
-from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
+from zotero_cli_cc.config import get_data_dir, get_prefs_js_path, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.exit_codes import emit_error
 
@@ -36,7 +36,7 @@ def open_cmd(ctx: click.Context, key: str, open_url: bool) -> None:
     data_dir = get_data_dir(cfg)
     db_path = data_dir / "zotero.sqlite"
     library_id = resolve_library_id(db_path, ctx.obj)
-    reader = ZoteroReader(db_path, library_id=library_id)
+    reader = ZoteroReader(db_path, library_id=library_id, prefs_js_path=get_prefs_js_path(cfg))
     json_out = ctx.obj.get("json", False)
     try:
         item = reader.get_item(key)
@@ -74,11 +74,11 @@ def open_cmd(ctx: click.Context, key: str, open_url: bool) -> None:
                 hint="Use --url to open the item URL instead",
                 context="open",
             )
-        pdf_path = data_dir / "storage" / att.key / att.filename
-        if not pdf_path.exists():
+        pdf_path = att.path
+        if not pdf_path or not pdf_path.exists():
             emit_error(
                 "not_found",
-                f"PDF file not found at {pdf_path}",
+                f"PDF file not found at {pdf_path or att.filename}",
                 output_json=json_out,
                 context="open",
             )
