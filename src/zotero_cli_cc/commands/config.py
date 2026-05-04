@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
@@ -15,6 +14,7 @@ from zotero_cli_cc.config import (
     load_config,
     save_config,
 )
+from zotero_cli_cc.formatter import format_cache_list
 
 
 @click.group("config")
@@ -185,56 +185,12 @@ def cache_list(ctx: click.Context) -> None:
 
     try:
         cache = PdfCache()
-    except (sqlite3.OperationalError, OSError) as e:
-        click.echo(f"Error: Could not open cache database: {e}", err=True)
-        raise SystemExit(1)
-    try:
         rows = cache._conn.execute(
             "SELECT pdf_path, extractor, LENGTH(content), content, extracted_at FROM pdf_cache ORDER BY pdf_path"
         ).fetchall()
-
-        if not rows:
-            click.echo("Cache is empty.")
-            return
-
-        if json_out:
-            data = [
-                {
-                    "pdf_basename": row[0],
-                    "extractor": row[1],
-                    "text_length": row[2],
-                    "preview": row[3][:100],
-                    "extracted_at": row[4],
-                }
-                for row in rows
-            ]
-            click.echo(json.dumps(data, indent=2, ensure_ascii=False))
-            return
-
-        from io import StringIO
-
-        from rich.console import Console
-        from rich.table import Table
-
-        buf = StringIO()
-        console = Console(file=buf, force_terminal=False, width=120)
-        table = Table(show_header=True, header_style="bold")
-        table.add_column("PDF Path", style="cyan", width=30)
-        table.add_column("Extractor", width=10)
-        table.add_column("Length", justify="right", width=10)
-        table.add_column("Preview", width=50)
-        table.add_column("Time", width=20)
-
-        for row in rows:
-            pdf_path, extractor, length, content, extracted_at = row
-            preview = content[:100] + "..." if len(content) > 100 else content
-            preview = preview.replace("\n", " ").replace("\r", " ")
-            table.add_row(Path(pdf_path).name, extractor, f"{length:,}", preview, extracted_at[:19])
-        console.print(table)
-        click.echo(buf.getvalue().rstrip())
-
+        click.echo(format_cache_list(rows, output_json=json_out))
     except sqlite3.OperationalError as e:
-        click.echo(f"Error: Could not query cache database: {e}", err=True)
+        click.echo(f"Error: Could not access cache database: {e}", err=True)
         raise SystemExit(1)
     finally:
         cache.close()
