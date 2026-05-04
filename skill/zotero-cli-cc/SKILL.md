@@ -1,7 +1,7 @@
 ---
 name: zotero-cli
-description: "Use when user mentions papers, references, citations, Zotero, literature, bibliography, workspaces, or needs to search/read/export academic papers. Uses zot CLI for all operations including workspace-based RAG."
-version: 0.5.1
+description: "Use when user mentions papers, references, citations, Zotero, literature, bibliography, workspaces, or needs to search/read/export documents in zotero. Uses zot CLI for all operations including workspace-based RAG."
+version: 0.5.2
 ---
 
 # Zotero CLI Skill for Claude Code
@@ -27,6 +27,8 @@ version: 0.5.1
 | Recently added items | `zot --json recent --days 7` | Local SQLite |
 | Trash management | `zot --json trash list` | Local SQLite |
 | PDF full text extraction | `zot --json pdf KEY` | Local file access |
+| PDF outline extraction | `zot --json pdf --outline KEY` | Local file access + section parsing |
+| PDF section extraction | `zot --json pdf --section SECID KEY` | Local file access + section parsing |
 | Library stats | `zot --json stats` | Local aggregation |
 | Open PDF/URL | `zot open KEY` or `zot open --url KEY` | System open |
 | Group library access | `zot --library group:123 search "query"` | All commands |
@@ -100,15 +102,6 @@ zot collection rename COLLECTIONKEY "New Name"
 zot collection delete COLLECTIONKEY
 ```
 
-### Preprint Status Check
-
-```bash
-zot update-status                          # Check all arXiv/bioRxiv preprints (dry-run)
-zot update-status --apply                  # Actually update Zotero metadata
-zot update-status ITEMKEY                  # Check a single item
-zot update-status --collection "NLP" --limit 20
-```
-
 ### Duplicates, Recent & Trash
 
 ```bash
@@ -124,8 +117,9 @@ zot trash restore ITEMKEY            # Restore from trash
 
 ```bash
 zot --json pdf ITEMKEY
-zot pdf ITEMKEY --pages 1-5
-zot pdf ITEMKEY --annotations        # Extract PDF annotations
+zot --json pdf --outline ITEMKEY        # PDF outline (headings)
+zot --json pdf --section SECID ITEMKEY  # Extract specific section by ID
+zot pdf ITEMKEY --annotations           # Extract PDF annotations
 zot --json summarize ITEMKEY
 zot summarize-all
 ```
@@ -188,23 +182,26 @@ zot workspace query "query" --workspace name --mode semantic   # Embeddings only
 zot workspace query "query" --workspace name --mode hybrid     # BM25 + semantic fusion
 ```
 
-**Optional semantic search** — configure an embedding endpoint (Jina AI default, 10M free tokens):
-```bash
-export ZOT_EMBEDDING_URL="https://api.jina.ai/v1/embeddings"
-export ZOT_EMBEDDING_KEY="your-jina-api-key"
-# Then re-index to generate embeddings:
-zot workspace index llm-safety --force
+The format of chunks is:
+
+```json
+[title > heading] chunk text...
 ```
 
-### Configuration
+Full example:
 
-```bash
-zot config init
-zot config profile list
-zot config profile set lab
-zot config cache stats
-zot config cache clear
 ```
+{
+    "rank": 1,
+    "score": 0.0154,
+    "item_key": "B6TZ6TQX",
+    "source": "pdf",
+    "content": "[现代电路理论与设计 > 5.2 跨导电容滤波器的分析与设计] 跨导放大器是一种输入信号是电压、输出信号是电流的放大器。由跨导放大器组成的集成运算放大器称为跨导运算放大器（Operational Transconductance Amplifier, OTA）。由跨导运算放大器和电容构成的滤波器称为 跨导电容滤波器。跨导电容滤波器以有源RC滤波器为基础，以跨导运算放大器作为有源器件，利用跨导运算放大器的电导特性，将跨导运算放大器作为电阻元件使用，以实现有源滤波器的全集成实现。由于跨导运算放大器的跨导值 $g_{\\mathrm{m}}$ 可以通过改变跨导运算放大器的偏置电流很容易 地加以改变，所以跨导电容滤波器可以比较容易地实现对滤波器频率特性的调整。与MOSFET-C滤波器相比，跨导电容滤波器最适宜于高速应用。另外，它可以应用于开环结构，所以不需要考虑其稳定性，而这两个特点正是普通运算放大器所不具有的。\n\n跨导电容滤波器的缺点是：由于跨导运算放大器往往工作在开环状态，为了保持电路\n\n的线性，所加的输入信号必须非常小，因此，分布电容对电路工作频率的影响比较大。另外，由于跨导电容滤波器对跨导运"
+  }
+```
+
+> Never build workspace RAG index with `--force` unless you know what you're doing. It takes time to build the full index from scratch.
+> Before building the index, ask the user if they want to build right now or later, and explain that it may take a while. Or Let the user build the index in their own time, and just show a warning if they try to query before the index is built.
 
 ### Global Flags
 
@@ -222,18 +219,22 @@ zot config cache clear
 
 ## Workflow Patterns
 
-### Pattern 1: Find and Read a Paper
+### Pattern 1: Find and Read a document(papers,manuals,books)
 
 ```bash
 # Step 1: Search
 zot --json search "single cell RNA sequencing"
 
-# Step 2: Read details
+# Step 2: Read metadata details
 zot --json read K853PGUG
 
-# Step 3: Full PDF text if needed
-zot --json pdf K853PGUG
+# Step 3: Full PDF text if needed or read section selectively
+zot --json pdf K853PGUG               # Get full text extraction
+zot --json pdf --outline K853PGUG     # Get section headings and secid
+zot --json pdf --section 10 K853PGUG  # Extract section with secid 10 (e.g. Results)
 ```
+
+> Before fetching the full PDF text, use `wc -m` on the command line to check the character count of the PDF output. If it's very long (>20000), use the `--outline` option to get section headings and IDs, then selectively extract only the relevant sections with `--section` to save tokens.
 
 ### Pattern 2: Deep Content Search via Workspace RAG
 
@@ -248,7 +249,12 @@ zot workspace index drug-resistance
 
 # Step 3: Query with natural language
 zot --json workspace query "mechanisms of acquired resistance" --workspace drug-resistance --top-k 5
+
+# Step 4: If want to read more context of some chunks (for incomplete chunks), get the item key and section from the results, then fetch the full PDF text and extract that section
+zot --json pdf --outline ITEMKEY        # Recognize section headings and secid
+zot --json pdf --section SECID ITEMKEY  # Extract specific section by ID for more context
 ```
+
 
 ### Pattern 3: AI-Powered Library Reorganization
 
@@ -262,7 +268,7 @@ zot collection create "Category A"
 zot collection move ITEMKEY COLLECTIONKEY
 ```
 
-### Pattern 4: Workspace RAG for Claude Code
+### Pattern 4: Workspace RAG 
 
 ```bash
 # Step 1: Create a topic workspace
@@ -289,4 +295,4 @@ zot --json workspace query "AlphaFold architecture" --workspace protein-folding 
 - **Item keys** are 8-character alphanumeric strings like `K853PGUG`
 - **Group libraries** — use `--library group:<id>` with any command
 - **Workspaces** — pure local TOML files, no API needed for basic operations; `workspace index` reads PDFs from Zotero storage
-- **Workspace RAG** — BM25 always available (zero new deps); optional semantic search via embedding endpoint (`ZOT_EMBEDDING_URL` + `ZOT_EMBEDDING_KEY`, Jina AI default with 10M free tokens)
+- **Workspace RAG** — BM25 always available (zero new deps); optional semantic search via embedding endpoint (`ZOT_EMBEDDING_URL` + `ZOT_EMBEDDING_KEY`

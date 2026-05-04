@@ -556,7 +556,7 @@ def workspace_index(ctx: click.Context, name: str, force: bool, extractor: str |
             click.echo(f"Index for '{name}' is up to date ({len(already_indexed)} item(s) indexed).")
             return
 
-    # PHASE 1 — Extract all PDF texts
+        # PHASE 1 — Extract all PDF texts
         import pymupdf
 
         t0 = time.monotonic()
@@ -607,10 +607,18 @@ def workspace_index(ctx: click.Context, name: str, force: bool, extractor: str |
                 click.echo(f"  Extracting PDFs ({total_pages} pages)...")
 
                 for i, (key, pdf_path) in enumerate(pdf_paths_map.items(), 1):
-                    sys.stderr.write(f"\r{' ' * 60}\r    [extract] [{i}/{len(pdf_paths_map)}]")
+                    total_files = len(pdf_paths_map)
+
+                    def make_seq_progress(file_idx: int, file_total: int):
+                        def seq_progress(phase: str, current: int, chunk_total: int, _pages: int) -> None:
+                            sys.stderr.write(f"\r{' ' * 60}\r    [{phase}] [{file_idx}/{file_total}] chunks [{current}/{chunk_total}]")
+                            sys.stdout.flush()
+                        return seq_progress
+
+                    sys.stderr.write(f"\r{' ' * 60}\r    [extract] [{i}/{total_files}]")
                     sys.stdout.flush()
                     try:
-                        text = convert_pdf_to_text(pdf_path, extractor_name=extractor)
+                        text = convert_pdf_to_text(pdf_path, extractor_name=extractor, progress_callback=make_seq_progress(i, total_files))
                         pdf_texts[key] = text
                     except Exception as e:
                         pdf_texts[key] = e

@@ -282,8 +282,12 @@ class MinerUExtractor(BasePdfExtractor):
             f"Pending files remain in batch {batch_id}"
         )
 
-    def _poll_results(self, batch_id: str) -> str:
-        state_map = self._poll_batch_results(batch_id, 1)
+    def _poll_results(
+        self,
+        batch_id: str,
+        progress_callback: Callable[[int, int], None] | None = None,
+    ) -> str:
+        state_map = self._poll_batch_results(batch_id, 1, progress_callback)
         item = next(iter(state_map.values()))
         state, full_zip_url, err_msg = item
         if state == "failed":
@@ -294,7 +298,11 @@ class MinerUExtractor(BasePdfExtractor):
             raise PdfExtractionError(f"No full_zip_url in completed response")
         return full_zip_url
 
-    def _download_and_extract(self, zip_url: str) -> str:
+    def _download_and_extract(
+        self,
+        zip_url: str,
+        progress_callback: Callable[[int, int], None] | None = None,
+    ) -> str:
         headers = {"Authorization": f"Bearer {self.token}"}
         self._rate_limiter.acquire()
         resp = _retry_with_backoff(
@@ -325,14 +333,38 @@ class MinerUExtractor(BasePdfExtractor):
         doc.close()
         return chunks
 
-    def _extract_single(self, pdf_path: Path) -> str:
+    def _extract_single(
+        self,
+        pdf_path: Path,
+        progress_callback: Callable[[str, int, int, int], None] | None = None,
+    ) -> str:
         file_name = pdf_path.name
         data_id = os.path.splitext(file_name)[0]
-        batch_id, [zip_url] = self._upload_batch([(pdf_path, file_name, data_id)])
-        zip_url = self._poll_results(batch_id)
-        return self._download_and_extract(zip_url)
 
-    def extract_text(self, pdf_path: Path, pages: tuple[int, int] | None = None) -> str:
+        def upload_progress(done: int) -> None:
+            if progress_callback:
+                progress_callback("upload", done, 1, 0)
+
+        batch_id, [zip_url] = self._upload_batch([(pdf_path, file_name, data_id)], upload_progress)
+
+        def poll_progress(done: int, total: int) -> None:
+            if progress_callback:
+                progress_callback("process", done, total, 0)
+
+        zip_url = self._poll_results(batch_id, poll_progress)
+
+        def download_progress(done: int, total: int) -> None:
+            if progress_callback:
+                progress_callback("download", done, total, 0)
+
+        return self._download_and_extract(zip_url, download_progress)
+
+    def extract_text(
+        self,
+        pdf_path: Path,
+        pages: tuple[int, int] | None = None,
+        progress_callback: Callable[[str, int, int, int], None] | None = None,
+    ) -> str:
         if not pdf_path.exists():
             raise FileNotFoundError(f"PDF not found: {pdf_path}")
 
@@ -348,10 +380,22 @@ class MinerUExtractor(BasePdfExtractor):
             if pages:
                 raise PdfExtractionError("Page range splitting not supported for PDFs >200 pages")
             chunk_paths = self._split_pdf(pdf_path, 200)
+            total_chunks = len(chunk_paths)
             try:
                 texts = []
-                for chunk_path in chunk_paths:
-                    texts.append(self._extract_single(chunk_path))
+                for chunk_idx, chunk_path in enumerate(chunk_paths, 1):
+                    # Wrap progress_callback to report chunk progress instead of per-chunk-internal progress
+                    if progress_callback is not None:
+
+                        def make_wrapped_callback(idx: int, original: Callable[[str, int, int, int], None]) -> Callable[[str, int, int, int], None]:
+                            def wrapped(phase: str, current: int, total: int, pages: int) -> None:
+                                original(phase, idx, total_chunks, pages)
+                            return wrapped
+
+                        wrapped_callback: Callable[[str, int, int, int], None] | None = make_wrapped_callback(chunk_idx, progress_callback)
+                    else:
+                        wrapped_callback = None
+                    texts.append(self._extract_single(chunk_path, wrapped_callback))
                 return "\n\n".join(texts)
             finally:
                 for chunk_path in chunk_paths:
@@ -368,11 +412,11 @@ class MinerUExtractor(BasePdfExtractor):
                 chunk_doc.close()
                 doc.close()
                 try:
-                    return self._extract_single(chunk_path)
+                    return self._extract_single(chunk_path, progress_callback)
                 finally:
                     chunk_path.unlink(missing_ok=True)
             else:
-                return self._extract_single(pdf_path)
+                return self._extract_single(pdf_path, progress_callback)
 
     def extract_text_batch(
         self,
