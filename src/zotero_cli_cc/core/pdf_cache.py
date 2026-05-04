@@ -6,12 +6,23 @@ from pathlib import Path
 
 DEFAULT_CACHE_PATH = Path.home() / ".config" / "zot" / "cache" / "pdf_cache.sqlite"
 
+CURRENT_SCHEMA_VERSION = 2
+
 
 class PdfCache:
     def __init__(self, db_path: Path | None = None) -> None:
         self._db_path = db_path or DEFAULT_CACHE_PATH
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(self._db_path))
+        self._migrate()
+
+    def _migrate(self) -> None:
+        self._conn.execute(
+            "CREATE TABLE IF NOT EXISTS schema_migrations ("
+            "  version INTEGER PRIMARY KEY,"
+            "  applied_at TEXT NOT NULL"
+            ")"
+        )
         self._conn.execute(
             "CREATE TABLE IF NOT EXISTS pdf_cache ("
             "  pdf_path TEXT NOT NULL,"
@@ -22,6 +33,16 @@ class PdfCache:
             "  PRIMARY KEY (pdf_path, extractor)"
             ")"
         )
+        row = self._conn.execute("SELECT MAX(version) FROM schema_migrations").fetchone()
+        current_version = row[0] or 0
+        if current_version < 1:
+            columns = self._conn.execute("PRAGMA table_info(pdf_cache)").fetchall()
+            column_names = [col[1] for col in columns]
+            if "extractor" not in column_names:
+                self._conn.execute("ALTER TABLE pdf_cache ADD COLUMN extractor TEXT NOT NULL DEFAULT ''")
+            now = datetime.now(timezone.utc).isoformat()
+            self._conn.execute("INSERT INTO schema_migrations (version, applied_at) VALUES (1, ?)", (now,))
+            current_version = 1
         self._conn.commit()
 
     def get(self, pdf_path: Path, extractor_name: str = "") -> str | None:

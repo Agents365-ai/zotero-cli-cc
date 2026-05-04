@@ -135,6 +135,12 @@ class RagIndex:
         count = len(blob) // 4
         return list(struct.unpack(f"{count}f", blob))
 
+    def has_embeddings(self) -> bool:
+        row = self._conn.execute(
+            "SELECT 1 FROM chunks WHERE embedding IS NOT NULL LIMIT 1"
+        ).fetchone()
+        return row is not None
+
     def get_all_embeddings(self) -> list[tuple[int, list[float]]]:
         rows = self._conn.execute(
             "SELECT id, embedding FROM chunks WHERE embedding IS NOT NULL"

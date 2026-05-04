@@ -907,7 +907,7 @@ def _handle_workspace_query(name: str, question: str, top_k: int = 5, mode: str 
 
     idx = RagIndex(idx_path)
     try:
-        has_embeddings = len(idx.get_all_embeddings()) > 0
+        has_embeddings = idx.has_embeddings()
         effective_mode = ("hybrid" if has_embeddings else "bm25") if mode == "auto" else mode
 
         bm25_results: list[tuple[int, float, dict]] = []

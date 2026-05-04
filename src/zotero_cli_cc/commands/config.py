@@ -208,7 +208,7 @@ def cache_list(ctx: click.Context) -> None:
                 }
                 for row in rows
             ]
-            click.echo(json.dumps(data, indent=2, ensure_ascii=False))
+            click.echo(json.dumps(data, ensure_ascii=False))
             return
 
         from io import StringIO

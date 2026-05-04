@@ -220,13 +220,12 @@ class MinerUExtractor(BasePdfExtractor):
         for idx, ((pdf_path, _, _), upload_url) in enumerate(zip(files, file_urls)):
             self._rate_limiter.acquire()
             with open(pdf_path, "rb") as f:
-                resp = _retry_with_backoff(
-                    lambda: self._session.put(
-                        upload_url,
-                        data=f,
-                        timeout=120,
-                    )
-                )
+
+                def _upload_with_seek():
+                    f.seek(0)
+                    return self._session.put(upload_url, data=f, timeout=120)
+
+                resp = _retry_with_backoff(_upload_with_seek)
                 if resp.status_code not in (200, 201):
                     raise PdfExtractionError(f"Failed to upload file: {resp.status_code} {resp.text}")
             if progress_callback:
