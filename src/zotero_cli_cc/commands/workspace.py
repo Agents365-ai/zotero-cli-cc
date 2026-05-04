@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import sys
 import time
 from datetime import datetime, timezone
@@ -34,7 +33,7 @@ from zotero_cli_cc.core.workspace import (
     workspaces_dir,
 )
 from zotero_cli_cc.exit_codes import emit_error
-from zotero_cli_cc.formatter import format_items, print_error
+from zotero_cli_cc.formatter import format_items, format_workspace_list, format_workspace_query, print_error
 from zotero_cli_cc.models import Collection, ErrorInfo, Item
 
 
@@ -180,37 +179,7 @@ def workspace_list(ctx: click.Context) -> None:
     if not workspaces:
         click.echo("No workspaces found. Create one with: zot workspace new <name>")
         return
-    if json_out:
-        data = [
-            {
-                "name": ws.name,
-                "description": ws.description,
-                "items": len(ws.items),
-                "created": ws.created,
-            }
-            for ws in workspaces
-        ]
-        click.echo(json.dumps(data, indent=2, ensure_ascii=False))
-        return
-
-    from io import StringIO
-
-    from rich.console import Console
-    from rich.table import Table
-
-    buf = StringIO()
-    console = Console(file=buf, force_terminal=False, width=120)
-    table = Table(show_header=True, header_style="bold")
-    table.add_column("Name", style="cyan", width=20)
-    table.add_column("Description", width=50)
-    table.add_column("Items", justify="right", width=8)
-    table.add_column("Created", width=20)
-    for ws in workspaces:
-        desc = ws.description[:47] + "..." if len(ws.description) > 50 else ws.description
-        created = ws.created[:10] if len(ws.created) >= 10 else ws.created
-        table.add_row(ws.name, desc, str(len(ws.items)), created)
-    console.print(table)
-    click.echo(buf.getvalue().rstrip())
+    click.echo(format_workspace_list(workspaces, output_json=json_out))
 
 
 @workspace_group.command("show")
@@ -818,22 +787,6 @@ def workspace_query(ctx: click.Context, question: str, ws_name: str, top_k: int,
                 click.echo("No results found.")
             return
 
-        if json_out:
-            data = [
-                {
-                    "rank": i + 1,
-                    "score": round(score, 4),
-                    "item_key": chunk["item_key"],
-                    "source": chunk["source"],
-                    "content": chunk["content"][:500],
-                }
-                for i, (_cid, score, chunk) in enumerate(top)
-            ]
-            click.echo(json.dumps(data, indent=2, ensure_ascii=False))
-        else:
-            for i, (_cid, score, chunk) in enumerate(top):
-                preview = chunk["content"][:120].replace("\n", " ")
-                click.echo(f"[{i + 1}] Score: {score:.2f} | {chunk['item_key']} | {chunk['source']}")
-                click.echo(f"    {preview}...")
+        click.echo(format_workspace_query(top, mode=effective_mode, output_json=json_out))
     finally:
         idx.close()
