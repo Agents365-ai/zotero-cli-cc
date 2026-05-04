@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 import click
 
@@ -11,13 +12,73 @@ from zotero_cli_cc.formatter import print_error
 from zotero_cli_cc.models import ErrorInfo
 
 
+def _parse_outline(markdown: str) -> list[tuple[int, str, int]]:
+    """Parse markdown headings and return numbered outline.
+
+    Returns:
+        List of tuples: (sequential_number, heading_text, level)
+        where level is 1-6 for # to ######
+    """
+    pattern = re.compile(r"^(#{1,6})\s+(.+)$", re.MULTILINE)
+    outline: list[tuple[int, str, int]] = []
+    seq_num = 0
+    for match in pattern.finditer(markdown):
+        hashes, text = match.groups()
+        level = len(hashes)
+        seq_num += 1
+        outline.append((seq_num, text.strip(), level))
+    return outline
+
+
+def _extract_section(markdown: str, section_num: int) -> str:
+    """Extract content under the N-th heading.
+
+    Args:
+        markdown: Full markdown text
+        section_num: 1-based section number from outline
+
+    Returns:
+        Content from that heading until the next heading of equal or higher level.
+        Returns empty string if section_num is out of range.
+    """
+    pattern = re.compile(r"^(#{1,6})\s+(.+)$", re.MULTILINE)
+    matches = list(pattern.finditer(markdown))
+
+    if section_num < 1 or section_num > len(matches):
+        return ""
+
+    target_match = matches[section_num - 1]
+    target_level = len(target_match.group(1))
+    target_start = target_match.start()
+
+    # Find the next heading of same or higher level
+    end_pos = len(markdown)
+    for match in matches[section_num:]:
+        level = len(match.group(1))
+        if level <= target_level:
+            end_pos = match.start()
+            break
+
+    return markdown[target_start:end_pos].strip()
+
+
 @click.command("pdf")
-@click.argument("key")
 @click.option("--pages", default=None, help="Page range, e.g. '1-5'")
 @click.option("--extractor", default=None, help="PDF extractor to use (mineru, pymupdf). Defaults to auto-detect.")
 @click.option("--annotations", is_flag=True, help="Extract annotations (highlights, notes) instead of text")
+@click.option("--outline", is_flag=True, help="Extract and list all headings as a numbered outline")
+@click.option("--section", type=int, default=None, help="Extract content under the N-th heading from outline")
+@click.argument("key")
 @click.pass_context
-def pdf_cmd(ctx: click.Context, key: str, pages: str | None, extractor: str | None, annotations: bool) -> None:
+def pdf_cmd(
+    ctx: click.Context,
+    pages: str | None,
+    extractor: str | None,
+    annotations: bool,
+    outline: bool,
+    section: int | None,
+    key: str,
+) -> None:
     """Extract text from the PDF attachment.
 
     Full text is cached locally for fast repeated access.
@@ -26,6 +87,8 @@ def pdf_cmd(ctx: click.Context, key: str, pages: str | None, extractor: str | No
     Examples:
       zot pdf ABC123                Extract full text
       zot pdf ABC123 --pages 1-5    Extract pages 1-5
+      zot pdf ABC123 --outline      List all headings as numbered outline
+      zot pdf ABC123 --section 3    Extract content under 3rd heading
       zot --json pdf ABC123         JSON output with metadata
     """
     cfg = load_config(profile=ctx.obj.get("profile"))
@@ -142,6 +205,39 @@ def pdf_cmd(ctx: click.Context, key: str, pages: str | None, extractor: str | No
             )
             return
         cache.close()
+        if outline or section is not None:
+            if section is not None:
+                content = _extract_section(text, section)
+                if not content:
+                    print_error(
+                        ErrorInfo(
+                            message=f"Section {section} not found (document has fewer than {section} headings)",
+                            context="pdf",
+                            hint="Use --outline first to see available sections",
+                        ),
+                        output_json=json_out,
+                    )
+                    return
+                if json_out:
+                    click.echo(json.dumps({"key": key, "pages": pages, "section": section, "content": content}, ensure_ascii=False))
+                else:
+                    click.echo(content)
+            else:
+                outline_data = _parse_outline(text)
+                if not outline_data:
+                    if json_out:
+                        click.echo(json.dumps({"key": key, "pages": pages, "outline": []}, ensure_ascii=False))
+                    else:
+                        click.echo("No headings found in document.")
+                    return
+                if json_out:
+                    outline_json = [{"number": n, "text": t, "level": l} for n, t, l in outline_data]
+                    click.echo(json.dumps({"key": key, "pages": pages, "outline": outline_json}, ensure_ascii=False))
+                else:
+                    for num, heading_text, level in outline_data:
+                        indent = "  " * (level - 1)
+                        click.echo(f"{num}. {indent}{heading_text}")
+            return
         if json_out:
             click.echo(json.dumps({"key": key, "pages": pages, "text": text}, ensure_ascii=False))
         else:
