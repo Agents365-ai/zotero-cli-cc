@@ -18,6 +18,7 @@ dependencies = [
     "rich>=13.0",
     "tomli>=2.0; python_version < '3.11'",
     "markdownify>=1.2.2",
+    "openai>=2.33.0",
 ]
 
 [project.optional-dependencies]

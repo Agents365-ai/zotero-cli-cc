@@ -50,6 +50,7 @@ class AppConfig:
     default_format: str = "table"
     default_limit: int = 50
     default_export_style: str = "bibtex"
+    prefs_js_path: str = ""
 
     @property
     def has_write_credentials(self) -> bool:
@@ -78,6 +79,7 @@ def load_config(path: Path | None = None, profile: str | None = None) -> AppConf
                 default_format=output.get("default_format", "table"),
                 default_limit=output.get("limit", 50),
                 default_export_style=export.get("default_style", "bibtex"),
+                prefs_js_path=p.get("prefs_js_path", ""),
             )
 
     # Backward-compatible flat config
@@ -92,6 +94,7 @@ def load_config(path: Path | None = None, profile: str | None = None) -> AppConf
         default_format=output.get("default_format", "table"),
         default_limit=output.get("limit", 50),
         default_export_style=export.get("default_style", "bibtex"),
+        prefs_js_path=zotero.get("prefs_js_path", ""),
     )
 
 
@@ -100,10 +103,12 @@ class EmbeddingConfig:
     url: str = "https://api.jina.ai/v1/embeddings"
     api_key: str = ""
     model: str = "jina-embeddings-v3"
+    provider: str = "auto"
+    aliyun_api_key: str = ""
 
     @property
     def is_configured(self) -> bool:
-        return bool(self.url and self.api_key)
+        return bool(self.url and self.api_key) or bool(self.aliyun_api_key)
 
 
 _SENTINEL = object()
@@ -121,14 +126,38 @@ def load_embedding_config(path: Path | None = None, *, apply_env_overrides: obje
             url=emb.get("url", defaults.url),
             api_key=emb.get("api_key", defaults.api_key),
             model=emb.get("model", defaults.model),
+            provider=emb.get("provider", defaults.provider),
+            aliyun_api_key=emb.get("aliyun_api_key", defaults.aliyun_api_key),
         )
-    # Apply env overrides: always when explicitly requested or using default path;
-    # skip when an explicit path is provided and caller didn't opt in.
     should_apply_env = apply_env_overrides is True or (apply_env_overrides is _SENTINEL and not explicit_path)
     if should_apply_env:
         defaults.url = os.environ.get("ZOT_EMBEDDING_URL", defaults.url)
         defaults.api_key = os.environ.get("ZOT_EMBEDDING_KEY", defaults.api_key)
         defaults.model = os.environ.get("ZOT_EMBEDDING_MODEL", defaults.model)
+        defaults.provider = os.environ.get("ZOT_EMBEDDING_PROVIDER", defaults.provider)
+        defaults.aliyun_api_key = os.environ.get("ZOT_EMBEDDING_ALIYUN_KEY", defaults.aliyun_api_key)
+    return defaults
+
+
+@dataclass
+class PdfConfig:
+    extractor: str = "pymupdf"
+    mineru_token: str = ""
+
+
+def load_pdf_config(path: Path | None = None) -> PdfConfig:
+    path = path or CONFIG_FILE
+    defaults = PdfConfig()
+    if path.exists():
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+        pdf = data.get("pdf", {})
+        defaults = PdfConfig(
+            extractor=pdf.get("extractor", defaults.extractor),
+            mineru_token=pdf.get("mineru_token", defaults.mineru_token),
+        )
+    defaults.extractor = os.environ.get("ZOT_PDF_EXTRACTOR", defaults.extractor)
+    defaults.mineru_token = os.environ.get("MINERU_TOKEN", defaults.mineru_token)
     return defaults
 
 
@@ -201,6 +230,31 @@ def get_data_dir(config: AppConfig) -> Path:
     if env_dir:
         return Path(env_dir)
     return detect_zotero_data_dir(config)
+
+
+def get_prefs_js_path(config: AppConfig) -> Path | None:
+    """Get Zotero prefs.js path: env override > config > default.
+
+    Handles both file and directory paths:
+    - File path: returned as-is if it exists
+    - Directory path: appends 'prefs.js' (Zotero profile directory convention)
+    """
+    env_path = os.environ.get("ZOT_PREFS_JS_PATH")
+    if env_path:
+        p = Path(env_path).expanduser()
+        if p.exists():
+            if p.is_dir():
+                p = p / "prefs.js"
+            return p if p.exists() else None
+        return None
+    if config.prefs_js_path:
+        p = Path(config.prefs_js_path).expanduser()
+        if p.exists():
+            if p.is_dir():
+                p = p / "prefs.js"
+            return p if p.exists() else None
+        return None
+    return None
 
 
 def resolve_library_id(db_path: Path, ctx_obj: dict) -> int:

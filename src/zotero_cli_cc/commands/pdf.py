@@ -4,8 +4,8 @@ import json
 
 import click
 
-from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
-from zotero_cli_cc.core.pdf_extractor import PdfExtractionError, extract_text_from_pdf
+from zotero_cli_cc.config import get_data_dir, get_prefs_js_path, load_config, resolve_library_id
+from zotero_cli_cc.core.pdf_extractor import BasePdfExtractor, PdfExtractionError, get_extractor
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.formatter import print_error
 from zotero_cli_cc.models import ErrorInfo
@@ -14,9 +14,10 @@ from zotero_cli_cc.models import ErrorInfo
 @click.command("pdf")
 @click.argument("key")
 @click.option("--pages", default=None, help="Page range, e.g. '1-5'")
+@click.option("--extractor", default=None, help="PDF extractor to use (mineru, pymupdf). Defaults to auto-detect.")
 @click.option("--annotations", is_flag=True, help="Extract annotations (highlights, notes) instead of text")
 @click.pass_context
-def pdf_cmd(ctx: click.Context, key: str, pages: str | None, annotations: bool) -> None:
+def pdf_cmd(ctx: click.Context, key: str, pages: str | None, extractor: str | None, annotations: bool) -> None:
     """Extract text from the PDF attachment.
 
     Full text is cached locally for fast repeated access.
@@ -30,6 +31,9 @@ def pdf_cmd(ctx: click.Context, key: str, pages: str | None, annotations: bool) 
     cfg = load_config(profile=ctx.obj.get("profile"))
     json_out = ctx.obj.get("json", False)
     page_range = None
+    if extractor is None:
+        from zotero_cli_cc.config import load_pdf_config
+        extractor = load_pdf_config().extractor
     if pages:
         try:
             parts = pages.split("-")
@@ -51,7 +55,7 @@ def pdf_cmd(ctx: click.Context, key: str, pages: str | None, annotations: bool) 
     data_dir = get_data_dir(cfg)
     db_path = data_dir / "zotero.sqlite"
     library_id = resolve_library_id(db_path, ctx.obj)
-    reader = ZoteroReader(db_path, library_id=library_id)
+    reader = ZoteroReader(db_path, library_id=library_id, prefs_js_path=get_prefs_js_path(cfg))
     try:
         att = reader.get_pdf_attachment(key)
         if att is None:
@@ -64,13 +68,13 @@ def pdf_cmd(ctx: click.Context, key: str, pages: str | None, annotations: bool) 
                 output_json=json_out,
             )
             return
-        pdf_path = data_dir / "storage" / att.key / att.filename
-        if not pdf_path.exists():
+        pdf_path = att.path
+        if not pdf_path or not pdf_path.exists():
             print_error(
                 ErrorInfo(
-                    message=f"PDF file not found at {pdf_path}",
+                    message=f"PDF file not found at {pdf_path or att.filename}",
                     context="pdf",
-                    hint="The file may have been moved. Check Zotero storage directory",
+                    hint="The file may have been moved or the attachment path could not be resolved. Check Zotero storage directory",
                 ),
                 output_json=json_out,
             )
@@ -105,14 +109,31 @@ def pdf_cmd(ctx: click.Context, key: str, pages: str | None, annotations: bool) 
         cache = PdfCache()
         try:
             if page_range is None:
-                cached = cache.get(pdf_path)
+                cached = cache.get(pdf_path, extractor)
                 if cached is not None:
                     text = cached
                 else:
-                    text = extract_text_from_pdf(pdf_path)
-                    cache.put(pdf_path, text)
+                    pdf_extractor = get_extractor(extractor)
+                    try:
+                        text = pdf_extractor.extract_text(pdf_path)
+                        cache.put(pdf_path, extractor, text)
+                    except PdfExtractionError:
+                        if extractor == "mineru":
+                            pdf_extractor = get_extractor("pymupdf")
+                            text = pdf_extractor.extract_text(pdf_path)
+                            cache.put(pdf_path, "pymupdf", text)
+                        else:
+                            raise
             else:
-                text = extract_text_from_pdf(pdf_path, pages=page_range)
+                pdf_extractor = get_extractor(extractor)
+                try:
+                    text = pdf_extractor.extract_text(pdf_path, pages=page_range)
+                except PdfExtractionError:
+                    if extractor == "mineru":
+                        pdf_extractor = get_extractor("pymupdf")
+                        text = pdf_extractor.extract_text(pdf_path, pages=page_range)
+                    else:
+                        raise
         except PdfExtractionError as e:
             cache.close()
             print_error(
