@@ -185,7 +185,7 @@ class TestEmbedding:
         assert result is None
 
     def test_embed_texts_api_call(self):
-        cfg = EmbeddingConfig(url="http://test/v1/embeddings", api_key="key", model="model")
+        cfg = EmbeddingConfig(url="http://test/v1/embeddings", api_key="key", model="model", provider="aliyun")
         mock_response = MagicMock()
         mock_response.read.return_value = json.dumps({"data": [{"embedding": [0.1, 0.2, 0.3]}]}).encode()
         mock_response.__enter__ = lambda s: s

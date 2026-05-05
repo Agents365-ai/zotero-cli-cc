@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-05-05
+
+Embedding configuration cleanup. The provider-specific Aliyun key
+(`aliyun_api_key` / `ZOT_EMBEDDING_ALIYUN_KEY`) and the implicit
+`provider="auto"` mode were leaking the multi-provider routing
+implementation into the user-facing config without a symmetrical
+counterpart for Jina. Single-provider, single-key surface is cleaner.
+
+### Changed
+
+- `[embedding] provider` default is now `"jina"` (was `"auto"`). Set
+  `provider = "aliyun"` (or `ZOT_EMBEDDING_PROVIDER=aliyun`) to use
+  Aliyun DashScope.
+
+### Removed (Breaking, very rare)
+
+- `[embedding] aliyun_api_key` config key — use the unified
+  `[embedding] api_key` instead.
+- `ZOT_EMBEDDING_ALIYUN_KEY` env var — use `ZOT_EMBEDDING_KEY` instead.
+- `provider = "auto"` mode — pick a provider explicitly.
+
+If you upgraded to 0.4.0 within the past hour and were already using
+the Aliyun-specific key, rename it to `api_key` /
+`ZOT_EMBEDDING_KEY` and set `provider = "aliyun"`.
+
 ## [0.4.0] - 2026-05-05
 
 PDF extraction overhaul, envelope routing for the rest of the `--json` surface,
@@ -25,8 +50,8 @@ typed exit codes wired up across all command error paths, and a CI repair pass.
   RAG indexing.
 - **Embedding provider router** with first-class support for Aliyun
   (DashScope, OpenAI-compatible) and Jina endpoints. Routes via the new
-  `[embedding] provider`, `[embedding] aliyun_api_key` config keys plus
-  `ZOT_EMBEDDING_PROVIDER` / `ZOT_EMBEDDING_ALIYUN_KEY` env vars.
+  `[embedding] provider` config key / `ZOT_EMBEDDING_PROVIDER` env var.
+  *(0.4.1 simplified the surface — see below.)*
 - **Attachment resolver** that handles `storage:` paths, `file://` URLs,
   Zotero's `attachments:` paths, Windows drive letters, and base-attachment
   prefs. PDFs in non-default storage directories now resolve correctly.

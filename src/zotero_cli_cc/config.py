@@ -103,12 +103,11 @@ class EmbeddingConfig:
     url: str = "https://api.jina.ai/v1/embeddings"
     api_key: str = ""
     model: str = "jina-embeddings-v3"
-    provider: str = "auto"
-    aliyun_api_key: str = ""
+    provider: str = "jina"
 
     @property
     def is_configured(self) -> bool:
-        return bool(self.url and self.api_key) or bool(self.aliyun_api_key)
+        return bool(self.url and self.api_key)
 
 
 _SENTINEL = object()
@@ -127,7 +126,6 @@ def load_embedding_config(path: Path | None = None, *, apply_env_overrides: obje
             api_key=emb.get("api_key", defaults.api_key),
             model=emb.get("model", defaults.model),
             provider=emb.get("provider", defaults.provider),
-            aliyun_api_key=emb.get("aliyun_api_key", defaults.aliyun_api_key),
         )
     should_apply_env = apply_env_overrides is True or (apply_env_overrides is _SENTINEL and not explicit_path)
     if should_apply_env:
@@ -135,7 +133,6 @@ def load_embedding_config(path: Path | None = None, *, apply_env_overrides: obje
         defaults.api_key = os.environ.get("ZOT_EMBEDDING_KEY", defaults.api_key)
         defaults.model = os.environ.get("ZOT_EMBEDDING_MODEL", defaults.model)
         defaults.provider = os.environ.get("ZOT_EMBEDDING_PROVIDER", defaults.provider)
-        defaults.aliyun_api_key = os.environ.get("ZOT_EMBEDDING_ALIYUN_KEY", defaults.aliyun_api_key)
     return defaults
 
 
