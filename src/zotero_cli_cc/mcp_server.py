@@ -170,6 +170,9 @@ def _handle_read(key: str, detail: str = "standard", library: str = "user") -> d
 
 
 def _handle_pdf(key: str, pages: str | None, library: str = "user") -> dict:
+    from zotero_cli_cc.config import load_pdf_config
+    from zotero_cli_cc.core.pdf_extractor import PdfExtractionError, get_extractor
+
     reader = _get_reader(library)
     att = reader.get_pdf_attachment(key)
     if att is None:
@@ -185,17 +188,19 @@ def _handle_pdf(key: str, pages: str | None, library: str = "user") -> dict:
         end = int(parts[1]) if len(parts) > 1 else start
         page_range = (start, end)
 
+    extractor_name = load_pdf_config().extractor
+    pdf_extractor = get_extractor(extractor_name)
     cache = PdfCache()
     try:
         if page_range is None:
-            cached = cache.get(pdf_path)
+            cached = cache.get(pdf_path, extractor_name)
             if cached is not None:
                 text = cached
             else:
-                text = extract_text_from_pdf(pdf_path)
-                cache.put(pdf_path, text)
+                text = pdf_extractor.extract_text(pdf_path)
+                cache.put(pdf_path, extractor_name, text)
         else:
-            text = extract_text_from_pdf(pdf_path, pages=page_range)
+            text = pdf_extractor.extract_text(pdf_path, pages=page_range)
     except PdfExtractionError as e:
         return {"error": str(e), "context": "pdf"}
     finally:
