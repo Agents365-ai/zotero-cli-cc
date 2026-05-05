@@ -70,15 +70,11 @@ class RagIndex:
         self._conn.commit()
 
     def get_all_chunks(self) -> list[dict]:
-        rows = self._conn.execute(
-            "SELECT id, item_key, source, content, doc_len FROM chunks"
-        ).fetchall()
+        rows = self._conn.execute("SELECT id, item_key, source, content, doc_len FROM chunks").fetchall()
         return [dict(r) for r in rows]
 
     def get_bm25_terms_for_chunk(self, chunk_id: int) -> dict[str, float]:
-        rows = self._conn.execute(
-            "SELECT term, tf FROM bm25_terms WHERE chunk_id = ?", (chunk_id,)
-        ).fetchall()
+        rows = self._conn.execute("SELECT term, tf FROM bm25_terms WHERE chunk_id = ?", (chunk_id,)).fetchall()
         return {r["term"]: r["tf"] for r in rows}
 
     def get_bm25_terms_bulk(self, chunk_ids: list[int]) -> dict[int, dict[str, float]]:
@@ -99,36 +95,26 @@ class RagIndex:
         return {r["item_key"] for r in rows}
 
     def set_meta(self, key: str, value: str) -> None:
-        self._conn.execute(
-            "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)", (key, value)
-        )
+        self._conn.execute("INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)", (key, value))
         self._conn.commit()
 
     def get_meta(self, key: str) -> str | None:
-        row = self._conn.execute(
-            "SELECT value FROM index_meta WHERE key = ?", (key,)
-        ).fetchone()
+        row = self._conn.execute("SELECT value FROM index_meta WHERE key = ?", (key,)).fetchone()
         return row["value"] if row else None
 
     def set_embedding(self, chunk_id: int, embedding: list[float]) -> None:
         blob = struct.pack(f"{len(embedding)}f", *embedding)
-        self._conn.execute(
-            "UPDATE chunks SET embedding = ? WHERE id = ?", (blob, chunk_id)
-        )
+        self._conn.execute("UPDATE chunks SET embedding = ? WHERE id = ?", (blob, chunk_id))
         self._conn.commit()
 
     def set_embeddings_bulk(self, chunk_ids: list[int], embeddings: list[list[float]]) -> None:
         for chunk_id, embedding in zip(chunk_ids, embeddings):
             blob = struct.pack(f"{len(embedding)}f", *embedding)
-            self._conn.execute(
-                "UPDATE chunks SET embedding = ? WHERE id = ?", (blob, chunk_id)
-            )
+            self._conn.execute("UPDATE chunks SET embedding = ? WHERE id = ?", (blob, chunk_id))
         self._conn.commit()
 
     def get_embedding(self, chunk_id: int) -> list[float]:
-        row = self._conn.execute(
-            "SELECT embedding FROM chunks WHERE id = ?", (chunk_id,)
-        ).fetchone()
+        row = self._conn.execute("SELECT embedding FROM chunks WHERE id = ?", (chunk_id,)).fetchone()
         if row is None or row["embedding"] is None:
             return []
         blob = row["embedding"]
@@ -136,15 +122,11 @@ class RagIndex:
         return list(struct.unpack(f"{count}f", blob))
 
     def has_embeddings(self) -> bool:
-        row = self._conn.execute(
-            "SELECT 1 FROM chunks WHERE embedding IS NOT NULL LIMIT 1"
-        ).fetchone()
+        row = self._conn.execute("SELECT 1 FROM chunks WHERE embedding IS NOT NULL LIMIT 1").fetchone()
         return row is not None
 
     def get_all_embeddings(self) -> list[tuple[int, list[float]]]:
-        rows = self._conn.execute(
-            "SELECT id, embedding FROM chunks WHERE embedding IS NOT NULL"
-        ).fetchall()
+        rows = self._conn.execute("SELECT id, embedding FROM chunks WHERE embedding IS NOT NULL").fetchall()
         result = []
         for r in rows:
             count = len(r["embedding"]) // 4
@@ -153,9 +135,7 @@ class RagIndex:
         return result
 
     def clear(self) -> None:
-        self._conn.executescript(
-            "DELETE FROM bm25_terms; DELETE FROM chunks; DELETE FROM index_meta;"
-        )
+        self._conn.executescript("DELETE FROM bm25_terms; DELETE FROM chunks; DELETE FROM index_meta;")
         self._conn.commit()
 
     def close(self) -> None:

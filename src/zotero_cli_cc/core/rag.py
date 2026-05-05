@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import json as json_mod
 import math
 import re
+import urllib.request
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from zotero_cli_cc.config import EmbeddingConfig
-from zotero_cli_cc.core.embedding_router import EmbeddingRouter
 from zotero_cli_cc.core.pdf_cache import PdfCache
 from zotero_cli_cc.core.pdf_extractor import get_extractor
 from zotero_cli_cc.core.rag_index import RagIndex
@@ -180,7 +181,7 @@ def convert_pdf_to_text(
     if cached is not None:
         return cached
     extractor = get_extractor(extractor_name)
-    text = extractor.extract_text(pdf_path, progress_callback=progress_callback)  # type: ignore[reportCallIssue]
+    text = extractor.extract_text(pdf_path, progress_callback=progress_callback)  # type: ignore[call-arg]
     cache.put(pdf_path, extractor_name, text)
     return text
 
@@ -336,8 +337,20 @@ def embed_texts(
 ) -> list[list[float]] | None:
     if not config.is_configured:
         return None
-    router = EmbeddingRouter(config)
-    try:
-        return router.embed(texts, progress_callback)
-    except Exception:
-        return None
+    all_embeddings: list[list[float]] = []
+    batch_size = 64
+    total = len(texts)
+    for i in range(0, total, batch_size):
+        batch = texts[i : i + batch_size]
+        body = json_mod.dumps({"model": config.model, "input": batch}).encode()
+        req = urllib.request.Request(config.url, data=body)
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Authorization", f"Bearer {config.api_key}")
+        req.add_header("User-Agent", "zot-cli/0.2.0")
+        with urllib.request.urlopen(req) as resp:
+            data = json_mod.loads(resp.read())
+        for item in data["data"]:
+            all_embeddings.append(item["embedding"])
+        if progress_callback:
+            progress_callback(min(i + batch_size, total), total)
+    return all_embeddings

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sys
 import time
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -519,6 +520,7 @@ def workspace_index(ctx: click.Context, name: str, force: bool, extractor: str |
     json_out = ctx.obj.get("json", False)
     if extractor is None:
         from zotero_cli_cc.config import load_pdf_config
+
         extractor = load_pdf_config().extractor
     if not workspace_exists(name):
         print_error(
@@ -564,7 +566,7 @@ def workspace_index(ctx: click.Context, name: str, force: bool, extractor: str |
         # Gather items and PDF paths
         item_map: dict[str, Item] = {}
         pdf_paths_map: dict[str, Path] = {}  # key → path
-        path_to_key: dict[Path, str] = {}    # path → key
+        path_to_key: dict[Path, str] = {}  # path → key
         for ws_item in to_index:
             item = reader.get_item(ws_item.key)
             if item is None:
@@ -596,9 +598,7 @@ def workspace_index(ctx: click.Context, name: str, force: bool, extractor: str |
                     sys.stderr.write(f"\r{' ' * 60}\r    [{phase}] [{current}/{total}]")
                     sys.stdout.flush()
 
-                batch_results = convert_pdfs_to_text(
-                    list(pdf_paths_map.values()), "mineru", batch_progress
-                )
+                batch_results = convert_pdfs_to_text(list(pdf_paths_map.values()), "mineru", batch_progress)
                 for path, text_or_err in batch_results.items():
                     key = path_to_key[path]
                     pdf_texts[key] = text_or_err
@@ -609,16 +609,21 @@ def workspace_index(ctx: click.Context, name: str, force: bool, extractor: str |
                 for i, (key, pdf_path) in enumerate(pdf_paths_map.items(), 1):
                     total_files = len(pdf_paths_map)
 
-                    def make_seq_progress(file_idx: int, file_total: int):
+                    def make_seq_progress(file_idx: int, file_total: int) -> Callable[[str, int, int, int], None]:
                         def seq_progress(phase: str, current: int, chunk_total: int, _pages: int) -> None:
-                            sys.stderr.write(f"\r{' ' * 60}\r    [{phase}] [{file_idx}/{file_total}] chunks [{current}/{chunk_total}]")
+                            sys.stderr.write(
+                                f"\r{' ' * 60}\r    [{phase}] [{file_idx}/{file_total}] chunks [{current}/{chunk_total}]"
+                            )
                             sys.stdout.flush()
+
                         return seq_progress
 
                     sys.stderr.write(f"\r{' ' * 60}\r    [extract] [{i}/{total_files}]")
                     sys.stdout.flush()
                     try:
-                        text = convert_pdf_to_text(pdf_path, extractor_name=extractor, progress_callback=make_seq_progress(i, total_files))
+                        text = convert_pdf_to_text(
+                            pdf_path, extractor_name=extractor, progress_callback=make_seq_progress(i, total_files)
+                        )
                         pdf_texts[key] = text
                     except Exception as e:
                         pdf_texts[key] = e
@@ -626,7 +631,7 @@ def workspace_index(ctx: click.Context, name: str, force: bool, extractor: str |
                 sys.stderr.write(f"\r{' ' * 60}\r")
                 sys.stdout.flush()
 
-    # PHASE 2 — Chunk all texts
+        # PHASE 2 — Chunk all texts
         click.echo(f"  Chunking {len(to_index)} item(s)...")
 
         all_chunks: list[tuple[str, str, str, int]] = []  # (key, type, content, doc_len)
@@ -650,7 +655,7 @@ def workspace_index(ctx: click.Context, name: str, force: bool, extractor: str |
                         chunk_tokens = len(tokenize(chunk_content))
                         all_chunks.append((ws_item.key, "pdf", chunk_content, chunk_tokens))
 
-    # PHASE 3 — Index all chunks (bulk insert, single commit)
+        # PHASE 3 — Index all chunks (bulk insert, single commit)
         click.echo(f"  Indexing {len(all_chunks)} chunk(s)...")
 
         all_chunk_ids: list[int] = []
@@ -694,7 +699,7 @@ def workspace_index(ctx: click.Context, name: str, force: bool, extractor: str |
         mode_label = "BM25"
         emb_cfg = load_embedding_config()
         if emb_cfg.is_configured and all_chunk_texts:
-            click.echo(f"  Generating embeddings...")
+            click.echo("  Generating embeddings...")
 
             def emb_progress(done: int, total: int) -> None:
                 sys.stderr.write(f"\r{' ' * 60}\r    [embed] [{done}/{total}]")
@@ -756,13 +761,11 @@ def workspace_query(ctx: click.Context, question: str, ws_name: str, top_k: int,
 
     idx = RagIndex(idx_path)
     if not json_out:
-        sys.stderr.write(f"\r    [loading index]")
+        sys.stderr.write("\r    [loading index]")
         sys.stderr.flush()
     try:
         # Determine effective mode (cheap check instead of loading all embeddings)
-        row = idx._conn.execute(
-            "SELECT 1 FROM chunks WHERE embedding IS NOT NULL LIMIT 1"
-        ).fetchone()
+        row = idx._conn.execute("SELECT 1 FROM chunks WHERE embedding IS NOT NULL LIMIT 1").fetchone()
         has_embeddings = row is not None
         if mode == "auto":
             effective_mode = "hybrid" if has_embeddings else "bm25"
@@ -776,9 +779,11 @@ def workspace_query(ctx: click.Context, question: str, ws_name: str, top_k: int,
             if json_out:
                 bm25_results = bm25_score_chunks(idx, question, None)
             else:
+
                 def bm25_progress(done: int, total: int) -> None:
                     sys.stderr.write(f"\r{' ' * 60}\r    [bm25] [{done}/{total}]")
                     sys.stdout.flush()
+
                 bm25_results = bm25_score_chunks(idx, question, bm25_progress)
 
         if effective_mode in ("semantic", "hybrid") and has_embeddings:
@@ -790,9 +795,11 @@ def workspace_query(ctx: click.Context, question: str, ws_name: str, top_k: int,
                         if json_out:
                             semantic_results = semantic_score_chunks(idx, q_vecs[0], None)
                         else:
+
                             def sem_progress(done: int, total: int) -> None:
                                 sys.stderr.write(f"\r{' ' * 60}\r    [semantic] [{done}/{total}]")
                                 sys.stdout.flush()
+
                             semantic_results = semantic_score_chunks(idx, q_vecs[0], sem_progress)
                 except Exception:
                     pass

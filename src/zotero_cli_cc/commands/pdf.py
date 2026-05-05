@@ -5,7 +5,7 @@ import json
 import click
 
 from zotero_cli_cc.config import get_data_dir, get_prefs_js_path, load_config, resolve_library_id
-from zotero_cli_cc.core.pdf_extractor import BasePdfExtractor, PdfExtractionError, get_extractor
+from zotero_cli_cc.core.pdf_extractor import PdfExtractionError, get_extractor
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.formatter import print_error
 from zotero_cli_cc.models import ErrorInfo
@@ -33,6 +33,7 @@ def pdf_cmd(ctx: click.Context, key: str, pages: str | None, extractor: str | No
     page_range = None
     if extractor is None:
         from zotero_cli_cc.config import load_pdf_config
+
         extractor = load_pdf_config().extractor
     if pages:
         try:

@@ -199,7 +199,7 @@ class TestEmbedding:
             call_args = mock_urlopen.call_args[0][0]
             body = json.loads(call_args.data)
             assert body["model"] == "model"
-            assert body["input"] == {"texts": ["hello world"]}
+            assert body["input"] == ["hello world"]
 
 
 class TestRRF:
