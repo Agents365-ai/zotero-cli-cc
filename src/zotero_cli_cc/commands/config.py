@@ -183,6 +183,7 @@ def cache_list(ctx: click.Context) -> None:
 
     json_out = ctx.obj.get("json", False) if ctx.obj else False
 
+    cache: PdfCache | None = None
     try:
         cache = PdfCache()
         rows = cache._conn.execute(
@@ -193,7 +194,8 @@ def cache_list(ctx: click.Context) -> None:
         click.echo(f"Error: Could not access cache database: {e}", err=True)
         raise SystemExit(1)
     finally:
-        cache.close()
+        if cache:
+            cache.close()
 
 
 @profile_group.command("set")
