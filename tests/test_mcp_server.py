@@ -201,11 +201,12 @@ class TestHandleRead:
 
 class TestHandlePdf:
     @patch("zotero_cli_cc.mcp_server.PdfCache")
-    @patch("zotero_cli_cc.mcp_server.extract_text_from_pdf")
+    @patch("zotero_cli_cc.core.pdf_extractor.get_extractor")
+    @patch("zotero_cli_cc.config.load_pdf_config")
     @patch("zotero_cli_cc.mcp_server._get_reader")
     @patch("zotero_cli_cc.mcp_server.load_config")
     @patch("zotero_cli_cc.mcp_server.get_data_dir")
-    def test_extracts_text(self, mock_data_dir, mock_config, mock_get_reader, mock_extract, mock_cache_cls):
+    def test_extracts_text(self, mock_data_dir, mock_config, mock_get_reader, mock_load_pdf, mock_get_extractor, mock_cache_cls):
         from zotero_cli_cc.mcp_server import _handle_pdf
 
         data_dir = Path("/fake/zotero")
@@ -223,7 +224,10 @@ class TestHandlePdf:
         cache = MagicMock()
         cache.get.return_value = None
         mock_cache_cls.return_value = cache
-        mock_extract.return_value = "PDF text content"
+        mock_load_pdf.return_value.extractor = "pymupdf"
+        mock_extractor = MagicMock()
+        mock_extractor.extract_text.return_value = "PDF text content"
+        mock_get_extractor.return_value = mock_extractor
 
         with patch.object(Path, "exists", return_value=True):
             result = _handle_pdf("ABC123", None)
