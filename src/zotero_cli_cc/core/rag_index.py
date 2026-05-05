@@ -20,6 +20,7 @@ class RagIndex:
                 item_key TEXT NOT NULL,
                 source TEXT NOT NULL,
                 content TEXT NOT NULL,
+                doc_len INTEGER NOT NULL DEFAULT 0,
                 embedding BLOB
             );
             CREATE TABLE IF NOT EXISTS bm25_terms (
@@ -29,6 +30,7 @@ class RagIndex:
                 FOREIGN KEY (chunk_id) REFERENCES chunks(id)
             );
             CREATE INDEX IF NOT EXISTS idx_bm25_term ON bm25_terms(term);
+            CREATE INDEX IF NOT EXISTS idx_bm25_chunk ON bm25_terms(chunk_id);
             CREATE INDEX IF NOT EXISTS idx_chunks_item ON chunks(item_key);
             CREATE TABLE IF NOT EXISTS index_meta (
                 key TEXT PRIMARY KEY,
@@ -37,12 +39,19 @@ class RagIndex:
         """)
         self._conn.commit()
 
-    def insert_chunk(self, item_key: str, source: str, content: str) -> int:
+    def insert_chunk(self, item_key: str, source: str, content: str, doc_len: int = 0) -> int:
         cur = self._conn.execute(
-            "INSERT INTO chunks (item_key, source, content) VALUES (?, ?, ?)",
-            (item_key, source, content),
+            "INSERT INTO chunks (item_key, source, content, doc_len) VALUES (?, ?, ?, ?)",
+            (item_key, source, content, doc_len),
         )
         self._conn.commit()
+        return cur.lastrowid  # type: ignore[return-value]
+
+    def insert_chunk_no_commit(self, item_key: str, source: str, content: str, doc_len: int = 0) -> int:
+        cur = self._conn.execute(
+            "INSERT INTO chunks (item_key, source, content, doc_len) VALUES (?, ?, ?, ?)",
+            (item_key, source, content, doc_len),
+        )
         return cur.lastrowid  # type: ignore[return-value]
 
     def insert_bm25_terms(self, chunk_id: int, term_tfs: dict[str, float]) -> None:
@@ -50,15 +59,36 @@ class RagIndex:
             "INSERT INTO bm25_terms (term, chunk_id, tf) VALUES (?, ?, ?)",
             [(term, chunk_id, tf) for term, tf in term_tfs.items()],
         )
+
+    def insert_bm25_terms_no_commit(self, chunk_id: int, term_tfs: dict[str, float]) -> None:
+        self._conn.executemany(
+            "INSERT INTO bm25_terms (term, chunk_id, tf) VALUES (?, ?, ?)",
+            [(term, chunk_id, tf) for term, tf in term_tfs.items()],
+        )
+
+    def commit(self) -> None:
         self._conn.commit()
 
     def get_all_chunks(self) -> list[dict]:
-        rows = self._conn.execute("SELECT id, item_key, source, content FROM chunks").fetchall()
+        rows = self._conn.execute("SELECT id, item_key, source, content, doc_len FROM chunks").fetchall()
         return [dict(r) for r in rows]
 
     def get_bm25_terms_for_chunk(self, chunk_id: int) -> dict[str, float]:
         rows = self._conn.execute("SELECT term, tf FROM bm25_terms WHERE chunk_id = ?", (chunk_id,)).fetchall()
         return {r["term"]: r["tf"] for r in rows}
+
+    def get_bm25_terms_bulk(self, chunk_ids: list[int]) -> dict[int, dict[str, float]]:
+        if not chunk_ids:
+            return {}
+        placeholders = ",".join("?" * len(chunk_ids))
+        rows = self._conn.execute(
+            f"SELECT chunk_id, term, tf FROM bm25_terms WHERE chunk_id IN ({placeholders})",
+            chunk_ids,
+        ).fetchall()
+        result: dict[int, dict[str, float]] = {cid: {} for cid in chunk_ids}
+        for r in rows:
+            result[r["chunk_id"]][r["term"]] = r["tf"]
+        return result
 
     def get_indexed_keys(self) -> set[str]:
         rows = self._conn.execute("SELECT DISTINCT item_key FROM chunks").fetchall()
@@ -75,6 +105,12 @@ class RagIndex:
     def set_embedding(self, chunk_id: int, embedding: list[float]) -> None:
         blob = struct.pack(f"{len(embedding)}f", *embedding)
         self._conn.execute("UPDATE chunks SET embedding = ? WHERE id = ?", (blob, chunk_id))
+        self._conn.commit()
+
+    def set_embeddings_bulk(self, chunk_ids: list[int], embeddings: list[list[float]]) -> None:
+        for chunk_id, embedding in zip(chunk_ids, embeddings):
+            blob = struct.pack(f"{len(embedding)}f", *embedding)
+            self._conn.execute("UPDATE chunks SET embedding = ? WHERE id = ?", (blob, chunk_id))
         self._conn.commit()
 
     def get_embedding(self, chunk_id: int) -> list[float]:

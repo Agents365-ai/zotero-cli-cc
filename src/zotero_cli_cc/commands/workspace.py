@@ -1,18 +1,22 @@
 from __future__ import annotations
 
 import json
+import sys
 import time
+from collections.abc import Callable
 from datetime import datetime, timezone
+from pathlib import Path
 
 import click
 
-from zotero_cli_cc.config import get_data_dir, load_config, load_embedding_config, resolve_library_id
+from zotero_cli_cc.config import get_data_dir, get_prefs_js_path, load_config, load_embedding_config, resolve_library_id
 from zotero_cli_cc.core.rag import (
     bm25_score_chunks,
     build_metadata_chunk,
     chunk_text,
     compute_term_frequencies,
     convert_pdf_to_text,
+    convert_pdfs_to_text,
     embed_texts,
     reciprocal_rank_fusion,
     semantic_score_chunks,
@@ -509,10 +513,15 @@ def _resolve_collection_key(reader: ZoteroReader, name_or_key: str) -> str | Non
 @workspace_group.command("index")
 @click.argument("name")
 @click.option("--force", is_flag=True, help="Rebuild index from scratch")
+@click.option("--extractor", default=None, help="PDF text extractor to use")
 @click.pass_context
-def workspace_index(ctx: click.Context, name: str, force: bool) -> None:
+def workspace_index(ctx: click.Context, name: str, force: bool, extractor: str | None) -> None:
     """Build RAG index for a workspace."""
     json_out = ctx.obj.get("json", False)
+    if extractor is None:
+        from zotero_cli_cc.config import load_pdf_config
+
+        extractor = load_pdf_config().extractor
     if not workspace_exists(name):
         print_error(
             ErrorInfo(
@@ -533,7 +542,7 @@ def workspace_index(ctx: click.Context, name: str, force: bool) -> None:
     data_dir = get_data_dir(cfg)
     db_path = data_dir / "zotero.sqlite"
     library_id = resolve_library_id(db_path, ctx.obj)
-    reader = ZoteroReader(db_path, library_id=library_id)
+    reader = ZoteroReader(db_path, library_id=library_id, prefs_js_path=get_prefs_js_path(cfg))
 
     idx_path = workspaces_dir() / f"{name}.idx.sqlite"
     idx = RagIndex(idx_path)
@@ -549,55 +558,135 @@ def workspace_index(ctx: click.Context, name: str, force: bool) -> None:
             click.echo(f"Index for '{name}' is up to date ({len(already_indexed)} item(s) indexed).")
             return
 
-        from zotero_cli_cc.core.pdf_cache import PdfCache
-
-        md_cache_path = workspaces_dir() / ".md_cache.sqlite"
-        md_cache = PdfCache(db_path=md_cache_path)
+        # PHASE 1 — Extract all PDF texts
+        import pymupdf
 
         t0 = time.monotonic()
-        total_chunks = 0
-        all_chunk_ids: list[int] = []
-        all_chunk_texts: list[str] = []
 
+        # Gather items and PDF paths
+        item_map: dict[str, Item] = {}
+        pdf_paths_map: dict[str, Path] = {}  # key → path
+        path_to_key: dict[Path, str] = {}  # path → key
         for ws_item in to_index:
             item = reader.get_item(ws_item.key)
             if item is None:
                 click.echo(f"Warning: item '{ws_item.key}' not found in Zotero, skipped")
                 continue
+            item_map[ws_item.key] = item
+            att = reader.get_pdf_attachment(ws_item.key)
+            if att is not None and att.path is not None and att.path.exists():
+                pdf_paths_map[ws_item.key] = att.path
+                path_to_key[att.path] = ws_item.key
 
-            # Build metadata chunk
+        # Compute total pages for header
+        total_pages = 0
+        for pdf_path in pdf_paths_map.values():
+            doc = pymupdf.open(str(pdf_path))
+            total_pages += len(doc)
+            doc.close()
+
+        # Determine extraction strategy
+        pdf_texts: dict[str, str | Exception] = {}  # key → text or error
+        pdf_errors: list[tuple[str, str, Exception]] = []
+
+        if pdf_paths_map:
+            if extractor == "mineru" and len(pdf_paths_map) > 1:
+                # MinerU batch — has its own progress callback
+                click.echo(f"  Extracting {len(pdf_paths_map)} PDFs ({total_pages} pages) with MinerU...")
+
+                def batch_progress(phase: str, current: int, total: int, _pages: int) -> None:
+                    sys.stderr.write(f"\r{' ' * 60}\r    [{phase}] [{current}/{total}]")
+                    sys.stdout.flush()
+
+                batch_results = convert_pdfs_to_text(list(pdf_paths_map.values()), "mineru", batch_progress)
+                for path, text_or_err in batch_results.items():
+                    key = path_to_key[path]
+                    pdf_texts[key] = text_or_err
+            else:
+                # Sequential extraction (pymupdf or single MinerU)
+                click.echo(f"  Extracting PDFs ({total_pages} pages)...")
+
+                for i, (key, pdf_path) in enumerate(pdf_paths_map.items(), 1):
+                    total_files = len(pdf_paths_map)
+
+                    def make_seq_progress(file_idx: int, file_total: int) -> Callable[[str, int, int, int], None]:
+                        def seq_progress(phase: str, current: int, chunk_total: int, _pages: int) -> None:
+                            sys.stderr.write(
+                                f"\r{' ' * 60}\r    [{phase}] [{file_idx}/{file_total}] chunks [{current}/{chunk_total}]"
+                            )
+                            sys.stdout.flush()
+
+                        return seq_progress
+
+                    sys.stderr.write(f"\r{' ' * 60}\r    [extract] [{i}/{total_files}]")
+                    sys.stdout.flush()
+                    try:
+                        text = convert_pdf_to_text(
+                            pdf_path, extractor_name=extractor, progress_callback=make_seq_progress(i, total_files)
+                        )
+                        pdf_texts[key] = text
+                    except Exception as e:
+                        pdf_texts[key] = e
+                        pdf_errors.append((key, pdf_path.name, e))
+                sys.stderr.write(f"\r{' ' * 60}\r")
+                sys.stdout.flush()
+
+        # PHASE 2 — Chunk all texts
+        click.echo(f"  Chunking {len(to_index)} item(s)...")
+
+        all_chunks: list[tuple[str, str, str, int]] = []  # (key, type, content, doc_len)
+
+        for ws_item in to_index:
+            item = item_map.get(ws_item.key)
+            if item is None:
+                continue
+
             authors = ", ".join(c.full_name for c in item.creators)
             meta_text = build_metadata_chunk(item.title, authors, item.abstract, item.tags)
-            chunk_id = idx.insert_chunk(ws_item.key, "metadata", meta_text)
-            tfs = compute_term_frequencies(tokenize(meta_text))
-            idx.insert_bm25_terms(chunk_id, tfs)
+            meta_tokens = len(tokenize(meta_text))
+            all_chunks.append((ws_item.key, "metadata", meta_text, meta_tokens))
+
+            if ws_item.key in pdf_texts:
+                pdf_text_or_err = pdf_texts[ws_item.key]
+                if isinstance(pdf_text_or_err, Exception):
+                    pass
+                else:
+                    for chunk_content in chunk_text(pdf_text_or_err, item.title):
+                        chunk_tokens = len(tokenize(chunk_content))
+                        all_chunks.append((ws_item.key, "pdf", chunk_content, chunk_tokens))
+
+        # PHASE 3 — Index all chunks (bulk insert, single commit)
+        click.echo(f"  Indexing {len(all_chunks)} chunk(s)...")
+
+        all_chunk_ids: list[int] = []
+        all_chunk_texts: list[str] = []
+
+        for i, (key, chunk_type, content, doc_len) in enumerate(all_chunks, 1):
+            if i % 500 == 0 or i == len(all_chunks):
+                sys.stderr.write(f"\r{' ' * 60}\r    [index] [{i}/{len(all_chunks)}]")
+                sys.stdout.flush()
+
+            chunk_id = idx.insert_chunk_no_commit(key, chunk_type, content, doc_len)
+            tfs = compute_term_frequencies(tokenize(content))
+            idx.insert_bm25_terms_no_commit(chunk_id, tfs)
             all_chunk_ids.append(chunk_id)
-            all_chunk_texts.append(meta_text)
-            total_chunks += 1
+            all_chunk_texts.append(content)
 
-            # Try PDF
-            att = reader.get_pdf_attachment(ws_item.key)
-            if att is not None:
-                pdf_path = data_dir / "storage" / att.key / att.filename
-                if pdf_path.exists():
-                    try:
-                        pdf_text = convert_pdf_to_text(pdf_path, cache=md_cache)
-                        chunks = chunk_text(pdf_text, item.title)
-                        for chunk_content in chunks:
-                            cid = idx.insert_chunk(ws_item.key, "pdf", chunk_content)
-                            tfs = compute_term_frequencies(tokenize(chunk_content))
-                            idx.insert_bm25_terms(cid, tfs)
-                            all_chunk_ids.append(cid)
-                            all_chunk_texts.append(chunk_content)
-                            total_chunks += 1
-                    except Exception:
-                        pass  # skip PDF extraction errors silently
+        idx.commit()
+        sys.stderr.write(f"\r{' ' * 60}\r")
+        sys.stdout.flush()
 
-        # Update BM25 statistics
-        all_chunks = idx.get_all_chunks()
-        total_docs = len(all_chunks)
+        # Report extraction errors at end
+        if pdf_errors:
+            click.echo(f"\nWarning: {len(pdf_errors)} PDF extraction(s) failed:")
+            for key, pdf_name, exc in pdf_errors:
+                click.echo(f"  - {key} ({pdf_name}): {exc}")
+
+        total_chunks = len(all_chunks)
+        all_indexed_chunks = idx.get_all_chunks()
+        total_docs = len(all_indexed_chunks)
         if total_docs > 0:
-            total_len = sum(len(tokenize(c["content"])) for c in all_chunks)
+            total_len = sum(c.get("doc_len", 0) or len(tokenize(c["content"])) for c in all_indexed_chunks)
             avg_doc_len = total_len / total_docs
         else:
             avg_doc_len = 1.0
@@ -610,19 +699,25 @@ def workspace_index(ctx: click.Context, name: str, force: bool) -> None:
         mode_label = "BM25"
         emb_cfg = load_embedding_config()
         if emb_cfg.is_configured and all_chunk_texts:
+            click.echo("  Generating embeddings...")
+
+            def emb_progress(done: int, total: int) -> None:
+                sys.stderr.write(f"\r{' ' * 60}\r    [embed] [{done}/{total}]")
+                sys.stdout.flush()
+
             try:
-                vectors = embed_texts(all_chunk_texts, emb_cfg)
+                vectors = embed_texts(all_chunk_texts, emb_cfg, emb_progress)
                 if vectors:
-                    for cid, vec in zip(all_chunk_ids, vectors):
-                        idx.set_embedding(cid, vec)
+                    idx.set_embeddings_bulk(all_chunk_ids, vectors)
                     mode_label = "BM25 + embeddings"
-            except Exception:
-                pass  # embedding failures are non-fatal
+            except Exception as e:
+                click.echo(f"  [WARN] Embedding failed: {e}", err=True)
+            sys.stderr.write(f"\r{' ' * 60}\r")
+            sys.stdout.flush()
 
         elapsed = time.monotonic() - t0
         click.echo(f"Indexed {len(to_index)} item(s) ({total_chunks} chunks) in {elapsed:.1f}s [{mode_label}]")
     finally:
-        md_cache.close()
         idx.close()
         reader.close()
 
@@ -665,9 +760,13 @@ def workspace_query(ctx: click.Context, question: str, ws_name: str, top_k: int,
         return
 
     idx = RagIndex(idx_path)
+    if not json_out:
+        sys.stderr.write("\r    [loading index]")
+        sys.stderr.flush()
     try:
-        # Determine effective mode
-        has_embeddings = len(idx.get_all_embeddings()) > 0
+        # Determine effective mode (cheap check instead of loading all embeddings)
+        row = idx._conn.execute("SELECT 1 FROM chunks WHERE embedding IS NOT NULL LIMIT 1").fetchone()
+        has_embeddings = row is not None
         if mode == "auto":
             effective_mode = "hybrid" if has_embeddings else "bm25"
         else:
@@ -677,7 +776,15 @@ def workspace_query(ctx: click.Context, question: str, ws_name: str, top_k: int,
         semantic_results: list[tuple[int, float, dict]] = []
 
         if effective_mode in ("bm25", "hybrid"):
-            bm25_results = bm25_score_chunks(idx, question)
+            if json_out:
+                bm25_results = bm25_score_chunks(idx, question, None)
+            else:
+
+                def bm25_progress(done: int, total: int) -> None:
+                    sys.stderr.write(f"\r{' ' * 60}\r    [bm25] [{done}/{total}]")
+                    sys.stdout.flush()
+
+                bm25_results = bm25_score_chunks(idx, question, bm25_progress)
 
         if effective_mode in ("semantic", "hybrid") and has_embeddings:
             emb_cfg = load_embedding_config()
@@ -685,9 +792,21 @@ def workspace_query(ctx: click.Context, question: str, ws_name: str, top_k: int,
                 try:
                     q_vecs = embed_texts([question], emb_cfg)
                     if q_vecs:
-                        semantic_results = semantic_score_chunks(idx, q_vecs[0])
+                        if json_out:
+                            semantic_results = semantic_score_chunks(idx, q_vecs[0], None)
+                        else:
+
+                            def sem_progress(done: int, total: int) -> None:
+                                sys.stderr.write(f"\r{' ' * 60}\r    [semantic] [{done}/{total}]")
+                                sys.stdout.flush()
+
+                            semantic_results = semantic_score_chunks(idx, q_vecs[0], sem_progress)
                 except Exception:
                     pass
+
+        if not json_out:
+            sys.stderr.write(f"\r{' ' * 60}\r")
+            sys.stdout.flush()
 
         # Merge results
         if effective_mode == "hybrid" and bm25_results and semantic_results:

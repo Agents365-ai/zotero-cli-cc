@@ -9,7 +9,7 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from zotero_cli_cc.config import get_data_dir, load_config, load_embedding_config
+from zotero_cli_cc.config import get_data_dir, get_prefs_js_path, load_config, load_embedding_config
 from zotero_cli_cc.core.pdf_cache import PdfCache
 from zotero_cli_cc.core.pdf_extractor import PdfExtractionError, extract_text_from_pdf
 from zotero_cli_cc.core.reader import ZoteroReader
@@ -41,11 +41,12 @@ def _get_reader(library: str = "user") -> ZoteroReader:
     cfg = load_config()
     data_dir = get_data_dir(cfg)
     db_path = data_dir / "zotero.sqlite"
+    prefs_path = get_prefs_js_path(cfg)
 
     library_id = 1
     if library.startswith("group:"):
         group_id = int(library[6:])
-        temp = ZoteroReader(db_path)
+        temp = ZoteroReader(db_path, prefs_js_path=prefs_path)
         try:
             resolved = temp.resolve_group_library_id(group_id)
         finally:
@@ -55,7 +56,7 @@ def _get_reader(library: str = "user") -> ZoteroReader:
         library_id = resolved
 
     if library_id not in _readers:
-        reader = ZoteroReader(db_path, library_id=library_id)
+        reader = ZoteroReader(db_path, library_id=library_id, prefs_js_path=prefs_path)
         _readers[library_id] = reader
         atexit.register(reader.close)
     return _readers[library_id]
@@ -169,15 +170,13 @@ def _handle_read(key: str, detail: str = "standard", library: str = "user") -> d
 
 
 def _handle_pdf(key: str, pages: str | None, library: str = "user") -> dict:
-    cfg = load_config()
-    data_dir = get_data_dir(cfg)
     reader = _get_reader(library)
     att = reader.get_pdf_attachment(key)
     if att is None:
         raise ValueError(f"No PDF attachment found for item '{key}'")
-    pdf_path = data_dir / "storage" / att.key / att.filename
-    if not pdf_path.exists():
-        raise ValueError(f"PDF file not found at {pdf_path}")
+    pdf_path = att.path
+    if not pdf_path or not pdf_path.exists():
+        raise ValueError(f"PDF file not found at {pdf_path or att.filename}")
 
     page_range = None
     if pages:
@@ -212,11 +211,9 @@ def _handle_annotations(key: str, library: str = "user") -> dict:
     att = reader.get_pdf_attachment(key)
     if att is None:
         return {"error": f"No PDF attachment found for '{key}'"}
-    cfg = load_config()
-    data_dir = get_data_dir(cfg)
-    pdf_path = data_dir / "storage" / att.key / att.filename
-    if not pdf_path.exists():
-        return {"error": f"PDF file not found at {pdf_path}"}
+    pdf_path = att.path
+    if not pdf_path or not pdf_path.exists():
+        return {"error": f"PDF file not found at {pdf_path or att.filename}"}
     annots = extract_annotations(pdf_path)
     return {"key": key, "annotations": annots, "total": len(annots)}
 
@@ -802,8 +799,6 @@ def _handle_workspace_index(name: str, force: bool = False, library: str = "user
     if not ws.items:
         return {"error": f"Workspace '{name}' is empty."}
 
-    cfg = load_config()
-    data_dir = get_data_dir(cfg)
     reader = _get_reader(library)
 
     idx_path = workspaces_dir() / f"{name}.idx.sqlite"
@@ -841,10 +836,10 @@ def _handle_workspace_index(name: str, force: bool = False, library: str = "user
 
             att = reader.get_pdf_attachment(ws_item.key)
             if att is not None:
-                pdf_path = data_dir / "storage" / att.key / att.filename
-                if pdf_path.exists():
+                pdf_path = att.path
+                if pdf_path and pdf_path.exists():
                     try:
-                        pdf_text = convert_pdf_to_text(pdf_path, cache=md_cache)
+                        pdf_text = convert_pdf_to_text(pdf_path)
                         chunks = chunk_text(pdf_text, item.title)
                         for chunk_content in chunks:
                             cid = idx.insert_chunk(ws_item.key, "pdf", chunk_content)
