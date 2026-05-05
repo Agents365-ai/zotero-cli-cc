@@ -21,9 +21,7 @@ class AttachmentResolver:
     def __init__(self, db_path: Path, prefs_js_path: Path | None = None) -> None:
         self._db_path = db_path
         self._prefs_js_path = prefs_js_path
-        self._base_attachment_path: Path | None | bool = (
-            None  # None = not read yet, False = not found
-        )
+        self._base_attachment_path: Path | None | bool = None  # None = not read yet, False = not found
 
     @property
     def storage_dir(self) -> Path:
@@ -39,9 +37,11 @@ class AttachmentResolver:
         prefs_locations: list[Path] = []
         if self._prefs_js_path:
             prefs_locations.append(self._prefs_js_path)
-        prefs_locations.extend([
-            self._db_path.parent / "prefs.js",
-        ])
+        prefs_locations.extend(
+            [
+                self._db_path.parent / "prefs.js",
+            ]
+        )
         zotero_profiles_dir = Path.home() / ".zotero" / "zotero"
         if zotero_profiles_dir.exists():
             prefs_locations.extend(Path(p) for p in glob.glob(str(zotero_profiles_dir / "*/prefs.js")))

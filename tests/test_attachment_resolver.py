@@ -1,8 +1,8 @@
-import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-import tempfile
 import os
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 from zotero_cli_cc.core.attachment_resolver import AttachmentResolver
 
@@ -50,13 +50,17 @@ class TestAttachmentResolver:
         result = resolver.resolve("ABC123", "file:///home/user/my%20file.pdf")
         assert result == Path("/home/user/my file.pdf")
 
+    @pytest.mark.skipif(os.name != "nt", reason="Windows path semantics; cannot instantiate WindowsPath on POSIX")
     def test_resolve_file_url_windows_drive(self, tmp_path):
         """'file:///C:/Users/test/file.pdf' resolves to C:/Users/test/file.pdf."""
         db_path = tmp_path / "zotero.sqlite"
         db_path.touch()
 
         resolver = AttachmentResolver(db_path)
-        with patch("os.name", "nt"), patch("zotero_cli_cc.core.attachment_resolver.is_wsl_environment", return_value=False):
+        with (
+            patch("os.name", "nt"),
+            patch("zotero_cli_cc.core.attachment_resolver.is_wsl_environment", return_value=False),
+        ):
             result = resolver.resolve("ABC123", "file:///C:/Users/test/file.pdf")
         # On Windows, Path normalizes / to \; on Linux (where os.name is patched but Path
         # still uses PosixPath), forward slashes are preserved.

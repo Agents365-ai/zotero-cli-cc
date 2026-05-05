@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 
 def is_wsl_environment() -> bool:
