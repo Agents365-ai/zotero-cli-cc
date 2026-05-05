@@ -123,7 +123,8 @@ class TestPdfCmdWithExtractors:
                 result = _invoke(["pdf", "ATTN001", "--extractor", "pymupdf"], json_output=True)
 
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        # `pdf --json` is now routed through the agent envelope.
+        data = json.loads(result.output)["data"]
         assert "key" in data
         assert data["key"] == "ATTN001"
         assert "text" in data

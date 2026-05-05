@@ -100,7 +100,8 @@ def test_cache_list_json(tmp_path):
         runner = CliRunner()
         result = runner.invoke(main, ["--json", "config", "cache", "list"])
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        # `config cache list --json` is now routed through the agent envelope.
+        data = json.loads(result.output)["data"]
         assert isinstance(data, list)
         assert len(data) == 1
         assert data[0]["pdf_basename"] == "/path/to/paper2.pdf"

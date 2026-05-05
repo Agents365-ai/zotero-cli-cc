@@ -89,11 +89,13 @@ class TestWorkspaceQuery:
                 ["workspace", "query", "attention", "--workspace", "test-q"],
                 json_output=True,
             )
-        # `workspace query --json` outputs a raw list, not an envelope.
-        data = json.loads(result.output)
-        assert isinstance(data, list)
-        assert len(data) > 0
-        assert "item_key" in data[0]
+        # `workspace query --json` is routed through the envelope: data has
+        # `mode` and `results`, where `results` is the per-chunk list.
+        data = json.loads(result.output)["data"]
+        results = data["results"]
+        assert isinstance(results, list)
+        assert len(results) > 0
+        assert "item_key" in results[0]
 
     def test_query_irrelevant(self, tmp_path):
         with _patch_ws_dir(tmp_path):
