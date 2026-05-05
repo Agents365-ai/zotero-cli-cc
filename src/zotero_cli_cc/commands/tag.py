@@ -8,6 +8,7 @@ import click
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
+from zotero_cli_cc.exit_codes import EXIT_RUNTIME
 from zotero_cli_cc.formatter import print_error
 from zotero_cli_cc.models import ErrorInfo
 
@@ -71,6 +72,9 @@ def tag_cmd(
                 )
         if not failed:
             click.echo(SYNC_REMINDER)
+        else:
+            # Surface failures via typed exit so agents/scripts detect them.
+            ctx.exit(EXIT_RUNTIME)
     else:
         # View mode — show tags for each key
         data_dir = get_data_dir(cfg)

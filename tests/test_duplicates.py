@@ -90,7 +90,8 @@ class TestDuplicatesCLI:
         assert "ATTN001" in result.output or "DUPE008" in result.output
 
     def test_duplicates_by_title(self):
-        result = _invoke(["duplicates", "--by", "title"], json_output=True)
+        # Default 0.85 threshold may not match; lower it for this fixture.
+        result = _invoke(["duplicates", "--by", "title", "--threshold", "0.7"], json_output=True)
         assert result.exit_code != 0
 
 

@@ -7,8 +7,8 @@ import click
 
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
-from zotero_cli_cc.formatter import print_error
-from zotero_cli_cc.models import ErrorInfo, Item
+from zotero_cli_cc.exit_codes import emit_error
+from zotero_cli_cc.models import Item
 
 
 def _copy_to_clipboard(text: str) -> bool:
@@ -211,15 +211,13 @@ def cite_cmd(ctx: click.Context, key: str, style: str, no_copy: bool) -> None:
     try:
         item = reader.get_item(key)
         if item is None:
-            print_error(
-                ErrorInfo(
-                    message=f"Item '{key}' not found",
-                    context="cite",
-                    hint="Run 'zot search' to find valid item keys",
-                ),
+            emit_error(
+                "not_found",
+                f"Item '{key}' not found",
                 output_json=json_out,
+                hint="Run 'zot search' to find valid item keys",
+                context="cite",
             )
-            return
         formatter = STYLES[style]
         citation = formatter(item)
         click.echo(citation)

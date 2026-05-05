@@ -32,9 +32,12 @@ def test_delete_with_confirm(mock_writer_cls):
 
 @patch("zotero_cli_cc.commands.delete.ZoteroWriter")
 def test_delete_without_confirm(mock_writer_cls):
+    # Without --yes on non-tty stdin (CliRunner uses StringIO), `delete` refuses
+    # the operation and exits EXIT_VALIDATION (3) — guards against unattended
+    # destructive deletes. Confirmation flow is exercised in interactive tests.
     runner = CliRunner()
     result = runner.invoke(main, ["delete", "K1"], input="n\n", env=WRITE_ENV)
-    assert result.exit_code == 0
+    assert result.exit_code == 3
     mock_writer_cls.return_value.delete_item.assert_not_called()
 
 

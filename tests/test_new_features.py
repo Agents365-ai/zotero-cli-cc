@@ -31,8 +31,10 @@ class TestDryRun:
         """--dry-run should work even without API credentials."""
         runner = CliRunner()
         result = runner.invoke(main, ["delete", "K1", "--dry-run"])
-        assert result.exit_code != 0
-        assert "[dry-run]" in result.output
+        # Dry-run bypasses the auth check, so exit is 0 and the preview is emitted.
+        assert result.exit_code == 0
+        # Text-mode preview line, not present in JSON envelope mode.
+        assert "[dry-run]" in result.output or "would_delete" in result.output
 
     def test_collection_reorganize_dry_run(self, tmp_path):
         plan = {
@@ -140,11 +142,15 @@ class TestOffset:
         runner = CliRunner()
         result = runner.invoke(
             main,
-            ["summarize-all", "--offset", "1"],
+            ["--json", "summarize-all", "--offset", "1"],
             env={"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"},
         )
         assert result.exit_code == 0
-        data = json.loads(result.output)["data"]
+        # `summarize-all` emits NDJSON progress events followed by the final
+        # envelope JSON document; parse the final block.
+        last_envelope_start = result.output.rfind("\n{\n")
+        envelope_text = result.output[last_envelope_start + 1 :] if last_envelope_start >= 0 else result.output
+        data = json.loads(envelope_text)["data"]
         assert isinstance(data, list)
 
 

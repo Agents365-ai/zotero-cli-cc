@@ -208,7 +208,8 @@ class TestWorkspaceCLI:
         with patch("zotero_cli_cc.core.workspace.workspaces_dir", return_value=tmp_path):
             _invoke(["workspace", "new", "ws-json"])
             result = _invoke(["workspace", "list"], json_output=True)
-        data = json.loads(result.output)["data"]
+        # `workspace list` outputs a raw list, not an envelope.
+        data = json.loads(result.output)
         assert len(data) == 1
         assert data[0]["name"] == "ws-json"
 

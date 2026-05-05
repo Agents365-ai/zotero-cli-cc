@@ -99,8 +99,9 @@ class TestUpdateCommand:
         result = _invoke(["update", "ATTN001", "--title", "New"], json_output=True)
         assert result.exit_code == 0
         data = json.loads(result.output)["data"]
-        assert data["status"] == "updated"
         assert data["key"] == "ATTN001"
+        assert "fields" in data
+        assert data["sync_required"] is True
 
     @patch("zotero_cli_cc.commands.update.ZoteroWriter")
     def test_update_api_error(self, mock_writer_cls):

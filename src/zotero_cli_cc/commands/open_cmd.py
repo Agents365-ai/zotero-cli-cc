@@ -7,8 +7,7 @@ import click
 
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
-from zotero_cli_cc.formatter import print_error
-from zotero_cli_cc.models import ErrorInfo
+from zotero_cli_cc.exit_codes import emit_error
 
 
 def _open_path(path: str) -> None:
@@ -42,29 +41,25 @@ def open_cmd(ctx: click.Context, key: str, open_url: bool) -> None:
     try:
         item = reader.get_item(key)
         if item is None:
-            print_error(
-                ErrorInfo(
-                    message=f"Item '{key}' not found",
-                    context="open",
-                    hint="Run 'zot search' to find valid item keys",
-                ),
+            emit_error(
+                "not_found",
+                f"Item '{key}' not found",
                 output_json=json_out,
+                hint="Run 'zot search' to find valid item keys",
+                context="open",
             )
-            return
 
         if open_url:
             target = item.url or item.doi
             if item.doi and not item.url:
                 target = f"https://doi.org/{item.doi}"
             if not target:
-                print_error(
-                    ErrorInfo(
-                        message=f"No URL or DOI for item '{key}'",
-                        context="open",
-                    ),
+                emit_error(
+                    "not_found",
+                    f"No URL or DOI for item '{key}'",
                     output_json=json_out,
+                    context="open",
                 )
-                return
             click.echo(f"Opening {target}")
             _open_path(target)
             return
@@ -72,25 +67,21 @@ def open_cmd(ctx: click.Context, key: str, open_url: bool) -> None:
         # Default: open PDF
         att = reader.get_pdf_attachment(key)
         if att is None:
-            print_error(
-                ErrorInfo(
-                    message=f"No PDF attachment for '{key}'",
-                    context="open",
-                    hint="Use --url to open the item URL instead",
-                ),
+            emit_error(
+                "not_found",
+                f"No PDF attachment for '{key}'",
                 output_json=json_out,
+                hint="Use --url to open the item URL instead",
+                context="open",
             )
-            return
         pdf_path = data_dir / "storage" / att.key / att.filename
         if not pdf_path.exists():
-            print_error(
-                ErrorInfo(
-                    message=f"PDF file not found at {pdf_path}",
-                    context="open",
-                ),
+            emit_error(
+                "not_found",
+                f"PDF file not found at {pdf_path}",
                 output_json=json_out,
+                context="open",
             )
-            return
         click.echo(f"Opening {pdf_path}")
         _open_path(str(pdf_path))
     finally:
