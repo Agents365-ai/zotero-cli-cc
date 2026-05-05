@@ -4,7 +4,7 @@ import json as json_mod
 import time
 import urllib.error
 import urllib.request
-from typing import Callable
+from collections.abc import Callable
 
 from zotero_cli_cc.core.embedding_provider import EmbeddingProvider
 
@@ -83,7 +83,9 @@ class JinaProvider(EmbeddingProvider):
                 req.add_header("User-Agent", "zot-cli/0.2.0")
                 with urllib.request.urlopen(req) as resp:
                     data = json_mod.loads(resp.read())
-                embedding = data.get("data", [{}])[0].get("embedding") or data.get("output", {}).get("embeddings", [None])[0]
+                embedding = (
+                    data.get("data", [{}])[0].get("embedding") or data.get("output", {}).get("embeddings", [None])[0]
+                )
                 results.append(embedding if embedding else [])
             except Exception:
                 results.append([])

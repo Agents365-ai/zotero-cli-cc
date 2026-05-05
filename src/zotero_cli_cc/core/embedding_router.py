@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from zotero_cli_cc.config import EmbeddingConfig
 from zotero_cli_cc.core.embedding_provider import EmbeddingProvider

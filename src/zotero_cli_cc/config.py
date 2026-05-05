@@ -100,6 +100,8 @@ class EmbeddingConfig:
     url: str = "https://api.jina.ai/v1/embeddings"
     api_key: str = ""
     model: str = "jina-embeddings-v3"
+    provider: str = "auto"
+    aliyun_api_key: str = ""
 
     @property
     def is_configured(self) -> bool:
