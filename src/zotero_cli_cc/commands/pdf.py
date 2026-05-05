@@ -8,7 +8,7 @@ import click
 from zotero_cli_cc.config import get_data_dir, get_prefs_js_path, load_config, resolve_library_id
 from zotero_cli_cc.core.pdf_extractor import PdfExtractionError, get_extractor
 from zotero_cli_cc.core.reader import ZoteroReader
-from zotero_cli_cc.formatter import print_error
+from zotero_cli_cc.formatter import format_pdf_annotations, format_pdf_text, print_error
 from zotero_cli_cc.models import ErrorInfo
 
 
@@ -157,16 +157,7 @@ def pdf_cmd(
                 else:
                     click.echo("No annotations found.")
                 return
-            if json_out:
-                click.echo(json.dumps(annots, ensure_ascii=False, indent=2))
-            else:
-                for a in annots:
-                    line = f"[p.{a['page']}] {a['type']}"
-                    if a.get("quote"):
-                        line += f': "{a["quote"]}"'
-                    if a.get("content"):
-                        line += f" -- {a['content']}"
-                    click.echo(line)
+            click.echo(format_pdf_annotations(annots, output_json=json_out))
             return
         from zotero_cli_cc.core.pdf_cache import PdfCache
 
@@ -219,14 +210,7 @@ def pdf_cmd(
                         output_json=json_out,
                     )
                     return
-                if json_out:
-                    click.echo(
-                        json.dumps(
-                            {"key": key, "pages": pages, "section": section, "content": content}, ensure_ascii=False
-                        )
-                    )
-                else:
-                    click.echo(content)
+                click.echo(format_pdf_text(key, pages, section=section, content=content, output_json=json_out))
             else:
                 outline_data = _parse_outline(text)
                 if not outline_data:
@@ -235,17 +219,9 @@ def pdf_cmd(
                     else:
                         click.echo("No headings found in document.")
                     return
-                if json_out:
-                    outline_json = [{"number": n, "text": t, "level": lvl} for n, t, lvl in outline_data]
-                    click.echo(json.dumps({"key": key, "pages": pages, "outline": outline_json}, ensure_ascii=False))
-                else:
-                    for num, heading_text, level in outline_data:
-                        indent = "  " * (level - 1)
-                        click.echo(f"{num}. {indent}{heading_text}")
+                outline_json = [{"number": n, "text": t, "level": lvl} for n, t, lvl in outline_data]
+                click.echo(format_pdf_text(key, pages, outline=outline_json, output_json=json_out))
             return
-        if json_out:
-            click.echo(json.dumps({"key": key, "pages": pages, "text": text}, ensure_ascii=False))
-        else:
-            click.echo(text)
+        click.echo(format_pdf_text(key, pages, text=text, output_json=json_out))
     finally:
         reader.close()

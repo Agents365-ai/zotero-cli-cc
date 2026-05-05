@@ -34,7 +34,7 @@ ZOT_FORMAT=table zot search foo   # force table even when piped
   "ok": true,
   "data": { "key": "ABC123", "title": "..." },
   "meta": {
-    "schema_version": "1.0.0",
+    "schema_version": "1.1.0",
     "cli_version": "0.3.0",
     "request_id": "a1b2c3d4e5f6",
     "latency_ms": 412
@@ -64,7 +64,7 @@ Mutating commands additionally set `data.sync_required: true` and may carry a `n
     "retryable": false,
     "hint": "Run 'zot search' to find valid item keys"
   },
-  "meta": { "request_id": "...", "schema_version": "1.0.0" }
+  "meta": { "request_id": "...", "schema_version": "1.1.0" }
 }
 ```
 
@@ -189,6 +189,68 @@ zot add --doi "10.1/x" --idempotency-key "ingest-2026-04-15-001"
 
 Retry guidance: check `error.retryable` first, then retry with the same `--idempotency-key`.
 
+## PDF extraction
+
+The `pdf` command supports structured content extraction:
+
+```bash
+zot pdf KEY                        # full text
+zot pdf KEY --pages 1-5           # page range
+zot pdf KEY --outline             # numbered heading outline
+zot pdf KEY --section 3           # content under 3rd heading
+zot pdf KEY --extractor pymupdf   # force specific extractor
+```
+
+JSON output envelopes the extracted content:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "key": "ABC123",
+    "pages": "all",
+    "text": "...",
+    "meta": { "extractor": "pymupdf", "cached": true }
+  },
+  "meta": { "schema_version": "1.1.0", ... }
+}
+```
+
+Outline output:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "key": "ABC123",
+    "pages": "all",
+    "outline": [
+      { "number": 1, "text": "Introduction", "level": 1 },
+      { "number": 2, "text": "Related Work", "level": 1 },
+      { "number": 3, "text": "Methodology", "level": 2 }
+    ]
+  },
+  "meta": { ... }
+}
+```
+
+Section extraction:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "key": "ABC123",
+    "pages": "all",
+    "section": 3,
+    "content": "Methodology content here..."
+  },
+  "meta": { ... }
+}
+```
+
+PDF text is cached locally by (pdf_path, extractor) to avoid re-extraction. Use `zot config cache list` to inspect the cache, or `zot config cache clear` to invalidate it.
+
 ## Non-interactive operation
 
 - `zot` never prompts for input when `stdin` is not a TTY.
@@ -227,6 +289,41 @@ stdout:
 ```
 
 Agents tail stderr for liveness; stdout remains a single clean envelope.
+
+## Workspace RAG
+
+Workspaces support hybrid BM25 + semantic search via embeddings:
+
+```bash
+zot workspace index my-workspace           # BM25 only
+zot workspace index my-workspace --force  # rebuild index
+zot workspace query "reward hacking" --workspace my-workspace
+zot workspace query "reward hacking" --workspace my-workspace --mode hybrid
+zot workspace query "reward hacking" --workspace my-workspace --mode bm25
+```
+
+Query JSON output:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "mode": "hybrid",
+    "results": [
+      { "rank": 1, "score": 0.8942, "item_key": "ABC123", "source": "pdf", "content": "..." },
+      { "rank": 2, "score": 0.8123, "item_key": "DEF456", "source": "metadata", "content": "..." }
+    ]
+  },
+  "meta": { "schema_version": "1.1.0", ... }
+}
+```
+
+The `mode` field indicates what retrieval was used:
+- `bm25`: keyword search only
+- `semantic`: embedding similarity only
+- `hybrid`: reciprocal rank fusion of both
+
+When `--mode auto` is used (default), the system automatically selects `hybrid` if embeddings exist for the workspace, otherwise `bm25`.
 
 ## Auth delegation
 

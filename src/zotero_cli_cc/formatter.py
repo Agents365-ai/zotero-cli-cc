@@ -8,6 +8,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict
 from io import StringIO
+from pathlib import Path
 from typing import Any
 
 from rich.console import Console
@@ -17,7 +18,7 @@ from rich.tree import Tree
 from zotero_cli_cc import __version__
 from zotero_cli_cc.models import Collection, DuplicateGroup, ErrorInfo, Item, Note
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 
 _request_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("_request_id", default=None)
 _request_start: contextvars.ContextVar[float | None] = contextvars.ContextVar("_request_start", default=None)
@@ -225,6 +226,139 @@ def format_duplicates(groups: list[DuplicateGroup], output_json: bool = False) -
         title = g.items[0].title if g.items else ""
         table.add_row(str(i), keys, title, g.match_type, f"{g.score:.2f}")
     console.print(table)
+    return buf.getvalue()
+
+
+def format_pdf_annotations(annots: list[dict], output_json: bool = False) -> str:
+    if output_json:
+        return _dump(envelope_ok(annots, meta={"count": len(annots)}))
+    buf = StringIO()
+    console = Console(file=buf, force_terminal=False, width=120)
+    for a in annots:
+        line = f"[p.{a['page']}] {a['type']}"
+        if a.get("quote"):
+            line += f': "{a["quote"]}"'
+        if a.get("content"):
+            line += f" -- {a['content']}"
+        console.print(line)
+    return buf.getvalue()
+
+
+def format_pdf_text(
+    key: str,
+    pages: str | None,
+    text: str | None = None,
+    outline: list[dict] | None = None,
+    section: int | None = None,
+    content: str | None = None,
+    output_json: bool = False,
+) -> str:
+    if output_json:
+        data: dict[str, Any] = {"key": key, "pages": pages or "all"}
+        if section is not None:
+            data["section"] = section
+            data["content"] = content or ""
+        elif outline is not None:
+            data["outline"] = outline
+        else:
+            data["text"] = text or ""
+        return _dump(envelope_ok(data))
+    buf = StringIO()
+    console = Console(file=buf, force_terminal=False, width=120)
+    if section is not None:
+        console.print(content or "")
+    elif outline is not None:
+        for item in outline:
+            indent = "  " * (item["level"] - 1)
+            console.print(f"{item['number']}. {indent}{item['text']}")
+    else:
+        console.print(text or "")
+    return buf.getvalue()
+
+
+def format_cache_list(rows: list[tuple], output_json: bool = False) -> str:
+    if not rows:
+        if output_json:
+            return _dump(envelope_ok([], meta={"count": 0}))
+        return "Cache is empty."
+    if output_json:
+        data = [
+            {
+                "pdf_basename": row[0],
+                "extractor": row[1],
+                "text_length": row[2],
+                "preview": row[3][:100] if row[3] else "",
+                "extracted_at": row[4],
+            }
+            for row in rows
+        ]
+        return _dump(envelope_ok(data, meta={"count": len(rows)}))
+    buf = StringIO()
+    console = Console(file=buf, force_terminal=False, width=120)
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("PDF Path", style="cyan", width=30)
+    table.add_column("Extractor", width=10)
+    table.add_column("Length", justify="right", width=10)
+    table.add_column("Preview", width=50)
+    table.add_column("Time", width=20)
+    for row in rows:
+        pdf_path, extractor, length, content, extracted_at = row
+        preview = content[:100] + "..." if content and len(content) > 100 else (content or "")
+        preview = preview.replace("\n", " ").replace("\r", " ")
+        table.add_row(Path(pdf_path).name, extractor, f"{length:,}", preview, extracted_at[:19] if extracted_at else "")
+    console.print(table)
+    return buf.getvalue()
+
+
+def format_workspace_list(workspaces: list, output_json: bool = False) -> str:
+    if output_json:
+        data = [
+            {
+                "name": ws.name,
+                "description": ws.description,
+                "items": len(ws.items),
+                "created": ws.created,
+            }
+            for ws in workspaces
+        ]
+        return _dump(envelope_ok(data, meta={"count": len(workspaces)}))
+    buf = StringIO()
+    console = Console(file=buf, force_terminal=False, width=120)
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Name", style="cyan", width=20)
+    table.add_column("Description", width=50)
+    table.add_column("Items", justify="right", width=8)
+    table.add_column("Created", width=20)
+    for ws in workspaces:
+        desc = ws.description[:47] + "..." if len(ws.description) > 50 else ws.description
+        created = ws.created[:10] if len(ws.created) >= 10 else ws.created
+        table.add_row(ws.name, desc, str(len(ws.items)), created)
+    console.print(table)
+    return buf.getvalue()
+
+
+def format_workspace_query(results: list, mode: str, output_json: bool = False) -> str:
+    if output_json:
+        data = {
+            "mode": mode,
+            "results": [
+                {
+                    "rank": i + 1,
+                    "score": round(r[1], 4),
+                    "item_key": r[2]["item_key"],
+                    "source": r[2]["source"],
+                    "content": r[2]["content"][:500],
+                }
+                for i, r in enumerate(results)
+            ],
+        }
+        return _dump(envelope_ok(data))
+    buf = StringIO()
+    console = Console(file=buf, force_terminal=False, width=120)
+    for i, (cid, score, chunk) in enumerate(results):
+        preview = chunk["content"][:120].replace("\n", " ")
+        console.print(f"[{i + 1}] Score: {score:.2f} | {chunk['item_key']} | {chunk['source']}")
+        console.print(f"    {preview}...")
     return buf.getvalue()
 
 
