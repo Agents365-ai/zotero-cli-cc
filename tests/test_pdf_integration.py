@@ -106,7 +106,8 @@ class TestPdfCmdWithExtractors:
         with patch("zotero_cli_cc.core.pdf_cache.PdfCache"):
             result = _invoke(["pdf", "NOTFOUND", "--extractor", "pymupdf"])
 
-        assert result.exit_code == 0
+        # Exit 4 (NOT_FOUND) per the agent contract.
+        assert result.exit_code == 4
         assert "no pdf attachment" in result.output.lower()
 
     def test_pdf_json_output(self):
@@ -220,5 +221,6 @@ class TestPdfAndWorkspaceIntegration:
         with patch("zotero_cli_cc.core.pdf_cache.PdfCache"):
             result = _invoke(["pdf", "NONEXISTENT", "--extractor", "pymupdf"])
 
-        assert result.exit_code == 0
+        # Exit 4 (NOT_FOUND) per the agent contract.
+        assert result.exit_code == 4
         assert "no pdf attachment" in result.output.lower() or "not found" in result.output.lower()

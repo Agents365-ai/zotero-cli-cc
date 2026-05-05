@@ -34,8 +34,8 @@ from zotero_cli_cc.core.workspace import (
     workspaces_dir,
 )
 from zotero_cli_cc.exit_codes import emit_error
-from zotero_cli_cc.formatter import format_items, format_workspace_list, format_workspace_query, print_error
-from zotero_cli_cc.models import Collection, ErrorInfo, Item
+from zotero_cli_cc.formatter import format_items, format_workspace_list, format_workspace_query
+from zotero_cli_cc.models import Collection, Item
 
 
 @click.group("workspace")
@@ -60,15 +60,13 @@ def workspace_new(ctx: click.Context, name: str, description: str) -> None:
             context="workspace new",
         )
     if workspace_exists(name):
-        print_error(
-            ErrorInfo(
-                message=f"Workspace '{name}' already exists",
-                context="workspace new",
-                hint=f"Use 'zot workspace show {name}' to view it",
-            ),
+        emit_error(
+            "conflict",
+            f"Workspace '{name}' already exists",
             output_json=json_out,
+            hint=f"Use 'zot workspace show {name}' to view it",
+            context="workspace new",
         )
-        return
     ws = Workspace(
         name=name,
         created=datetime.now(timezone.utc).isoformat(),
@@ -86,15 +84,13 @@ def workspace_delete(ctx: click.Context, name: str, yes: bool) -> None:
     """Delete a workspace."""
     json_out = ctx.obj.get("json", False)
     if not workspace_exists(name):
-        print_error(
-            ErrorInfo(
-                message=f"Workspace '{name}' not found",
-                context="workspace delete",
-                hint="Use 'zot workspace list' to see available workspaces",
-            ),
+        emit_error(
+            "not_found",
+            f"Workspace '{name}' not found",
             output_json=json_out,
+            hint="Use 'zot workspace list' to see available workspaces",
+            context="workspace delete",
         )
-        return
     no_interaction = ctx.obj.get("no_interaction", False)
     if not yes and not no_interaction:
         if not click.confirm(f"Delete workspace '{name}'?"):
@@ -112,15 +108,13 @@ def workspace_add(ctx: click.Context, name: str, keys: tuple[str, ...]) -> None:
     """Add items to a workspace by Zotero key."""
     json_out = ctx.obj.get("json", False)
     if not workspace_exists(name):
-        print_error(
-            ErrorInfo(
-                message=f"Workspace '{name}' not found",
-                context="workspace add",
-                hint="Use 'zot workspace new' to create it first",
-            ),
+        emit_error(
+            "not_found",
+            f"Workspace '{name}' not found",
             output_json=json_out,
+            hint="Use 'zot workspace new' to create it first",
+            context="workspace add",
         )
-        return
 
     cfg = load_config(profile=ctx.obj.get("profile"))
     data_dir = get_data_dir(cfg)
@@ -153,15 +147,13 @@ def workspace_remove(ctx: click.Context, name: str, keys: tuple[str, ...]) -> No
     """Remove items from a workspace by key."""
     json_out = ctx.obj.get("json", False)
     if not workspace_exists(name):
-        print_error(
-            ErrorInfo(
-                message=f"Workspace '{name}' not found",
-                context="workspace remove",
-                hint="Use 'zot workspace list' to see available workspaces",
-            ),
+        emit_error(
+            "not_found",
+            f"Workspace '{name}' not found",
             output_json=json_out,
+            hint="Use 'zot workspace list' to see available workspaces",
+            context="workspace remove",
         )
-        return
     ws = load_workspace(name)
     removed = 0
     for key in keys:
@@ -193,15 +185,13 @@ def workspace_show(ctx: click.Context, name: str) -> None:
     limit = ctx.obj.get("limit", 50)
 
     if not workspace_exists(name):
-        print_error(
-            ErrorInfo(
-                message=f"Workspace '{name}' not found",
-                context="workspace show",
-                hint="Use 'zot workspace list' to see available workspaces",
-            ),
+        emit_error(
+            "not_found",
+            f"Workspace '{name}' not found",
             output_json=json_out,
+            hint="Use 'zot workspace list' to see available workspaces",
+            context="workspace show",
         )
-        return
 
     ws = load_workspace(name)
     if not ws.items:
@@ -244,15 +234,13 @@ def workspace_export(ctx: click.Context, name: str, fmt: str) -> None:
     """Export workspace items for external use."""
     json_out = ctx.obj.get("json", False)
     if not workspace_exists(name):
-        print_error(
-            ErrorInfo(
-                message=f"Workspace '{name}' not found",
-                context="workspace export",
-                hint="Use 'zot workspace list' to see available workspaces",
-            ),
+        emit_error(
+            "not_found",
+            f"Workspace '{name}' not found",
             output_json=json_out,
+            hint="Use 'zot workspace list' to see available workspaces",
+            context="workspace export",
         )
-        return
 
     ws = load_workspace(name)
     if not ws.items:
@@ -320,26 +308,22 @@ def workspace_import_cmd(
     """Bulk import items into a workspace from collection, tag, or search."""
     json_out = ctx.obj.get("json", False)
     if not workspace_exists(name):
-        print_error(
-            ErrorInfo(
-                message=f"Workspace '{name}' not found",
-                context="workspace import",
-                hint="Use 'zot workspace new' to create it first",
-            ),
+        emit_error(
+            "not_found",
+            f"Workspace '{name}' not found",
             output_json=json_out,
+            hint="Use 'zot workspace new' to create it first",
+            context="workspace import",
         )
-        return
 
     if not collection and not tag and not search_query:
-        print_error(
-            ErrorInfo(
-                message="Must specify at least one of --collection, --tag, or --search",
-                context="workspace import",
-                hint="Example: zot workspace import my-ws --search 'attention'",
-            ),
+        emit_error(
+            "validation_error",
+            "Must specify at least one of --collection, --tag, or --search",
             output_json=json_out,
+            hint="Example: zot workspace import my-ws --search 'attention'",
+            context="workspace import",
         )
-        return
 
     cfg = load_config(profile=ctx.obj.get("profile"))
     data_dir = get_data_dir(cfg)
@@ -354,15 +338,13 @@ def workspace_import_cmd(
             # Resolve collection name to key
             col_key = _resolve_collection_key(reader, collection)
             if col_key is None:
-                print_error(
-                    ErrorInfo(
-                        message=f"Collection '{collection}' not found",
-                        context="workspace import",
-                        hint="Use 'zot collections' to list available collections",
-                    ),
+                emit_error(
+                    "not_found",
+                    f"Collection '{collection}' not found",
                     output_json=json_out,
+                    hint="Use 'zot collections' to list available collections",
+                    context="workspace import",
                 )
-                return
             items_to_import.extend(reader.get_collection_items(col_key))
 
         if tag:
@@ -412,15 +394,13 @@ def workspace_search(ctx: click.Context, query: str, ws_name: str) -> None:
     limit = ctx.obj.get("limit", 50)
 
     if not workspace_exists(ws_name):
-        print_error(
-            ErrorInfo(
-                message=f"Workspace '{ws_name}' not found",
-                context="workspace search",
-                hint="Use 'zot workspace list' to see available workspaces",
-            ),
+        emit_error(
+            "not_found",
+            f"Workspace '{ws_name}' not found",
             output_json=json_out,
+            hint="Use 'zot workspace list' to see available workspaces",
+            context="workspace search",
         )
-        return
 
     ws = load_workspace(ws_name)
     if not ws.items:
@@ -492,15 +472,13 @@ def workspace_index(ctx: click.Context, name: str, force: bool, extractor: str |
 
         extractor = load_pdf_config().extractor
     if not workspace_exists(name):
-        print_error(
-            ErrorInfo(
-                message=f"Workspace '{name}' not found",
-                context="workspace index",
-                hint="Use 'zot workspace list' to see available workspaces",
-            ),
+        emit_error(
+            "not_found",
+            f"Workspace '{name}' not found",
             output_json=json_out,
+            hint="Use 'zot workspace list' to see available workspaces",
+            context="workspace index",
         )
-        return
 
     ws = load_workspace(name)
     if not ws.items:
@@ -706,27 +684,23 @@ def workspace_query(ctx: click.Context, question: str, ws_name: str, top_k: int,
     """Query workspace papers with natural language."""
     json_out = ctx.obj.get("json", False)
     if not workspace_exists(ws_name):
-        print_error(
-            ErrorInfo(
-                message=f"Workspace '{ws_name}' not found",
-                context="workspace query",
-                hint="Use 'zot workspace list' to see available workspaces",
-            ),
+        emit_error(
+            "not_found",
+            f"Workspace '{ws_name}' not found",
             output_json=json_out,
+            hint="Use 'zot workspace list' to see available workspaces",
+            context="workspace query",
         )
-        return
 
     idx_path = workspaces_dir() / f"{ws_name}.idx.sqlite"
     if not idx_path.exists():
-        print_error(
-            ErrorInfo(
-                message=f"No index found for workspace '{ws_name}'",
-                context="workspace query",
-                hint=f"Run 'zot workspace index {ws_name}' first",
-            ),
+        emit_error(
+            "not_found",
+            f"No index found for workspace '{ws_name}'",
             output_json=json_out,
+            hint=f"Run 'zot workspace index {ws_name}' first",
+            context="workspace query",
         )
-        return
 
     idx = RagIndex(idx_path)
     if not json_out:

@@ -8,7 +8,7 @@ import click
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
-from zotero_cli_cc.exit_codes import EXIT_RUNTIME
+from zotero_cli_cc.exit_codes import EXIT_RUNTIME, emit_error
 from zotero_cli_cc.formatter import print_error
 from zotero_cli_cc.models import ErrorInfo
 
@@ -46,15 +46,13 @@ def tag_cmd(
         if library_type == "group" and ctx.obj.get("group_id"):
             library_id = ctx.obj["group_id"]
         if not library_id or not api_key:
-            print_error(
-                ErrorInfo(
-                    message="Write credentials not configured",
-                    context="tag",
-                    hint="Run 'zot config init' to set up API credentials",
-                ),
+            emit_error(
+                "auth_missing",
+                "Write credentials not configured",
                 output_json=json_out,
+                hint="Run 'zot config init' to set up API credentials",
+                context="tag",
             )
-            return
         writer = ZoteroWriter(library_id=str(library_id), api_key=api_key, library_type=library_type)
         failed = []
         for key in keys:

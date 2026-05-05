@@ -7,7 +7,7 @@ import click
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
-from zotero_cli_cc.exit_codes import EXIT_RUNTIME
+from zotero_cli_cc.exit_codes import EXIT_RUNTIME, emit_error
 from zotero_cli_cc.formatter import format_collections, format_items, print_error
 from zotero_cli_cc.models import ErrorInfo
 
@@ -65,15 +65,13 @@ def collection_create(ctx: click.Context, name: str, parent: str | None) -> None
     if library_type == "group" and ctx.obj.get("group_id"):
         library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
-        print_error(
-            ErrorInfo(
-                message="Write credentials not configured",
-                context="collection",
-                hint="Run 'zot config init' to set up API credentials",
-            ),
+        emit_error(
+            "auth_missing",
+            "Write credentials not configured",
             output_json=json_out,
+            hint="Run 'zot config init' to set up API credentials",
+            context="collection",
         )
-        return
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
         key = writer.create_collection(name, parent_key=parent)
@@ -101,15 +99,13 @@ def collection_move(ctx: click.Context, item_key: str, collection_key: str) -> N
     if library_type == "group" and ctx.obj.get("group_id"):
         library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
-        print_error(
-            ErrorInfo(
-                message="Write credentials not configured",
-                context="collection",
-                hint="Run 'zot config init' to set up API credentials",
-            ),
+        emit_error(
+            "auth_missing",
+            "Write credentials not configured",
             output_json=json_out,
+            hint="Run 'zot config init' to set up API credentials",
+            context="collection",
         )
-        return
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
         writer.move_to_collection(item_key, collection_key)
@@ -120,6 +116,7 @@ def collection_move(ctx: click.Context, item_key: str, collection_key: str) -> N
             ErrorInfo(message=str(e), context="collection move", hint="Check item and collection keys"),
             output_json=json_out,
         )
+        ctx.exit(EXIT_RUNTIME)
 
 
 @collection_group.command("delete")
@@ -139,15 +136,13 @@ def collection_delete(ctx: click.Context, key: str, dry_run: bool) -> None:
     if library_type == "group" and ctx.obj.get("group_id"):
         library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
-        print_error(
-            ErrorInfo(
-                message="Write credentials not configured",
-                context="collection",
-                hint="Run 'zot config init' to set up API credentials",
-            ),
+        emit_error(
+            "auth_missing",
+            "Write credentials not configured",
             output_json=json_out,
+            hint="Run 'zot config init' to set up API credentials",
+            context="collection",
         )
-        return
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
         writer.delete_collection(key)
@@ -158,6 +153,7 @@ def collection_delete(ctx: click.Context, key: str, dry_run: bool) -> None:
             ErrorInfo(message=str(e), context="collection delete", hint="Check collection key"),
             output_json=json_out,
         )
+        ctx.exit(EXIT_RUNTIME)
 
 
 @collection_group.command("reorganize")
@@ -204,15 +200,13 @@ def collection_reorganize(ctx: click.Context, plan_file: str, dry_run: bool) -> 
     if library_type == "group" and ctx.obj.get("group_id"):
         library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
-        print_error(
-            ErrorInfo(
-                message="Write credentials not configured",
-                context="collection reorganize",
-                hint="Run 'zot config init' to set up API credentials",
-            ),
+        emit_error(
+            "auth_missing",
+            "Write credentials not configured",
             output_json=json_out,
+            hint="Run 'zot config init' to set up API credentials",
+            context="collection reorganize",
         )
-        return
 
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     created_collections: dict[str, str] = {}  # name -> key mapping for parent lookups
@@ -255,15 +249,13 @@ def collection_rename(ctx: click.Context, key: str, new_name: str) -> None:
     if library_type == "group" and ctx.obj.get("group_id"):
         library_id = ctx.obj["group_id"]
     if not library_id or not api_key:
-        print_error(
-            ErrorInfo(
-                message="Write credentials not configured",
-                context="collection",
-                hint="Run 'zot config init' to set up API credentials",
-            ),
+        emit_error(
+            "auth_missing",
+            "Write credentials not configured",
             output_json=json_out,
+            hint="Run 'zot config init' to set up API credentials",
+            context="collection",
         )
-        return
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
         writer.rename_collection(key, new_name)
@@ -274,3 +266,4 @@ def collection_rename(ctx: click.Context, key: str, new_name: str) -> None:
             ErrorInfo(message=str(e), context="collection rename", hint="Check collection key"),
             output_json=json_out,
         )
+        ctx.exit(EXIT_RUNTIME)
