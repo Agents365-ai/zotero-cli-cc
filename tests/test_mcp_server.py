@@ -206,7 +206,9 @@ class TestHandlePdf:
     @patch("zotero_cli_cc.mcp_server._get_reader")
     @patch("zotero_cli_cc.mcp_server.load_config")
     @patch("zotero_cli_cc.mcp_server.get_data_dir")
-    def test_extracts_text(self, mock_data_dir, mock_config, mock_get_reader, mock_load_pdf, mock_get_extractor, mock_cache_cls):
+    def test_extracts_text(
+        self, mock_data_dir, mock_config, mock_get_reader, mock_load_pdf, mock_get_extractor, mock_cache_cls
+    ):
         from zotero_cli_cc.mcp_server import _handle_pdf
 
         data_dir = Path("/fake/zotero")
