@@ -27,7 +27,7 @@ class TestStatsCmd:
             main, ["--json", "stats"], env={"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"}
         )
         assert result.exit_code == 0
-        data = json.loads(result.output)["data"]
+        data = json.loads(result.output)
         assert "total_items" in data
         assert "by_type" in data
         assert "top_tags" in data

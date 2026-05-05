@@ -4,6 +4,7 @@ import click
 
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
+from zotero_cli_cc.exit_codes import EXIT_CONFLICT
 from zotero_cli_cc.formatter import format_duplicates
 
 
@@ -45,3 +46,6 @@ def duplicates_cmd(ctx: click.Context, strategy: str, threshold: float, limit: i
         click.echo(format_duplicates(groups, output_json=ctx.obj.get("json", False)))
     finally:
         reader.close()
+    # Signal "duplicates detected" via typed exit code so agents/scripts can
+    # branch on `if zot duplicates ...; then ...; else act_on_duplicates; fi`.
+    ctx.exit(EXIT_CONFLICT)

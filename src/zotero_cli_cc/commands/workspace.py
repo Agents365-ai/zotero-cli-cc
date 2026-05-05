@@ -30,6 +30,7 @@ from zotero_cli_cc.core.workspace import (
     workspace_exists,
     workspaces_dir,
 )
+from zotero_cli_cc.exit_codes import emit_error
 from zotero_cli_cc.formatter import format_items, print_error
 from zotero_cli_cc.models import Collection, ErrorInfo, Item
 
@@ -48,15 +49,13 @@ def workspace_new(ctx: click.Context, name: str, description: str) -> None:
     """Create a new workspace."""
     json_out = ctx.obj.get("json", False)
     if not validate_name(name):
-        print_error(
-            ErrorInfo(
-                message=f"Invalid workspace name: '{name}'",
-                context="workspace new",
-                hint="Use kebab-case (e.g., llm-safety, protein-folding)",
-            ),
+        emit_error(
+            "validation_error",
+            f"Invalid workspace name: '{name}'",
             output_json=json_out,
+            hint="Use kebab-case (e.g., llm-safety, protein-folding)",
+            context="workspace new",
         )
-        return
     if workspace_exists(name):
         print_error(
             ErrorInfo(

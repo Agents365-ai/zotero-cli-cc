@@ -114,7 +114,8 @@ class TestExport:
     def test_export_json(self, test_db_path):
         result = _invoke(["export", "ATTN001", "--format", "json"], test_db_path)
         assert result.exit_code == 0
-        data = json.loads(result.output)["data"]
+        # `export --format json` outputs the raw item dict, not an envelope.
+        data = json.loads(result.output)
         assert "title" in data
 
 

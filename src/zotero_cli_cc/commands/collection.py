@@ -7,6 +7,7 @@ import click
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
+from zotero_cli_cc.exit_codes import EXIT_RUNTIME
 from zotero_cli_cc.formatter import format_collections, format_items, print_error
 from zotero_cli_cc.models import ErrorInfo
 
@@ -83,6 +84,7 @@ def collection_create(ctx: click.Context, name: str, parent: str | None) -> None
             ErrorInfo(message=str(e), context="collection create", hint="Check API credentials and network"),
             output_json=json_out,
         )
+        ctx.exit(EXIT_RUNTIME)
 
 
 @collection_group.command("move")

@@ -19,14 +19,15 @@ def test_full_read_workflow(test_db_path):
     # Search
     r = _run(["search", "transformer"], test_db_path, json_out=True)
     assert r.exit_code == 0
-    items = json.loads(r.output)
+    # `search` returns the agent envelope: {"ok": True, "data": [...]}.
+    items = json.loads(r.output)["data"]
     assert len(items) >= 1
     key = items[0]["key"]
 
     # Read
     r = _run(["read", key], test_db_path, json_out=True)
     assert r.exit_code == 0
-    detail = json.loads(r.output)
+    detail = json.loads(r.output)["data"]
     assert detail["title"]
 
     # Notes

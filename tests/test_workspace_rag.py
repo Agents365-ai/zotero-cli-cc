@@ -89,7 +89,8 @@ class TestWorkspaceQuery:
                 ["workspace", "query", "attention", "--workspace", "test-q"],
                 json_output=True,
             )
-        data = json.loads(result.output)["data"]
+        # `workspace query --json` outputs a raw list, not an envelope.
+        data = json.loads(result.output)
         assert isinstance(data, list)
         assert len(data) > 0
         assert "item_key" in data[0]
