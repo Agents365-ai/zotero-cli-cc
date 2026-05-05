@@ -5,6 +5,89 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-05-05
+
+PDF extraction overhaul, envelope routing for the rest of the `--json` surface,
+typed exit codes wired up across all command error paths, and a CI repair pass.
+`schema_version` bumps to **1.1.0**.
+
+### Added
+
+- **MinerU PDF extractor** alongside the existing pymupdf-based extractor, with
+  a new `BasePdfExtractor` abstract class and automatic fallback when MinerU
+  fails (`zot pdf KEY --extractor mineru`). Configure via `[pdf] extractor`,
+  `[pdf] mineru_token`, or `MINERU_TOKEN` / `ZOT_PDF_EXTRACTOR` env vars.
+- **`zot pdf --outline`** — list every heading in the document as a numbered
+  outline so agents can navigate without dumping the full text.
+- **`zot pdf --section N`** — extract just the content under the N-th heading
+  from `--outline`. Useful for "show me the methods section" workflows.
+- **`zot workspace index --extractor`** — choose the PDF extractor used during
+  RAG indexing.
+- **Embedding provider router** with first-class support for Aliyun
+  (DashScope, OpenAI-compatible) and Jina endpoints. Routes via the new
+  `[embedding] provider`, `[embedding] aliyun_api_key` config keys plus
+  `ZOT_EMBEDDING_PROVIDER` / `ZOT_EMBEDDING_ALIYUN_KEY` env vars.
+- **Attachment resolver** that handles `storage:` paths, `file://` URLs,
+  Zotero's `attachments:` paths, Windows drive letters, and base-attachment
+  prefs. PDFs in non-default storage directories now resolve correctly.
+- **`progress_callback`** plumbing through the PDF extraction path so MinerU
+  batch operations and per-PDF extraction surface progress to the caller.
+
+### Changed
+
+- **Envelope routing** extended to the remaining `--json` commands:
+  `zot pdf` (incl. `--outline` / `--section`), `zot workspace list`,
+  `zot workspace query`, and `zot config cache list` now emit the standard
+  `{ok, data, meta}` envelope. `workspace query` `data` becomes
+  `{mode, results}` rather than the bare results list.
+- **`schema_version` 1.0.0 → 1.1.0** to reflect the envelope-coverage extension
+  and the typed-exit-code parity. `docs/agent-interface.md` updated.
+- **Typed exit codes wired across all command error paths.** Previously many
+  error paths called `print_error(...); return`, printing the error message
+  but silently exiting 0. They now use `emit_error(...)` with the appropriate
+  typed code:
+  - `not_found` (4): item / PDF / workspace / collection / profile / index /
+    section missing — affects `cite`, `export`, `summarize`, `open`, `pdf`,
+    `workspace delete/add/remove/show/export/import/search/index/query`,
+    `config profile_set`.
+  - `validation_error` (3): bad page range in `pdf`, missing required source
+    flag in `workspace import`, invalid workspace name.
+  - `auth_missing` (2): all `tag` / `trash restore` / `collection`
+    write commands when API credentials aren't configured.
+  - `conflict` (6): `workspace new` when the workspace already exists,
+    and **`zot duplicates` now exits 6 when duplicates are found** so
+    agents can branch on `if zot duplicates …; then …; else act_on_dups; fi`.
+  - `runtime_error` (1): caught `PdfExtractionError` in `pdf` and
+    `ZoteroWriteError` in `collection move/delete/rename`.
+- **`zot relate KEY`** with no related items is now a normal exit-0 outcome
+  (matching `zot search` on no matches) rather than an error message.
+- **`config cache list`** robustness: graceful fallback when the cache DB is
+  unreachable; closes the connection in a `finally` block.
+
+### Fixed
+
+- 20 pre-existing test failures on `main` repaired (some were envelope-shape
+  drift between tests and production; the rest were genuine exit-code
+  regressions covered by the migration above). The `ci.yml` pytest run goes
+  green again.
+- `tests/test_extracts_text` no longer breaks on hosts without
+  `~/.config/zot/config.toml`. The previous over-broad `Path.exists` mock
+  also patched `load_pdf_config`'s file-existence check; tightened to a
+  targeted `load_pdf_config` mock.
+
+### Breaking
+
+- Tools / agents parsing `--json` output from `zot pdf`, `zot workspace
+  list`, `zot workspace query`, or `zot config cache list` need to unwrap
+  the standard envelope (`result["data"]`). Other commands were already
+  enveloped; this brings the rest of the surface into line.
+- Error paths that previously exited 0 with a printed message now exit
+  with their typed code (1, 2, 3, 4, or 6). Scripts that ran
+  `zot cite NONEXIST && echo ok` and similar will now correctly fail.
+- `zot duplicates` exits **6 (CONFLICT)** when duplicates are detected.
+  Scripts that ignored the exit code or used `if zot duplicates; then`
+  will need to invert the branch.
+
 ## [0.3.0] - 2026-04-15
 
 Agent-native CLI interface. `zot` now serves humans, AI agents (Claude Code,
