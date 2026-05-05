@@ -270,7 +270,7 @@ export ZOT_EMBEDDING_KEY="your-jina-key"
 
 # Or Aliyun DashScope (OpenAI-compatible)
 export ZOT_EMBEDDING_PROVIDER=aliyun
-export ZOT_EMBEDDING_ALIYUN_KEY="your-dashscope-key"
+export ZOT_EMBEDDING_KEY="your-dashscope-key"
 
 zot workspace index llm-safety --force                              # Rebuild with embeddings
 zot workspace query "reward hacking" --workspace llm-safety --mode hybrid
@@ -403,7 +403,6 @@ Restart your terminal or `source` the config file to enable tab completions.
 | `ZOT_EMBEDDING_PROVIDER` | Embedding provider: `jina` (default), `aliyun`, or `openai` |
 | `ZOT_EMBEDDING_URL` | Embedding API endpoint (default: Jina AI) |
 | `ZOT_EMBEDDING_KEY` | Embedding API key (enables semantic workspace search) |
-| `ZOT_EMBEDDING_ALIYUN_KEY` | Aliyun DashScope API key (when `provider=aliyun`) |
 | `ZOT_EMBEDDING_MODEL` | Embedding model name (default: `jina-embeddings-v3`) |
 
 ## TODO

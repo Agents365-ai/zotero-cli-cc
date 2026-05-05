@@ -259,7 +259,7 @@ export ZOT_EMBEDDING_KEY="your-jina-key"
 
 # 或者使用阿里云 DashScope（OpenAI 兼容接口）
 export ZOT_EMBEDDING_PROVIDER=aliyun
-export ZOT_EMBEDDING_ALIYUN_KEY="your-dashscope-key"
+export ZOT_EMBEDDING_KEY="your-dashscope-key"
 
 zot workspace index llm-safety --force                              # 重建索引（含 embedding）
 zot workspace query "reward hacking" --workspace llm-safety --mode hybrid
@@ -406,7 +406,6 @@ graph TD
 | `ZOT_EMBEDDING_PROVIDER` | Embedding 提供商：`jina`（默认）、`aliyun` 或 `openai` |
 | `ZOT_EMBEDDING_URL` | Embedding API 端点（默认：Jina AI） |
 | `ZOT_EMBEDDING_KEY` | Embedding API 密钥（启用语义工作空间搜索） |
-| `ZOT_EMBEDDING_ALIYUN_KEY` | 阿里云 DashScope API 密钥（当 `provider=aliyun` 时） |
 | `ZOT_EMBEDDING_MODEL` | Embedding 模型名称（默认：`jina-embeddings-v3`） |
 
 ## TODO
