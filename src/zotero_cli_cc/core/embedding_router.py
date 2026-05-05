@@ -26,7 +26,7 @@ class EmbeddingRouter:
                 url=jina_url,
             )
 
-        if self.config.provider in ("aliyun", "auto") and api_key:
+        if self.config.provider in ("aliyun", "auto") and (self.config.aliyun_api_key or api_key):
             aliyun_key = self.config.aliyun_api_key or api_key
             aliyun_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
             self.providers["aliyun"] = AliyunProvider(
