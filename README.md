@@ -47,10 +47,10 @@ When `zot` detects that stdout is not a TTY (agents, pipelines, subprocess calls
 Every command response is a stable envelope:
 
 ```json
-{ "ok": true, "data": { ... }, "meta": { "request_id": "...", "cli_version": "0.3.0" } }
+{ "ok": true, "data": { ... }, "meta": { "request_id": "...", "cli_version": "0.4.0" } }
 ```
 
-Errors carry machine-routable `code` and `retryable` fields; exit codes are distinct per failure class (2 auth, 3 validation, 4 not-found, 5 network). Mutating commands support `--dry-run` and `--idempotency-key` so retries are safe. See [`docs/agent-interface.md`](docs/agent-interface.md) for the full contract, or run `zot schema` to introspect the CLI tree programmatically.
+Errors carry machine-routable `code` and `retryable` fields; exit codes are distinct per failure class (1 runtime, 2 auth, 3 validation, 4 not-found, 5 network, 6 conflict). Mutating commands support `--dry-run` and `--idempotency-key` so retries are safe. See [`docs/agent-interface.md`](docs/agent-interface.md) for the full contract, or run `zot schema` to introspect the CLI tree programmatically.
 
 Install the zotero-cli skill so Claude Code automatically recognizes literature-related requests:
 
@@ -252,7 +252,8 @@ zot workspace export llm-safety --format json         # JSON
 zot workspace export llm-safety --format bibtex       # BibTeX
 
 # Built-in RAG: index and query
-zot workspace index llm-safety              # Build BM25 index (metadata + PDF text)
+zot workspace index llm-safety                       # Build BM25 index (metadata + PDF text)
+zot workspace index llm-safety --extractor mineru    # Use MinerU for higher-quality PDF text
 zot workspace query "reward hacking methods" --workspace llm-safety
 
 # Manage
@@ -260,12 +261,18 @@ zot workspace remove llm-safety ABC123      # Remove item
 zot workspace delete llm-safety --yes       # Delete workspace
 ```
 
-**Optional semantic search** — configure an embedding endpoint for hybrid BM25 + vector retrieval:
+**Optional semantic search** — configure an embedding endpoint for hybrid BM25 + vector retrieval. Multiple providers are supported via `[embedding] provider` (`jina` (default) / `aliyun` / `openai`):
 
 ```bash
+# Jina AI (default, 10M free tokens)
 export ZOT_EMBEDDING_URL="https://api.jina.ai/v1/embeddings"
-export ZOT_EMBEDDING_KEY="your-jina-key"   # 10M free tokens
-zot workspace index llm-safety --force      # Rebuild with embeddings
+export ZOT_EMBEDDING_KEY="your-jina-key"
+
+# Or Aliyun DashScope (OpenAI-compatible)
+export ZOT_EMBEDDING_PROVIDER=aliyun
+export ZOT_EMBEDDING_ALIYUN_KEY="your-dashscope-key"
+
+zot workspace index llm-safety --force                              # Rebuild with embeddings
 zot workspace query "reward hacking" --workspace llm-safety --mode hybrid
 ```
 
@@ -306,7 +313,12 @@ export S2_API_KEY=your_key_here   # in ~/.zshrc or ~/.bashrc
 zot summarize ABC123               # Structured summary (optimized for Claude Code)
 zot pdf ABC123                     # Extract PDF full text
 zot pdf ABC123 --pages 1-5         # Extract specific pages
+zot pdf ABC123 --outline           # List headings as a numbered outline
+zot pdf ABC123 --section 3         # Extract just section 3 from --outline
+zot pdf ABC123 --extractor mineru  # Use MinerU (auto-falls-back to pymupdf)
 ```
+
+**PDF extractors.** Two backends are available: the default `pymupdf` (fast, no network), and `mineru` (higher-fidelity layout/equation/table parsing via the MinerU API; falls back to pymupdf on failure). Configure once via `[pdf] extractor` / `[pdf] mineru_token` in `~/.config/zot/config.toml`, or via `ZOT_PDF_EXTRACTOR` / `MINERU_TOKEN` env vars.
 
 ### Global Flags
 
@@ -386,8 +398,12 @@ Restart your terminal or `source` the config file to enable tab completions.
 | `ZOT_API_KEY` | Override API Key (write operations) |
 | `ZOT_PROFILE` | Override default config profile |
 | `S2_API_KEY` | Semantic Scholar API key (for `update-status`) |
+| `ZOT_PDF_EXTRACTOR` | PDF extractor: `pymupdf` (default) or `mineru` |
+| `MINERU_TOKEN` | API token for the MinerU PDF extractor |
+| `ZOT_EMBEDDING_PROVIDER` | Embedding provider: `jina` (default), `aliyun`, or `openai` |
 | `ZOT_EMBEDDING_URL` | Embedding API endpoint (default: Jina AI) |
 | `ZOT_EMBEDDING_KEY` | Embedding API key (enables semantic workspace search) |
+| `ZOT_EMBEDDING_ALIYUN_KEY` | Aliyun DashScope API key (when `provider=aliyun`) |
 | `ZOT_EMBEDDING_MODEL` | Embedding model name (default: `jina-embeddings-v3`) |
 
 ## TODO

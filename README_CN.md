@@ -241,7 +241,8 @@ zot workspace export llm-safety --format json         # JSON
 zot workspace export llm-safety --format bibtex       # BibTeX
 
 # 内置 RAG：索引与查询
-zot workspace index llm-safety              # 构建 BM25 索引（元数据 + PDF 全文）
+zot workspace index llm-safety                       # 构建 BM25 索引（元数据 + PDF 全文）
+zot workspace index llm-safety --extractor mineru    # 使用 MinerU 提取更高质量的 PDF 文本
 zot workspace query "reward hacking methods" --workspace llm-safety
 
 # 管理
@@ -249,12 +250,18 @@ zot workspace remove llm-safety ABC123      # 移除条目
 zot workspace delete llm-safety --yes       # 删除工作空间
 ```
 
-**可选语义搜索** — 配置 embedding 端点以启用混合 BM25 + 向量检索：
+**可选语义搜索** — 配置 embedding 端点以启用混合 BM25 + 向量检索。支持多家 provider，可通过 `[embedding] provider` 切换（`jina`（默认）/ `aliyun` / `openai`）：
 
 ```bash
+# Jina AI（默认，10M 免费 tokens）
 export ZOT_EMBEDDING_URL="https://api.jina.ai/v1/embeddings"
-export ZOT_EMBEDDING_KEY="your-jina-key"   # 10M 免费 tokens
-zot workspace index llm-safety --force      # 重建索引（含 embedding）
+export ZOT_EMBEDDING_KEY="your-jina-key"
+
+# 或者使用阿里云 DashScope（OpenAI 兼容接口）
+export ZOT_EMBEDDING_PROVIDER=aliyun
+export ZOT_EMBEDDING_ALIYUN_KEY="your-dashscope-key"
+
+zot workspace index llm-safety --force                              # 重建索引（含 embedding）
 zot workspace query "reward hacking" --workspace llm-safety --mode hybrid
 ```
 
@@ -295,7 +302,12 @@ export S2_API_KEY=your_key_here   # 写入 ~/.zshrc 或 ~/.bashrc
 zot summarize ABC123               # 结构化摘要（专为 Claude Code 优化）
 zot pdf ABC123                     # 提取 PDF 全文
 zot pdf ABC123 --pages 1-5         # 提取指定页
+zot pdf ABC123 --outline           # 列出文档大纲（编号的标题列表）
+zot pdf ABC123 --section 3         # 仅提取第 3 个章节的内容
+zot pdf ABC123 --extractor mineru  # 使用 MinerU 提取（失败时自动回退到 pymupdf）
 ```
+
+**PDF 提取器。** 提供两种后端：默认的 `pymupdf`（速度快、本地处理），以及 `mineru`（通过 MinerU API 实现更高质量的版面/公式/表格解析；失败时自动回退到 pymupdf）。可在 `~/.config/zot/config.toml` 中通过 `[pdf] extractor` / `[pdf] mineru_token` 配置，或通过 `ZOT_PDF_EXTRACTOR` / `MINERU_TOKEN` 环境变量。
 
 ### 全局选项
 
@@ -389,8 +401,12 @@ graph TD
 | `ZOT_API_KEY` | 覆盖 API Key（写操作） |
 | `ZOT_PROFILE` | 覆盖默认配置档案 |
 | `S2_API_KEY` | Semantic Scholar API key（用于 `update-status`） |
+| `ZOT_PDF_EXTRACTOR` | PDF 提取器：`pymupdf`（默认）或 `mineru` |
+| `MINERU_TOKEN` | MinerU PDF 提取器的 API token |
+| `ZOT_EMBEDDING_PROVIDER` | Embedding 提供商：`jina`（默认）、`aliyun` 或 `openai` |
 | `ZOT_EMBEDDING_URL` | Embedding API 端点（默认：Jina AI） |
 | `ZOT_EMBEDDING_KEY` | Embedding API 密钥（启用语义工作空间搜索） |
+| `ZOT_EMBEDDING_ALIYUN_KEY` | 阿里云 DashScope API 密钥（当 `provider=aliyun` 时） |
 | `ZOT_EMBEDDING_MODEL` | Embedding 模型名称（默认：`jina-embeddings-v3`） |
 
 ## TODO
