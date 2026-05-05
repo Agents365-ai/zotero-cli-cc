@@ -201,8 +201,8 @@ class TestHandleRead:
 
 class TestHandlePdf:
     @patch("zotero_cli_cc.mcp_server.PdfCache")
-    @patch("zotero_cli_cc.core.pdf_extractor.get_extractor")
-    @patch("zotero_cli_cc.config.load_pdf_config")
+    @patch("zotero_cli_cc.mcp_server.get_extractor")
+    @patch("zotero_cli_cc.mcp_server.load_pdf_config")
     @patch("zotero_cli_cc.mcp_server._get_reader")
     @patch("zotero_cli_cc.mcp_server.load_config")
     @patch("zotero_cli_cc.mcp_server.get_data_dir")

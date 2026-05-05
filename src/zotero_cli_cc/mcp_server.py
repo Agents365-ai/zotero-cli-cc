@@ -9,8 +9,15 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from zotero_cli_cc.config import get_data_dir, get_prefs_js_path, load_config, load_embedding_config
+from zotero_cli_cc.config import (
+    get_data_dir,
+    get_prefs_js_path,
+    load_config,
+    load_embedding_config,
+    load_pdf_config,
+)
 from zotero_cli_cc.core.pdf_cache import PdfCache
+from zotero_cli_cc.core.pdf_extractor import PdfExtractionError, get_extractor
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.core.workspace import (
     Workspace,
@@ -169,9 +176,6 @@ def _handle_read(key: str, detail: str = "standard", library: str = "user") -> d
 
 
 def _handle_pdf(key: str, pages: str | None, library: str = "user") -> dict:
-    from zotero_cli_cc.config import load_pdf_config
-    from zotero_cli_cc.core.pdf_extractor import PdfExtractionError, get_extractor
-
     reader = _get_reader(library)
     att = reader.get_pdf_attachment(key)
     if att is None:
