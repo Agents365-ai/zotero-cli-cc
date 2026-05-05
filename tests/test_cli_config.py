@@ -65,8 +65,7 @@ def test_cache_list_populated(tmp_path):
         pdf_cache_module.DEFAULT_CACHE_PATH = tmp_path / "pdf_cache.sqlite"
         cache = PdfCache()
         cache._conn.execute(
-            "INSERT INTO pdf_cache (pdf_path, mtime, content, extracted_at) "
-            "VALUES (?, ?, ?, ?)",
+            "INSERT INTO pdf_cache (pdf_path, mtime, content, extracted_at) VALUES (?, ?, ?, ?)",
             ("/path/to/paper1.pdf", 1.0, "This is the extracted text content.", "2024-01-15T10:30:00+00:00"),
         )
         cache._conn.commit()
@@ -92,8 +91,7 @@ def test_cache_list_json(tmp_path):
         pdf_cache_module.DEFAULT_CACHE_PATH = tmp_path / "pdf_cache.sqlite"
         cache = PdfCache()
         cache._conn.execute(
-            "INSERT INTO pdf_cache (pdf_path, mtime, content, extracted_at) "
-            "VALUES (?, ?, ?, ?)",
+            "INSERT INTO pdf_cache (pdf_path, mtime, content, extracted_at) VALUES (?, ?, ?, ?)",
             ("/path/to/paper2.pdf", 1.0, "Short text.", "2024-06-01T08:00:00+00:00"),
         )
         cache._conn.commit()
@@ -102,7 +100,8 @@ def test_cache_list_json(tmp_path):
         runner = CliRunner()
         result = runner.invoke(main, ["--json", "config", "cache", "list"])
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        envelope = json.loads(result.output)
+        data = envelope["data"] if isinstance(envelope, dict) and "data" in envelope else envelope
         assert isinstance(data, list)
         assert len(data) == 1
         assert data[0]["pdf_basename"] == "/path/to/paper2.pdf"

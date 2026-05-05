@@ -9,12 +9,12 @@ import warnings
 import zipfile
 from abc import ABC, abstractmethod
 from collections import deque
+from collections.abc import Callable
 from pathlib import Path
 from threading import Lock
-from typing import Callable
+from typing import Any
 
 import pymupdf
-import requests
 
 
 class PdfExtractionError(Exception):
@@ -64,18 +64,18 @@ class BasePdfExtractor(ABC):
 
 
 class PyMuPdfExtractor(BasePdfExtractor):
-    def __init__(self):
-        self._pymupdf4llm_available = None
+    def __init__(self) -> None:
+        self._pymupdf4llm_available: bool | None = None
 
     def _check_pymupdf4llm(self) -> bool:
         if self._pymupdf4llm_available is None:
             try:
-                import pymupdf4llm  # type: ignore[import]
+                import pymupdf4llm  # type: ignore[import]  # noqa: F401
 
                 self._pymupdf4llm_available = True
             except ImportError:
                 self._pymupdf4llm_available = False
-        return self._pymupdf4llm_available
+        return bool(self._pymupdf4llm_available)
 
     def extract_text(self, pdf_path: Path, pages: tuple[int, int] | None = None) -> str:
         if not pdf_path.exists():
@@ -122,7 +122,7 @@ class PyMuPdfExtractor(BasePdfExtractor):
             raise type(e)(f"Cannot open PDF: {e}") from e
         annotations: list[dict] = []
         try:
-            for page_num, page in enumerate(doc, start=1):  # type: ignore[arg-type]
+            for page_num, page in enumerate(doc, start=1):  # type: ignore[arg-type, var-annotated]
                 for annot in page.annots() or []:
                     entry: dict = {
                         "type": annot.type[1],
@@ -165,7 +165,8 @@ class PyMuPdfExtractor(BasePdfExtractor):
 # MinerUExtractor - optional, may fail to import if 'requests' not installed
 # ---------------------------------------------------------------------------
 
-from requests import Session
+from requests import Session  # type: ignore[import-untyped]  # noqa: E402
+
 
 class MinerUExtractor(BasePdfExtractor):
     _API_BASE = "https://mineru.net/api/v4"
@@ -201,17 +202,15 @@ class MinerUExtractor(BasePdfExtractor):
         url = f"{self._API_BASE}/file-urls/batch"
         payload = {
             "files": [{"name": name, "data_id": data_id[:50]} for _, name, data_id in files],
-            "model_version": "vlm"
+            "model_version": "vlm",
         }
         headers = {"Authorization": f"Bearer {self.token}"}
         self._rate_limiter.acquire()
-        resp = _retry_with_backoff(
-            lambda: self._session.post(url, json=payload, headers=headers, timeout=30)
-        )
+        resp = _retry_with_backoff(lambda: self._session.post(url, json=payload, headers=headers, timeout=30))
         if resp.status_code != 200:
             raise PdfExtractionError(f"Failed to get upload URL: {resp.status_code} {resp.text}")
         resp_json = resp.json()
-        data = resp_json['data']
+        data = resp_json["data"]
         batch_id = data.get("batch_id")
         file_urls = data.get("file_urls", [])
         if not batch_id or not file_urls:
@@ -244,9 +243,7 @@ class MinerUExtractor(BasePdfExtractor):
         headers = {"Authorization": f"Bearer {self.token}"}
         for _ in range(360):
             self._rate_limiter.acquire()
-            resp = _retry_with_backoff(
-                lambda: self._session.get(url, headers=headers, timeout=30)
-            )
+            resp = _retry_with_backoff(lambda: self._session.get(url, headers=headers, timeout=30))
             if resp.status_code != 200:
                 raise PdfExtractionError(f"Failed to poll results: {resp.status_code} {resp.text}")
             result = resp.json()
@@ -278,8 +275,7 @@ class MinerUExtractor(BasePdfExtractor):
 
             time.sleep(5)
         raise PdfExtractionError(
-            f"Timeout waiting for MinerU extraction (360 polls). "
-            f"Pending files remain in batch {batch_id}"
+            f"Timeout waiting for MinerU extraction (360 polls). Pending files remain in batch {batch_id}"
         )
 
     def _poll_results(
@@ -295,7 +291,7 @@ class MinerUExtractor(BasePdfExtractor):
         if state != "done":
             raise PdfExtractionError(f"Unexpected state: {state}")
         if not full_zip_url:
-            raise PdfExtractionError(f"No full_zip_url in completed response")
+            raise PdfExtractionError("No full_zip_url in completed response")
         return full_zip_url
 
     def _download_and_extract(
@@ -305,9 +301,7 @@ class MinerUExtractor(BasePdfExtractor):
     ) -> str:
         headers = {"Authorization": f"Bearer {self.token}"}
         self._rate_limiter.acquire()
-        resp = _retry_with_backoff(
-            lambda: self._session.get(zip_url, headers=headers, timeout=300, stream=True)
-        )
+        resp = _retry_with_backoff(lambda: self._session.get(zip_url, headers=headers, timeout=300, stream=True))
         if resp.status_code != 200:
             raise PdfExtractionError(f"Failed to download ZIP: {resp.status_code} {resp.text}")
         zip_data = io.BytesIO(resp.content)
@@ -387,12 +381,17 @@ class MinerUExtractor(BasePdfExtractor):
                     # Wrap progress_callback to report chunk progress instead of per-chunk-internal progress
                     if progress_callback is not None:
 
-                        def make_wrapped_callback(idx: int, original: Callable[[str, int, int, int], None]) -> Callable[[str, int, int, int], None]:
+                        def make_wrapped_callback(
+                            idx: int, original: Callable[[str, int, int, int], None]
+                        ) -> Callable[[str, int, int, int], None]:
                             def wrapped(phase: str, current: int, total: int, pages: int) -> None:
                                 original(phase, idx, total_chunks, pages)
+
                             return wrapped
 
-                        wrapped_callback: Callable[[str, int, int, int], None] | None = make_wrapped_callback(chunk_idx, progress_callback)
+                        wrapped_callback: Callable[[str, int, int, int], None] | None = make_wrapped_callback(
+                            chunk_idx, progress_callback
+                        )
                     else:
                         wrapped_callback = None
                     texts.append(self._extract_single(chunk_path, wrapped_callback))
@@ -467,14 +466,13 @@ class MinerUExtractor(BasePdfExtractor):
                 valid_batch_args.append((pdf_path, file_name, data_id))
 
         total_chunks = len(valid_batch_args)
-        total_batches = (total_chunks + 49) // 50
 
         upload_count = 0
         download_count = 0
         completed_count = 0
 
         for batch_idx, i in enumerate(range(0, len(valid_batch_args), 50)):
-            batch = valid_batch_args[i:i + 50]
+            batch = valid_batch_args[i : i + 50]
 
             def upload_progress(idx: int) -> None:
                 nonlocal upload_count
@@ -568,7 +566,7 @@ def _load_token(config_token: str | None = None) -> str:
     raise PdfExtractionError("MINERU_TOKEN not set and ~/.config/mineru/token not found")
 
 
-def _retry_with_backoff(func, *args, **kwargs):
+def _retry_with_backoff(func: Any, *args: Any, **kwargs: Any) -> Any:
     for attempt in range(3):
         try:
             return func(*args, **kwargs)
@@ -588,10 +586,7 @@ def _clean_markdown_images(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-_EXTRACTORS: dict[str, type[BasePdfExtractor]] = {
-    "pymupdf": PyMuPdfExtractor,
-    "mineru": MinerUExtractor
-}
+_EXTRACTORS: dict[str, type[BasePdfExtractor]] = {"pymupdf": PyMuPdfExtractor, "mineru": MinerUExtractor}
 
 
 def get_extractor(name: str | None = None) -> BasePdfExtractor:
@@ -616,7 +611,7 @@ def get_extractor(name: str | None = None) -> BasePdfExtractor:
         from zotero_cli_cc.config import load_pdf_config
 
         cfg = load_pdf_config()
-        return extractor_cls(cfg.mineru_token)  # type: ignore[reportCallIssue]
+        return extractor_cls(cfg.mineru_token)  # type: ignore[call-arg]
     return extractor_cls()
 
 

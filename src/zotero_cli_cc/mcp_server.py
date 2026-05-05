@@ -170,8 +170,6 @@ def _handle_read(key: str, detail: str = "standard", library: str = "user") -> d
 
 
 def _handle_pdf(key: str, pages: str | None, library: str = "user") -> dict:
-    cfg = load_config()
-    data_dir = get_data_dir(cfg)
     reader = _get_reader(library)
     att = reader.get_pdf_attachment(key)
     if att is None:
@@ -215,8 +213,6 @@ def _handle_annotations(key: str, library: str = "user") -> dict:
     att = reader.get_pdf_attachment(key)
     if att is None:
         return {"error": f"No PDF attachment found for '{key}'"}
-    cfg = load_config()
-    data_dir = get_data_dir(cfg)
     pdf_path = att.path
     if not pdf_path or not pdf_path.exists():
         return {"error": f"PDF file not found at {pdf_path or att.filename}"}
@@ -805,8 +801,6 @@ def _handle_workspace_index(name: str, force: bool = False, library: str = "user
     if not ws.items:
         return {"error": f"Workspace '{name}' is empty."}
 
-    cfg = load_config()
-    data_dir = get_data_dir(cfg)
     reader = _get_reader(library)
 
     idx_path = workspaces_dir() / f"{name}.idx.sqlite"

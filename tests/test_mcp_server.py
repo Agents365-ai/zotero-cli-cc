@@ -211,7 +211,13 @@ class TestHandlePdf:
         data_dir = Path("/fake/zotero")
         mock_data_dir.return_value = data_dir
         reader = MagicMock()
-        att = Attachment(key="ATT1", parent_key="ABC123", filename="paper.pdf", content_type="application/pdf", path=Path("/fake/zotero/paper.pdf"))
+        att = Attachment(
+            key="ATT1",
+            parent_key="ABC123",
+            filename="paper.pdf",
+            content_type="application/pdf",
+            path=Path("/fake/zotero/paper.pdf"),
+        )
         reader.get_pdf_attachment.return_value = att
         mock_get_reader.return_value = reader
         cache = MagicMock()

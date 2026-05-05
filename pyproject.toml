@@ -19,6 +19,7 @@ dependencies = [
     "tomli>=2.0; python_version < '3.11'",
     "markdownify>=1.2.2",
     "openai>=2.33.0",
+    "requests>=2.31",
 ]
 
 [project.optional-dependencies]

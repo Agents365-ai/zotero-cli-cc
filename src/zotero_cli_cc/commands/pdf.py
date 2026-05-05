@@ -6,7 +6,7 @@ import re
 import click
 
 from zotero_cli_cc.config import get_data_dir, get_prefs_js_path, load_config, resolve_library_id
-from zotero_cli_cc.core.pdf_extractor import BasePdfExtractor, PdfExtractionError, get_extractor
+from zotero_cli_cc.core.pdf_extractor import PdfExtractionError, get_extractor
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.formatter import format_pdf_annotations, format_pdf_text, print_error
 from zotero_cli_cc.models import ErrorInfo
@@ -96,6 +96,7 @@ def pdf_cmd(
     page_range = None
     if extractor is None:
         from zotero_cli_cc.config import load_pdf_config
+
         extractor = load_pdf_config().extractor
     if pages:
         try:
@@ -218,7 +219,7 @@ def pdf_cmd(
                     else:
                         click.echo("No headings found in document.")
                     return
-                outline_json = [{"number": n, "text": t, "level": l} for n, t, l in outline_data]
+                outline_json = [{"number": n, "text": t, "level": lvl} for n, t, lvl in outline_data]
                 click.echo(format_pdf_text(key, pages, outline=outline_json, output_json=json_out))
             return
         click.echo(format_pdf_text(key, pages, text=text, output_json=json_out))
