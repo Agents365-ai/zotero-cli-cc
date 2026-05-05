@@ -17,6 +17,7 @@ class EmbeddingRouter:
     def _init_providers(self) -> None:
         api_key = self.config.api_key
         model = self.config.model
+        jina_default_model = "jina-embeddings-v3"
 
         if self.config.provider in ("jina", "auto") and api_key:
             jina_url = self.config.url if "jina" in self.config.url else "https://api.jina.ai/v1/embeddings"
@@ -29,9 +30,10 @@ class EmbeddingRouter:
         if self.config.provider in ("aliyun", "auto") and (self.config.aliyun_api_key or api_key):
             aliyun_key = self.config.aliyun_api_key or api_key
             aliyun_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+            aliyun_model = "text-embedding-v3" if model == jina_default_model else model
             self.providers["aliyun"] = AliyunProvider(
                 api_key=aliyun_key,
-                model=model,
+                model=aliyun_model,
                 base_url=aliyun_url,
             )
 
