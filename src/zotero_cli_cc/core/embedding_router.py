@@ -50,8 +50,12 @@ class EmbeddingRouter:
         raise RuntimeError("No embedding provider configured")
 
     def _find_provider(self) -> EmbeddingProvider | None:
-        priority = ["aliyun", "jina"]
-        for name in priority:
+        # If user explicitly selected a provider, use only that one
+        if self.config.provider in ("jina", "aliyun"):
+            return self.providers.get(self.config.provider)
+
+        # Auto mode: respect provider registration order (jina first, then aliyun)
+        for name in ("jina", "aliyun"):
             if name in self.providers:
                 return self.providers[name]
         return None
