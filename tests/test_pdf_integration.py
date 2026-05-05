@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
 
 from zotero_cli_cc.cli import main
 from zotero_cli_cc.core.pdf_cache import UnifiedPdfCache
-
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 

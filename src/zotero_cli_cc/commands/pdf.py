@@ -6,7 +6,7 @@ import re
 import click
 
 from zotero_cli_cc.config import get_data_dir, get_prefs_js_path, load_config, resolve_library_id
-from zotero_cli_cc.core.pdf_extractor import BasePdfExtractor, PdfExtractionError, get_extractor
+from zotero_cli_cc.core.pdf_extractor import PdfExtractionError, get_extractor
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.formatter import print_error
 from zotero_cli_cc.models import ErrorInfo
@@ -96,6 +96,7 @@ def pdf_cmd(
     page_range = None
     if extractor is None:
         from zotero_cli_cc.config import load_pdf_config
+
         extractor = load_pdf_config().extractor
     if pages:
         try:
@@ -219,7 +220,11 @@ def pdf_cmd(
                     )
                     return
                 if json_out:
-                    click.echo(json.dumps({"key": key, "pages": pages, "section": section, "content": content}, ensure_ascii=False))
+                    click.echo(
+                        json.dumps(
+                            {"key": key, "pages": pages, "section": section, "content": content}, ensure_ascii=False
+                        )
+                    )
                 else:
                     click.echo(content)
             else:
@@ -231,7 +236,7 @@ def pdf_cmd(
                         click.echo("No headings found in document.")
                     return
                 if json_out:
-                    outline_json = [{"number": n, "text": t, "level": l} for n, t, l in outline_data]
+                    outline_json = [{"number": n, "text": t, "level": lvl} for n, t, lvl in outline_data]
                     click.echo(json.dumps({"key": key, "pages": pages, "outline": outline_json}, ensure_ascii=False))
                 else:
                     for num, heading_text, level in outline_data:

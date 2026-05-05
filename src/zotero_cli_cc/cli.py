@@ -243,4 +243,3 @@ main.add_command(schema_cmd, "schema")
 
 if __name__ == "__main__":
     main()
-

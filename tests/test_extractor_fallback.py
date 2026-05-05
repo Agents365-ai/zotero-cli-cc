@@ -1,13 +1,12 @@
 """Tests for MinerU -> PyMuPDF fallback logic."""
 
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
 
 from zotero_cli_cc.cli import main
 from zotero_cli_cc.core.pdf_errors import PdfExtractionError
-
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 

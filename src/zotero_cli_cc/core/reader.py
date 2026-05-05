@@ -37,6 +37,7 @@ class ZoteroReader:
         self._excluded_ids: tuple[int, ...] | None = None
         self._tmp_dir_obj: tempfile.TemporaryDirectory[str] | None = None
         from zotero_cli_cc.core.attachment_resolver import AttachmentResolver
+
         self._resolver = AttachmentResolver(db_path, prefs_js_path)
 
     def _connect(self) -> sqlite3.Connection:

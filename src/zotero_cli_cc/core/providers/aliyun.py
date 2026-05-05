@@ -4,7 +4,7 @@ import json as json_mod
 import time
 import urllib.error
 import urllib.request
-from typing import Callable
+from collections.abc import Callable
 
 from zotero_cli_cc.core.embedding_provider import EmbeddingProvider
 
@@ -46,10 +46,7 @@ class AliyunProvider(EmbeddingProvider):
         return all_embeddings
 
     def _embed_batch(self, batch: list[str]) -> list[list[float]]:
-        body = json_mod.dumps({
-            "model": self.model,
-            "input": batch
-        }).encode()
+        body = json_mod.dumps({"model": self.model, "input": batch}).encode()
         req = urllib.request.Request(f"{self.base_url}/embeddings", data=body)
         req.add_header("Content-Type", "application/json")
         req.add_header("Authorization", f"Bearer {self.api_key}")
@@ -72,7 +69,9 @@ class AliyunProvider(EmbeddingProvider):
                 time.sleep(2**attempt)
 
         if last_error:
-            raise RuntimeError(f"Aliyun embedding failed after {self.max_retries} retries: {last_error}") from last_error
+            raise RuntimeError(
+                f"Aliyun embedding failed after {self.max_retries} retries: {last_error}"
+            ) from last_error
         return []
 
     def _fallback_to_individual(self, batch: list[str]) -> list[list[float]]:

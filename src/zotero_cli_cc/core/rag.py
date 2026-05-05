@@ -3,8 +3,8 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from zotero_cli_cc.config import EmbeddingConfig
 from zotero_cli_cc.core.embedding_router import EmbeddingRouter
@@ -180,7 +180,7 @@ def convert_pdf_to_text(
     if cached is not None:
         return cached
     extractor = get_extractor(extractor_name)
-    text = extractor.extract_text(pdf_path, progress_callback=progress_callback)  # type: ignore[reportCallIssue]
+    text = extractor.extract_text(pdf_path, progress_callback=progress_callback)  # type: ignore[call-arg]
     cache.put(pdf_path, extractor_name, text)
     return text
 
