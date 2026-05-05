@@ -11,7 +11,6 @@ from mcp.server.fastmcp import FastMCP
 
 from zotero_cli_cc.config import get_data_dir, get_prefs_js_path, load_config, load_embedding_config
 from zotero_cli_cc.core.pdf_cache import PdfCache
-from zotero_cli_cc.core.pdf_extractor import PdfExtractionError, extract_text_from_pdf
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.core.workspace import (
     Workspace,
