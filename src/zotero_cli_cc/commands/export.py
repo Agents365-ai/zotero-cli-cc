@@ -6,8 +6,7 @@ import click
 
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
-from zotero_cli_cc.formatter import print_error
-from zotero_cli_cc.models import ErrorInfo
+from zotero_cli_cc.exit_codes import emit_error
 
 
 @click.command("export")
@@ -36,30 +35,26 @@ def export_cmd(ctx: click.Context, key: str, fmt: str) -> None:
         if fmt == "json":
             item = reader.get_item(key)
             if item is None:
-                print_error(
-                    ErrorInfo(
-                        message=f"Item '{key}' not found",
-                        context="export",
-                        hint="Run 'zot search' to find valid item keys",
-                    ),
+                emit_error(
+                    "not_found",
+                    f"Item '{key}' not found",
                     output_json=json_out,
+                    hint="Run 'zot search' to find valid item keys",
+                    context="export",
                 )
-                return
             from dataclasses import asdict
 
             click.echo(json.dumps(asdict(item), indent=2, ensure_ascii=False))
         else:
             result = reader.export_citation(key, fmt=fmt)
             if result is None:
-                print_error(
-                    ErrorInfo(
-                        message=f"Item '{key}' not found",
-                        context="export",
-                        hint="Run 'zot search' to find valid item keys",
-                    ),
+                emit_error(
+                    "not_found",
+                    f"Item '{key}' not found",
                     output_json=json_out,
+                    hint="Run 'zot search' to find valid item keys",
+                    context="export",
                 )
-                return
             click.echo(result)
     finally:
         reader.close()

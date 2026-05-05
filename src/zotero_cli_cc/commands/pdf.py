@@ -8,8 +8,8 @@ import click
 from zotero_cli_cc.config import get_data_dir, get_prefs_js_path, load_config, resolve_library_id
 from zotero_cli_cc.core.pdf_extractor import PdfExtractionError, get_extractor
 from zotero_cli_cc.core.reader import ZoteroReader
-from zotero_cli_cc.formatter import format_pdf_annotations, format_pdf_text, print_error
-from zotero_cli_cc.models import ErrorInfo
+from zotero_cli_cc.exit_codes import emit_error
+from zotero_cli_cc.formatter import format_pdf_annotations, format_pdf_text
 
 
 def _parse_outline(markdown: str) -> list[tuple[int, str, int]]:
@@ -107,15 +107,13 @@ def pdf_cmd(
                 raise ValueError(f"invalid range: start={start}, end={end}")
             page_range = (start, end)
         except ValueError:
-            print_error(
-                ErrorInfo(
-                    message=f"Invalid page range '{pages}'",
-                    context="pdf",
-                    hint="Use format: '1-5' or '3' for a single page",
-                ),
+            emit_error(
+                "validation_error",
+                f"Invalid page range '{pages}'",
                 output_json=json_out,
+                hint="Use format: '1-5' or '3' for a single page",
+                context="pdf",
             )
-            return
     data_dir = get_data_dir(cfg)
     db_path = data_dir / "zotero.sqlite"
     library_id = resolve_library_id(db_path, ctx.obj)
@@ -123,34 +121,30 @@ def pdf_cmd(
     try:
         att = reader.get_pdf_attachment(key)
         if att is None:
-            print_error(
-                ErrorInfo(
-                    message=f"No PDF attachment found for '{key}'",
-                    context="pdf",
-                    hint="Check item details with: zot read KEY",
-                ),
+            emit_error(
+                "not_found",
+                f"No PDF attachment found for '{key}'",
                 output_json=json_out,
+                hint="Check item details with: zot read KEY",
+                context="pdf",
             )
-            return
         pdf_path = att.path
         if not pdf_path or not pdf_path.exists():
-            print_error(
-                ErrorInfo(
-                    message=f"PDF file not found at {pdf_path or att.filename}",
-                    context="pdf",
-                    hint="The file may have been moved or the attachment path could not be resolved. Check Zotero storage directory",
-                ),
+            emit_error(
+                "not_found",
+                f"PDF file not found at {pdf_path or att.filename}",
                 output_json=json_out,
+                hint="The file may have been moved or the attachment path could not be resolved. "
+                "Check Zotero storage directory",
+                context="pdf",
             )
-            return
         if annotations:
             from zotero_cli_cc.core.pdf_extractor import extract_annotations
 
             try:
                 annots = extract_annotations(pdf_path)
             except PdfExtractionError as e:
-                print_error(ErrorInfo(message=str(e), context="pdf"), output_json=json_out)
-                return
+                emit_error("runtime_error", str(e), output_json=json_out, context="pdf")
             if not annots:
                 if json_out:
                     click.echo("[]")
@@ -191,25 +185,25 @@ def pdf_cmd(
                         raise
         except PdfExtractionError as e:
             cache.close()
-            print_error(
-                ErrorInfo(message=str(e), context="pdf", hint="The PDF may be corrupted or password-protected"),
+            emit_error(
+                "runtime_error",
+                str(e),
                 output_json=json_out,
+                hint="The PDF may be corrupted or password-protected",
+                context="pdf",
             )
-            return
         cache.close()
         if outline or section is not None:
             if section is not None:
                 content = _extract_section(text, section)
                 if not content:
-                    print_error(
-                        ErrorInfo(
-                            message=f"Section {section} not found (document has fewer than {section} headings)",
-                            context="pdf",
-                            hint="Use --outline first to see available sections",
-                        ),
+                    emit_error(
+                        "not_found",
+                        f"Section {section} not found (document has fewer than {section} headings)",
                         output_json=json_out,
+                        hint="Use --outline first to see available sections",
+                        context="pdf",
                     )
-                    return
                 click.echo(format_pdf_text(key, pages, section=section, content=content, output_json=json_out))
             else:
                 outline_data = _parse_outline(text)

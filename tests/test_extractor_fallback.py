@@ -112,7 +112,8 @@ class TestMinerUFallback:
             with patch("zotero_cli_cc.commands.pdf.get_extractor", side_effect=get_extractor_side_effect):
                 result = _invoke(["pdf", "ATTN001", "--extractor", "mineru"])
 
-            assert result.exit_code == 0, result.output
+            # Exit 1 (RUNTIME) — both extractors failed.
+            assert result.exit_code == 1, result.output
             assert "pymupdf also failed" in result.output
 
     def test_fallback_with_page_range(self):
