@@ -46,7 +46,7 @@ class JinaProvider(EmbeddingProvider):
         return all_embeddings
 
     def _embed_batch(self, batch: list[str]) -> list[list[float]]:
-        body = json_mod.dumps({"model": self.model, "input": {"texts": batch}}).encode()
+        body = json_mod.dumps({"model": self.model, "input": batch}).encode()
         req = urllib.request.Request(self.url, data=body)
         req.add_header("Content-Type", "application/json")
         req.add_header("Authorization", f"Bearer {self.api_key}")
@@ -76,7 +76,7 @@ class JinaProvider(EmbeddingProvider):
         results: list[list[float]] = []
         for text in batch:
             try:
-                body = json_mod.dumps({"model": self.model, "input": {"texts": [text]}}).encode()
+                body = json_mod.dumps({"model": self.model, "input": [text]}).encode()
                 req = urllib.request.Request(self.url, data=body)
                 req.add_header("Content-Type", "application/json")
                 req.add_header("Authorization", f"Bearer {self.api_key}")
