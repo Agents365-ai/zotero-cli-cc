@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2026-05-10
+
+### Fixed
+
+- Update-available nag fired indefinitely after upgrading because
+  `__version__` was hardcoded in `__init__.py` and missed in the 0.4.0 / 0.4.1
+  bumps, so installed copies of 0.4.1 reported themselves as 0.3.0. Version is
+  now sourced from package metadata (`importlib.metadata`), making
+  `pyproject.toml` the single source of truth (#30).
+
 ## [0.4.1] - 2026-05-05
 
 Embedding configuration cleanup. The provider-specific Aliyun key
