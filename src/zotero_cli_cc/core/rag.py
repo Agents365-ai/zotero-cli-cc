@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import re
+import sys
 from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
@@ -339,5 +340,12 @@ def embed_texts(
     router = EmbeddingRouter(config)
     try:
         return router.embed(texts, progress_callback)
-    except Exception:
+    except Exception as e:
+        # Configured-but-failed: surface the reason so callers don't silently
+        # degrade to BM25-only without telling the user. See issue #28.
+        sys.stderr.write(
+            f"\r{' ' * 60}\r"
+            f"  [WARN] Embedding provider '{config.provider}' failed: "
+            f"{type(e).__name__}: {e}. Falling back to BM25-only.\n"
+        )
         return None

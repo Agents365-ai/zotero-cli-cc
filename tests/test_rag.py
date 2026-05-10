@@ -201,6 +201,26 @@ class TestEmbedding:
             assert body["model"] == "model"
             assert body["input"] == ["hello world"]
 
+    def test_embed_texts_surfaces_provider_error(self, capsys):
+        cfg = EmbeddingConfig(url="http://test/v1/embeddings", api_key="key", model="model", provider="aliyun")
+        with patch(
+            "zotero_cli_cc.core.embedding_router.EmbeddingRouter.embed",
+            side_effect=RuntimeError("boom"),
+        ):
+            result = embed_texts(["hello"], cfg)
+        assert result is None
+        captured = capsys.readouterr()
+        assert "WARN" in captured.err
+        assert "aliyun" in captured.err
+        assert "boom" in captured.err
+
+    def test_embed_texts_silent_when_not_configured(self, capsys):
+        cfg = EmbeddingConfig(url="", api_key="", model="")
+        result = embed_texts(["hello"], cfg)
+        assert result is None
+        captured = capsys.readouterr()
+        assert captured.err == ""
+
 
 class TestRRF:
     def test_reciprocal_rank_fusion(self):
