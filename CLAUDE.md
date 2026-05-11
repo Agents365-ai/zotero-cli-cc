@@ -89,3 +89,12 @@ Config lives at `~/.config/zot/config.toml` with multi-profile support (`[profil
 When adding or refactoring a CLI command (flags, output shape, exit codes, confirmation/idempotency behavior), invoke the **`agent-native-design`** skill first: https://github.com/Agents365-ai/agent-native-design
 
 It encodes the design rules that keep `zot` usable by both humans and agents — dual-output contract, typed exit codes, JSON envelope shape, idempotency, dry-run conventions — and aligns with `docs/agent-interface.md`. New contributors should read it before touching the CLI surface.
+
+### Safety tier — pick exactly one bucket
+
+Every top-level command must be registered in one of the three sets at the top of `src/zotero_cli_cc/cli.py` (`_READ_COMMANDS` / `_WRITE_COMMANDS` / `_DESTRUCTIVE_COMMANDS`). The set determines:
+
+- The header it appears under in `zot --help` (`Read` / `Write (MUTATES LIBRARY)` / `Destructive (MUTATES LIBRARY)`).
+- The `safety_tier` value emitted by `zot schema` for that command, which agents use to gate execution.
+
+Commands not in any set fall into an unlabeled `Other` bucket and are reported as untyped to agents — a footgun. The CI suite asserts the schema/help drift contract (`tests/test_agent_interface.py::TestHelpSchemaDrift`), but it does not flag missing tier membership, so this is a manual checklist when wiring up a new command in `cli.py`.
