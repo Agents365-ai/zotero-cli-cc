@@ -22,6 +22,12 @@
 - **Agent-native** — 稳定 JSON envelope、类型化退出码、`zot schema`、`--dry-run`、`--idempotency-key`、NDJSON 流
 - **MCP 服务器** — 通过 `zot mcp serve` 向 Claude Desktop / LM Studio / Cursor 暴露 45 个工具
 
+## 架构
+
+<p align="center">
+  <img src="asserts/architecture.png" alt="Architecture diagram" width="720">
+</p>
+
 ## 安装
 
 ```bash
@@ -77,17 +83,20 @@ cp -r skill/zotero-cli-cc ~/.claude/skills/
 
 **为什么选 zotero-cli-cc？** 当前唯一仍在维护、直接读取 Zotero 本地 SQLite 的 Python CLI；读写分离架构 —— SQLite 提供快速离线读，Web API 提供让 Zotero 感知的安全写。完整功能对比见[对比页面](https://agents365-ai.github.io/zotero-cli-cc/zh/comparison/)。
 
-## 架构
+## 社区
+
+欢迎加入获取帮助、问答和更新：
+
+- **Discord：** https://discord.gg/79JF5Atuk
+- **微信：** 扫描下方二维码
 
 <p align="center">
-  <img src="asserts/architecture.png" alt="Architecture diagram" width="720">
+  <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/agents365ai_wechat_1.png" width="200" alt="微信交流群">
 </p>
 
-## 作者
-
-**Agents365-ai** — [GitHub](https://github.com/Agents365-ai) · [Bilibili](https://space.bilibili.com/441831884)
-
 ## 赞助
+
+如果 `zot` 对你有帮助，欢迎赞助作者：
 
 <table>
   <tr>
@@ -106,8 +115,20 @@ cp -r skill/zotero-cli-cc ~/.claude/skills/
       <br>
       <b>Buy Me a Coffee</b>
     </td>
+    <td align="center">
+      <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/awarding/award.gif" width="180" alt="打赏">
+      <br>
+      <b>打赏</b>
+    </td>
   </tr>
 </table>
+
+## 作者
+
+**Agents365-ai**
+
+- Bilibili：https://space.bilibili.com/441831884
+- GitHub：https://github.com/Agents365-ai
 
 ## 许可证
 
