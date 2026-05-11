@@ -6,7 +6,7 @@ import json
 import time
 from unittest.mock import MagicMock, patch
 
-from zotero_cli_cc.core.version_check import _parse_version, check_for_update
+from zotero_cli_cc.core.version_check import _parse_version, check_for_update, upgrade_command
 
 
 class TestParseVersion:
@@ -108,3 +108,30 @@ class TestCheckForUpdate:
 
         result = check_for_update("0.2.3")
         assert result is None
+
+
+class TestUpgradeCommand:
+    def test_uv_tool_install(self):
+        exe = "/Users/me/.local/share/uv/tools/zotero-cli-cc/bin/python"
+        assert upgrade_command(exe) == "uv tool upgrade zotero-cli-cc"
+
+    def test_pipx_install(self):
+        exe = "/Users/me/.local/pipx/venvs/zotero-cli-cc/bin/python"
+        assert upgrade_command(exe) == "pipx upgrade zotero-cli-cc"
+
+    def test_conda_install_falls_back_to_pip(self):
+        exe = "/Users/me/mambaforge/bin/python"
+        assert upgrade_command(exe) == "pip install -U zotero-cli-cc"
+
+    def test_system_pip_falls_back_to_pip(self):
+        exe = "/usr/bin/python3"
+        assert upgrade_command(exe) == "pip install -U zotero-cli-cc"
+
+    def test_windows_uv_tool_path(self):
+        exe = r"C:\Users\me\AppData\Roaming\uv\tools\zotero-cli-cc\Scripts\python.exe"
+        assert upgrade_command(exe) == "uv tool upgrade zotero-cli-cc"
+
+    def test_uses_sys_executable_by_default(self):
+        with patch("zotero_cli_cc.core.version_check.sys") as mock_sys:
+            mock_sys.executable = "/opt/uv/tools/zotero-cli-cc/bin/python"
+            assert upgrade_command() == "uv tool upgrade zotero-cli-cc"

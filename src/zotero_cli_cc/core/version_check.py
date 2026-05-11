@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import time
 from pathlib import Path
 from urllib.request import urlopen
@@ -17,6 +18,20 @@ _TIMEOUT = 3  # seconds
 def _parse_version(v: str) -> tuple[int, ...]:
     """Parse version string into tuple for comparison."""
     return tuple(int(x) for x in v.strip().split(".") if x.isdigit())
+
+
+def upgrade_command(executable: str | None = None) -> str:
+    """Return the upgrade command appropriate to how this install was placed.
+
+    Detects uv tool and pipx by inspecting ``sys.executable``; falls back to
+    a plain ``pip install -U`` (which is correct for pip/conda/system installs).
+    """
+    exe = (executable if executable is not None else sys.executable).replace("\\", "/")
+    if "/uv/tools/" in exe:
+        return "uv tool upgrade zotero-cli-cc"
+    if "/pipx/venvs/" in exe:
+        return "pipx upgrade zotero-cli-cc"
+    return "pip install -U zotero-cli-cc"
 
 
 def check_for_update(current_version: str) -> str | None:

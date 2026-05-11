@@ -199,13 +199,13 @@ def _after_command(ctx: click.Context, *_args: object, **_kwargs: object) -> Non
     if obj.get("json") or obj.get("no_interaction") or not sys.stderr.isatty():
         return
     from zotero_cli_cc import __version__
-    from zotero_cli_cc.core.version_check import check_for_update
+    from zotero_cli_cc.core.version_check import check_for_update, upgrade_command
 
     latest = check_for_update(__version__)
     if latest:
         click.echo(
             click.style(
-                f"\n Update available: v{__version__} → v{latest}. Run: uv tool upgrade zotero-cli-cc",
+                f"\n Update available: v{__version__} → v{latest}. Run: {upgrade_command()}",
                 fg="yellow",
             ),
             err=True,
