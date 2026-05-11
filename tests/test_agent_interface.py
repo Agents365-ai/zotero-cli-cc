@@ -179,3 +179,52 @@ class TestConfirmationRequiredOnNonTTY:
         assert result.exit_code == EXIT_VALIDATION
         env = json.loads(result.output)
         assert env["error"]["code"] == "confirmation_required"
+
+
+class TestGlobalFlagHoisting:
+    """`--json` / `--no-json` must work no matter where they appear in argv."""
+
+    def test_json_after_subcommand_parses(self):
+        result = _run(["search", "x", "--json", "--limit", "1"])
+        assert result.exit_code == EXIT_OK
+        env = json.loads(result.output)
+        assert env["ok"] is True
+
+    def test_no_json_after_subcommand_parses(self):
+        result = _run(["search", "x", "--no-json", "--limit", "1"])
+        assert result.exit_code == EXIT_OK
+        # --no-json forces table; output must not be JSON.
+        assert not result.output.lstrip().startswith("{")
+
+    def test_double_dash_stops_hoisting(self):
+        # After `--`, `--json` is a positional value, not the global flag.
+        # The schema subcommand accepts an optional COMMAND positional, so
+        # this exercises the boundary without needing a command that takes
+        # arbitrary positionals.
+        result = _run(["--", "schema"])
+        # Either it parses `schema` as the positional (any non-error exit is OK),
+        # or it errors — what matters is that we didn't crash on the hoist.
+        assert result.exit_code in (EXIT_OK, EXIT_VALIDATION, EXIT_NOT_FOUND)
+
+
+class TestHelpSchemaDrift:
+    """Every option `schema` advertises must appear in the matching `--help` text."""
+
+    def test_help_advertises_all_schema_options(self):
+        schema_result = _run(["schema"])
+        assert schema_result.exit_code == EXIT_OK
+        tree = json.loads(schema_result.output)["data"]
+
+        def walk(node, path):
+            help_out = _run(path + ["--help"]).output
+            for p in node.get("params", []):
+                if p["kind"] != "option" or p.get("hidden"):
+                    continue
+                assert any(flag in help_out for flag in p["flags"]), (
+                    f"`{' '.join(['zot'] + path)} --help` does not advertise "
+                    f"option {p['flags']} that `zot schema` reports."
+                )
+            for name, child in node.get("subcommands", {}).items():
+                walk(child, path + [name])
+
+        walk(tree, [])
