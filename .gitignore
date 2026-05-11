@@ -11,6 +11,7 @@ site/
 # Internal dev docs (plans, specs)
 docs/superpowers/
 docs/gap-analysis.md
+plan/
 logs/
 .vscode/
 my-docs/
