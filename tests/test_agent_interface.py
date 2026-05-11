@@ -158,6 +158,64 @@ class TestSchemaCommand:
         assert env["meta"]["cli_version"]
 
 
+class TestSchemaDiff:
+    def _write(self, tmp_path, data, meta=None):
+        path = tmp_path / "cached.json"
+        envelope = {"ok": True, "data": data, "meta": meta or {}}
+        path.write_text(json.dumps(envelope), encoding="utf-8")
+        return str(path)
+
+    def test_diff_against_self_reports_no_changes(self, tmp_path):
+        current = json.loads(_run(["schema"]).output)
+        cached_path = self._write(tmp_path, current["data"], current["meta"])
+        result = _run(["schema", "--diff", cached_path])
+        assert result.exit_code == EXIT_OK
+        data = json.loads(result.output)["data"]
+        assert data["commands_added"] == []
+        assert data["commands_removed"] == []
+        assert data["commands_changed"] == {}
+        assert data["from"]["schema_version"] == current["meta"]["schema_version"]
+        assert data["to"]["schema_version"] == current["meta"]["schema_version"]
+
+    def test_diff_detects_added_and_removed_commands(self, tmp_path):
+        current = json.loads(_run(["schema"]).output)
+        # Build a fake "old" tree with one command removed and a fake one added.
+        old_tree = json.loads(json.dumps(current["data"]))  # deep copy
+        old_tree["subcommands"]["ghost-cmd"] = {"name": "ghost-cmd", "params": [], "subcommands": {}}
+        del old_tree["subcommands"]["search"]
+        cached_path = self._write(tmp_path, old_tree, {"schema_version": "0.9.0", "cli_version": "0.0.0"})
+        result = _run(["schema", "--diff", cached_path])
+        data = json.loads(result.output)["data"]
+        assert "search" in data["commands_added"]
+        assert "ghost-cmd" in data["commands_removed"]
+        assert data["from"]["schema_version"] == "0.9.0"
+
+    def test_diff_detects_param_changes(self, tmp_path):
+        current = json.loads(_run(["schema"]).output)
+        old_tree = json.loads(json.dumps(current["data"]))
+        # Drop the last param of `export` so the current schema appears to have added it.
+        old_tree["subcommands"]["export"]["params"].pop()
+        cached_path = self._write(tmp_path, old_tree)
+        result = _run(["schema", "--diff", cached_path])
+        data = json.loads(result.output)["data"]
+        assert "export" in data["commands_changed"]
+        assert data["commands_changed"]["export"]["params_added"]
+
+    def test_diff_with_missing_file_returns_validation_error(self, tmp_path):
+        # click.Path(exists=True) catches this before our code runs — Click exits
+        # with usage error (exit 2) and writes to stderr.
+        result = _run(["schema", "--diff", str(tmp_path / "no-such-file.json")])
+        assert result.exit_code != 0
+
+    def test_diff_with_invalid_json_returns_validation_error(self, tmp_path):
+        bad = tmp_path / "bad.json"
+        bad.write_text("not json at all", encoding="utf-8")
+        result = _run(["schema", "--diff", str(bad)])
+        assert result.exit_code == EXIT_VALIDATION
+        env = json.loads(result.output)
+        assert env["error"]["code"] == "validation_error"
+
+
 class TestDryRun:
     def test_delete_dry_run_json_envelope(self):
         result = _run(

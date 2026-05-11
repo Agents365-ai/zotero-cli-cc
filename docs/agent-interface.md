@@ -144,6 +144,34 @@ Output:
 
 Agents should use `zot schema <cmd>` instead of parsing `--help` output.
 
+### Detecting changes between releases
+
+When an agent has cached a previous schema and sees a new `meta.schema_version` on a later call, it can fetch a structural diff instead of re-parsing the whole tree:
+
+```bash
+zot schema --diff /path/to/cached-schema.json
+```
+
+The diff envelope reports added/removed commands (dotted paths) and added/removed option flags per surviving command. Type, help, and default changes are intentionally out of scope — re-fetch the full schema if those matter for your use case.
+
+```json
+{
+  "ok": true,
+  "data": {
+    "from": { "schema_version": "1.0.0", "cli_version": "0.4.0" },
+    "to":   { "schema_version": "1.1.0", "cli_version": "0.4.4" },
+    "commands_added":   ["recent"],
+    "commands_removed": ["legacy-cmd"],
+    "commands_changed": {
+      "search": { "params_added": ["--sort"] }
+    }
+  },
+  "meta": { ... }
+}
+```
+
+The input file may be either a full envelope or a bare `data` tree.
+
 ## Safety tiers
 
 Commands are grouped by risk in `zot --help`:
