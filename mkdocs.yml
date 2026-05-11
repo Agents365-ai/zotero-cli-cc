@@ -81,4 +81,5 @@ nav:
   - Reference:
     - CLI Reference: reference/cli.md
     - Agent Interface: reference/agent-interface.md
+  - Comparison: comparison.md
   - Changelog: changelog.md

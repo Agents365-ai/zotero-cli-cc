@@ -14,374 +14,68 @@
 
 [中文](README_CN.md) | [Documentation](https://agents365-ai.github.io/zotero-cli-cc/)
 
-## Introduction
+`zotero-cli-cc` is a Zotero CLI built for [Claude Code](https://claude.ai/code) and AI agents.
 
-`zotero-cli-cc` is a Zotero CLI designed for [Claude Code](https://claude.ai/code).
-
-**Core Features:**
-- **Reads**: Direct local SQLite database access — zero config, offline, millisecond response
-- **Writes**: Safe writes through Zotero Web API — Zotero fully aware of changes
-- **PDF**: Extract full text from local PDF storage with automatic caching
-- **Workspace**: Organize papers by topic with local workspaces + built-in RAG search
-- **Agent-native**: Stable JSON envelope, typed exit codes, `zot schema`, `--dry-run`, `--idempotency-key`, NDJSON streaming — see [`docs/agent-interface.md`](docs/agent-interface.md)
-
-**Search and read papers without launching Zotero desktop.**
-
-## Using with Claude Code
-
-In any Claude Code session, use natural language:
-
-```
-Search my Zotero for single cell papers
-→ Claude runs: zot search "single cell"
-
-Show me details of this paper
-→ Claude runs: zot read ABC123
-
-Export BibTeX for this paper
-→ Claude runs: zot export ABC123
-```
-
-When `zot` detects that stdout is not a TTY (agents, pipelines, subprocess calls) it automatically emits JSON. Humans still see tables. Agents never have to pass `--json`.
-
-Every command response is a stable envelope:
-
-```json
-{ "ok": true, "data": { ... }, "meta": { "request_id": "...", "cli_version": "0.4.0" } }
-```
-
-Errors carry machine-routable `code` and `retryable` fields; exit codes are distinct per failure class (1 runtime, 2 auth, 3 validation, 4 not-found, 5 network, 6 conflict). Mutating commands support `--dry-run` and `--idempotency-key` so retries are safe. See [`docs/agent-interface.md`](docs/agent-interface.md) for the full contract, or run `zot schema` to introspect the CLI tree programmatically.
-
-Install the zotero-cli skill so Claude Code automatically recognizes literature-related requests:
-
-```bash
-# Install skill (copy skill/zotero-cli-cc/ to ~/.claude/skills/)
-cp -r skill/zotero-cli-cc ~/.claude/skills/
-```
+- **Reads** — direct local SQLite, zero-config, offline, millisecond response
+- **Writes** — safe via Zotero Web API, Zotero stays in sync
+- **PDF + RAG** — extract full text with caching; built-in BM25 (+ optional embedding) search over per-topic workspaces
+- **Agent-native** — stable JSON envelope, typed exit codes, `zot schema`, `--dry-run`, `--idempotency-key`, NDJSON streaming
+- **MCP server** — exposes 45 tools to Claude Desktop / LM Studio / Cursor via `zot mcp serve`
 
 ## Install
 
 ```bash
-# Recommended
-uv tool install zotero-cli-cc
-
-# Or
-pipx install zotero-cli-cc
-
-# Or
-pip install zotero-cli-cc
+uv tool install zotero-cli-cc      # recommended
+pipx install zotero-cli-cc         # or
+pip install zotero-cli-cc          # or
 ```
 
-Upgrade to the latest version:
+## 60-second quickstart
 
 ```bash
-uv tool upgrade zotero-cli-cc    # uv
-pipx upgrade zotero-cli-cc       # pipx
-pip install -U zotero-cli-cc     # pip
-```
+# Reads work out of the box — no API key, Zotero data dir auto-detected
+zot search "transformer attention"
+zot read ABC123
+zot export ABC123                  # BibTeX
 
-## Setup
-
-```bash
-# Configure Web API credentials (write operations only)
+# Writes need a Web API key (https://www.zotero.org/settings/keys)
 zot config init
+zot add --doi "10.1038/s41586-023-06139-9"
 ```
 
-### Data Directory
-
-> **Data directory** refers to the folder containing the `zotero.sqlite` database file (not the Zotero installation directory or the PDF sync directory). You can find it in Zotero Settings → Advanced → "Data Directory Location".
-
-Read operations work out of the box. `zot` automatically detects the Zotero data directory:
-
-| Platform | Detection Order |
-|----------|----------------|
-| **Windows** | Registry `HKCU\Software\Zotero\Zotero\dataDir` → `%APPDATA%\Zotero` → `%LOCALAPPDATA%\Zotero` |
-| **macOS / Linux** | `~/Zotero` |
-
-If your Zotero data is not in the default location, specify it:
+In Claude Code, just ask in natural language — the bundled skill maps requests to `zot` commands automatically:
 
 ```bash
-# Option 1: Config file (recommended)
-zot config init --data-dir "D:\MyZotero"
-
-# Option 2: Environment variable
-export ZOT_DATA_DIR="/path/to/zotero/data"
-
-# Option 3: Edit config file manually
-# Edit ~/.config/zot/config.toml
+cp -r skill/zotero-cli-cc ~/.claude/skills/
 ```
 
-Example config file:
-
-```toml
-[zotero]
-data_dir = "D:\\MyZotero"
-library_id = "12345"
-api_key = "xxx"
-
-[output]
-default_format = "table"
-limit = 50
-
-[export]
-default_style = "bibtex"
-```
-
-### API Credentials
-
-Write operations require an API Key from https://www.zotero.org/settings/keys.
-
-### MCP Server Mode
-
-zotero-cli-cc supports [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) and can be used in MCP-compatible clients like LM Studio, Claude Desktop, and Cursor.
-
-**Install MCP Support:**
-
-```bash
-pip install zotero-cli-cc[mcp]
-```
-
-**Start MCP Server:**
-
-```bash
-zot mcp serve
-```
-
-**Client Configuration (LM Studio / Claude Desktop / Cursor):**
+When stdout is not a TTY, `zot` automatically emits a stable JSON envelope so agents never need `--json`:
 
 ```json
-{
-  "mcpServers": {
-    "zotero": {
-      "command": "zot",
-      "args": ["mcp", "serve"]
-    }
-  }
-}
+{ "ok": true, "data": { ... }, "meta": { "request_id": "...", "cli_version": "0.4.3" } }
 ```
 
-MCP mode provides 45 tools covering search, reading, PDF extraction, note management, tag management, citation export, workspace management with RAG, library statistics, and preprint status checking.
+## Documentation
 
-## Commands
+Full docs live at **https://agents365-ai.github.io/zotero-cli-cc/**.
 
-### Search & Browse
+| Topic | Link |
+|---|---|
+| Installation & setup | [Getting started](https://agents365-ai.github.io/zotero-cli-cc/getting-started/installation/) |
+| Search, list, read | [Search guide](https://agents365-ai.github.io/zotero-cli-cc/guide/search/) |
+| Notes, tags, citations | [Notes & tags](https://agents365-ai.github.io/zotero-cli-cc/guide/notes-tags/), [Citations](https://agents365-ai.github.io/zotero-cli-cc/guide/citations/) |
+| Add / update / delete items | [Item management](https://agents365-ai.github.io/zotero-cli-cc/guide/item-management/) |
+| Collections | [Collections](https://agents365-ai.github.io/zotero-cli-cc/guide/collections/) |
+| Workspaces + RAG | [Workspaces](https://agents365-ai.github.io/zotero-cli-cc/guide/workspace/) |
+| PDF extraction | [PDF](https://agents365-ai.github.io/zotero-cli-cc/guide/pdf/) |
+| Preprint → published | [update-status](https://agents365-ai.github.io/zotero-cli-cc/guide/update-status/) |
+| MCP setup & tools | [MCP](https://agents365-ai.github.io/zotero-cli-cc/mcp/setup/) |
+| Full CLI reference | [CLI reference](https://agents365-ai.github.io/zotero-cli-cc/reference/cli/) |
+| Agent contract (envelope, exit codes, schema) | [`docs/agent-interface.md`](docs/agent-interface.md) |
+| Comparison with similar tools | [Comparison](https://agents365-ai.github.io/zotero-cli-cc/comparison/) |
+| Roadmap | [`ROADMAP.md`](ROADMAP.md) |
 
-> **How search works:** `zot search` matches keywords across four layers: ① titles & abstracts ② author names ③ tags ④ PDF fulltext index. For deeper content search with BM25 ranking and optional semantic matching, use `zot workspace query` — it indexes metadata + full PDF text and supports hybrid BM25 + embedding retrieval.
-
-```bash
-# Search across title, author, tags, fulltext
-zot search "transformer attention"
-
-# Filter by collection
-zot search "BERT" --collection "NLP"
-
-# List items
-zot list --collection "Machine Learning" --limit 10
-
-# View item details (metadata + abstract + notes)
-zot read ABC123
-
-# Find related items
-zot relate ABC123
-```
-
-### Notes & Tags
-
-```bash
-# View/add notes
-zot note ABC123
-zot note ABC123 --add "This paper proposes a new attention mechanism"
-
-# View/add/remove tags
-zot tag ABC123
-zot tag ABC123 --add "important"
-zot tag ABC123 --remove "to-read"
-```
-
-### Citation Export
-
-```bash
-zot export ABC123                    # BibTeX
-zot export ABC123 --format csl-json  # CSL-JSON
-zot export ABC123 --format ris       # RIS
-zot export ABC123 --format json      # JSON
-
-# Format citation and copy to clipboard
-zot cite ABC123                      # APA (default)
-zot cite ABC123 --style nature       # Nature
-zot cite ABC123 --style vancouver    # Vancouver
-```
-
-### Item Management
-
-```bash
-zot add --doi "10.1038/s41586-023-06139-9"       # Add by DOI
-zot add --url "https://arxiv.org/abs/2301.00001"  # Add by URL
-zot add --from-file dois.txt                      # Batch import from file
-zot delete ABC123 --yes                           # Delete (move to trash)
-```
-
-### Collections
-
-```bash
-zot collection list                # List all collections (tree view)
-zot collection items COLML01       # View items in a collection
-zot collection create "New Project"  # Create a new collection
-```
-
-### Workspaces
-
-> **Why workspaces?** Zotero collections are great for permanent library organization, but research often requires temporary, cross-cutting groupings — "all papers for my ICML submission", "papers to discuss at lab meeting", or "references for Chapter 3". Workspaces fill this gap: they're lightweight, local-only views that don't modify your Zotero library. Each workspace is a simple TOML file at `~/.config/zot/workspaces/<name>.toml` containing item key references — no API key needed, no syncing side effects. Combined with built-in RAG indexing, workspaces become a powerful bridge between your Zotero library and AI coding assistants like Claude Code.
-
-```bash
-# Create and populate a workspace
-zot workspace new llm-safety --description "LLM alignment papers"
-zot workspace add llm-safety ABC123 DEF456 GHI789
-zot workspace import llm-safety --collection "Alignment"   # Bulk import from collection
-zot workspace import llm-safety --tag "safety"              # or by tag
-zot workspace import llm-safety --search "RLHF"            # or by search
-
-# Browse workspace
-zot workspace list                          # List all workspaces
-zot workspace show llm-safety               # View items with metadata
-zot workspace search "reward" --workspace llm-safety  # Search within workspace
-
-# Export for AI consumption
-zot workspace export llm-safety                       # Markdown (for Claude Code)
-zot workspace export llm-safety --format json         # JSON
-zot workspace export llm-safety --format bibtex       # BibTeX
-
-# Built-in RAG: index and query
-zot workspace index llm-safety                       # Build BM25 index (metadata + PDF text)
-zot workspace index llm-safety --extractor mineru    # Use MinerU for higher-quality PDF text
-zot workspace query "reward hacking methods" --workspace llm-safety
-
-# Manage
-zot workspace remove llm-safety ABC123      # Remove item
-zot workspace delete llm-safety --yes       # Delete workspace
-```
-
-**Optional semantic search** — configure an embedding endpoint for hybrid BM25 + vector retrieval. Multiple providers are supported via `[embedding] provider` (`jina` (default) / `aliyun` / `openai`):
-
-```bash
-# Jina AI (default, 10M free tokens)
-export ZOT_EMBEDDING_URL="https://api.jina.ai/v1/embeddings"
-export ZOT_EMBEDDING_KEY="your-jina-key"
-
-# Or Aliyun DashScope (OpenAI-compatible)
-export ZOT_EMBEDDING_PROVIDER=aliyun
-export ZOT_EMBEDDING_KEY="your-dashscope-key"
-
-zot workspace index llm-safety --force                              # Rebuild with embeddings
-zot workspace query "reward hacking" --workspace llm-safety --mode hybrid
-```
-
-### Profiles & Cache
-
-```bash
-zot config profile list            # List all config profiles
-zot config profile set lab         # Set default profile
-zot config cache stats             # Show PDF cache statistics
-zot config cache clear             # Clear PDF cache
-```
-
-### Preprint Status Check
-
-```bash
-# Check if arXiv/bioRxiv/medRxiv preprints have been published (dry-run)
-zot update-status
-
-# Actually update Zotero metadata for published papers
-zot update-status --apply
-
-# Check a single item
-zot update-status ABC123
-
-# Check items in a collection
-zot update-status --collection "scRNA-seq" --limit 20
-```
-
-Uses the [Semantic Scholar API](https://www.semanticscholar.org/product/api). Optional API key for faster rate limits:
-
-```bash
-export S2_API_KEY=your_key_here   # in ~/.zshrc or ~/.bashrc
-```
-
-### AI Features
-
-```bash
-zot summarize ABC123               # Structured summary (optimized for Claude Code)
-zot pdf ABC123                     # Extract PDF full text
-zot pdf ABC123 --pages 1-5         # Extract specific pages
-zot pdf ABC123 --outline           # List headings as a numbered outline
-zot pdf ABC123 --section 3         # Extract just section 3 from --outline
-zot pdf ABC123 --extractor mineru  # Use MinerU (auto-falls-back to pymupdf)
-```
-
-**PDF extractors.** Two backends are available: the default `pymupdf` (fast, no network), and `mineru` (higher-fidelity layout/equation/table parsing via the MinerU API; falls back to pymupdf on failure). Configure once via `[pdf] extractor` / `[pdf] mineru_token` in `~/.config/zot/config.toml`, or via `ZOT_PDF_EXTRACTOR` / `MINERU_TOKEN` env vars.
-
-### Global Flags
-
-```bash
-zot --json search "attention"              # JSON output
-zot --limit 5 list                         # Limit results
-zot --detail minimal search "attention"    # Minimal output (key/title/authors/year only)
-zot --detail full read ABC123              # Full output (including extra fields)
-zot --no-interaction delete ABC123         # Skip confirmation prompts (AI/script mode)
-zot --profile lab search "CRISPR"          # Use a specific config profile
-zot --version                              # Show version
-```
-
-### Shell Completions
-
-```bash
-# Zsh (recommended)
-zot completions zsh >> ~/.zshrc
-
-# Bash
-zot completions bash >> ~/.bashrc
-
-# Fish
-zot completions fish > ~/.config/fish/completions/zot.fish
-```
-
-Restart your terminal or `source` the config file to enable tab completions.
-
-## Comparison with Similar Tools
-
-| Feature | **zotero-cli-cc** | [pyzotero-cli](https://github.com/chriscarrollsmith/pyzotero-cli) | [zotero-cli](https://github.com/jbaiter/zotero-cli) | [zotero-cli-tool](https://github.com/dhondta/zotero-cli) | [zotero-mcp](https://github.com/54yyyu/zotero-mcp) | [cookjohn/zotero-mcp](https://github.com/cookjohn/zotero-mcp) | [ZoteroBridge](https://github.com/Combjellyshen/ZoteroBridge) |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Direct SQLite Read** | **✅** | ❌ | ❌ (cache only) | ❌ | ❌ | ❌ (plugin) | ✅ |
-| **Offline Read** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **No Zotero Running** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **Zero-Config Read** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **Safe Write (Web API)** | **✅** | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ (direct SQLite) |
-| **PDF Full-Text** | **✅** | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| **AI Coding Assistant** | **✅ Claude Code** | Partial | ❌ | ❌ | Claude/ChatGPT | Claude/Cursor | Claude/Cursor |
-| **Terminal CLI** | **✅** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **MCP Protocol** | **✅** | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| **JSON Output** | ✅ | ✅ | ❌ | ❌ | N/A | N/A | N/A |
-| **Note Management** | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
-| **Collections** | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| **Citation Export** | ✅ BibTeX/CSL-JSON/RIS | ✅ | ❌ | ✅ Excel | ❌ | ❌ | ❌ |
-| **Semantic Search** | **✅ Built-in (workspace RAG)** | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
-| **Detail Levels** | **✅** | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
-| **Multi-Profile** | **✅** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **PDF Cache** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Library Maintenance** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **Language** | Python | Python | Python | Python | Python | TypeScript | TypeScript |
-| **Active** | ✅ 2026 | ✅ 2025 | ❌ 2024 | ✅ 2026 | ✅ 2026 | ✅ 2026 | ✅ 2026 |
-
-### Why zotero-cli-cc?
-
-> **The only actively maintained Python CLI that reads Zotero's local SQLite database directly.**
-
-- **Fast**: Millisecond response, no network latency
-- **Offline**: No internet, no Zotero desktop needed
-- **Zero-Config**: Install and go, no API key for reads
-- **AI-Native**: Built for Claude Code, `--json` output for AI consumption
-- **Safe**: Read/write separation — writes go through Web API to protect DB integrity
-- **Terminal-Native**: The only CLI combining local SQLite reads with safe Web API writes; MCP tools require AI client, not usable in terminal
+**Why zotero-cli-cc?** The only actively maintained Python CLI that reads Zotero's local SQLite database directly, with a clean read/write split: SQLite for fast offline reads, Web API for safe writes that Zotero stays aware of. See the [comparison page](https://agents365-ai.github.io/zotero-cli-cc/comparison/) for a feature-by-feature breakdown against similar tools.
 
 ## Architecture
 
@@ -389,91 +83,9 @@ Restart your terminal or `source` the config file to enable tab completions.
   <img src="asserts/architecture.png" alt="Architecture diagram" width="720">
 </p>
 
-## Environment Variables
-
-| Variable | Purpose |
-|----------|---------|
-| `ZOT_DATA_DIR` | Override Zotero data directory path |
-| `ZOT_LIBRARY_ID` | Override Library ID (write operations) |
-| `ZOT_API_KEY` | Override API Key (write operations) |
-| `ZOT_PROFILE` | Override default config profile |
-| `S2_API_KEY` | Semantic Scholar API key (for `update-status`) |
-| `ZOT_PDF_EXTRACTOR` | PDF extractor: `pymupdf` (default) or `mineru` |
-| `MINERU_TOKEN` | API token for the MinerU PDF extractor |
-| `ZOT_EMBEDDING_PROVIDER` | Embedding provider: `jina` (default), `aliyun`, or `openai` |
-| `ZOT_EMBEDDING_URL` | Embedding API endpoint (default: Jina AI) |
-| `ZOT_EMBEDDING_KEY` | Embedding API key (enables semantic workspace search) |
-| `ZOT_EMBEDDING_MODEL` | Embedding model name (default: `jina-embeddings-v3`) |
-
-## TODO
-
-- [x] Improve HTML-to-Markdown: support lists, links, tables, and other common Zotero note formats (v0.1.2: uses markdownify)
-- [x] `summarize-all` pagination: add offset/cursor pagination for large libraries (v0.1.2: `--offset` flag)
-- [x] `--dry-run` for destructive ops: add preview mode to `delete`, `collection delete`, and `tag` (v0.1.2)
-
-### Features
-
-- [x] `zot cite`: copy formatted citation to clipboard (APA, Nature, Vancouver)
-- [x] Bulk operations from file input (`zot add --from-file dois.txt`)
-- [x] `zot export`: add RIS format support (BibTeX, CSL-JSON, RIS, JSON)
-
-### Tier 1 — High Value, Moderate Effort
-
-- [x] `zot update KEY --title/--date/--field`: update item metadata (pyzotero `update_item()`)
-- [x] `zot search --type journalArticle`: filter search results by item type
-- [x] `zot search --sort dateAdded --direction desc`: sort control for search/list
-- [x] `zot recent --days 7`: recently added/modified items
-- [x] `zot pdf KEY --annotations`: extract PDF annotations (highlights, comments, page numbers) — pymupdf
-
-### Tier 2 — High Value, Higher Effort
-
-- [x] `zot duplicates --by doi|title|both`: duplicate detection (fuzzy title + DOI matching)
-- [x] `zot trash list/restore`: trash management (view + restore)
-- [x] `zot attach KEY --file paper.pdf`: attachment upload
-- [x] `--library group:<id>`: group library support (all commands + MCP tools)
-- [x] `zot add --pdf paper.pdf`: add from local PDF (auto-extract DOI + upload attachment)
-
-### Tier 3 — Medium Value
-
-- [ ] Saved searches CRUD
-- [ ] More export formats: BibLaTeX, MODS, TEI, CSV
-- [ ] Formatted bibliography via citeproc-py with CSL styles
-- [ ] `zot collection remove`: remove item from collection (counterpart to `collection move`)
-- [ ] BetterBibTeX citation key lookup support
-
-### Tier 4 — Nice to Have
-
-- [x] Semantic search via workspace RAG (BM25 + optional embeddings, v0.2.0)
-- [ ] DOI-to-key index
-- [ ] Version tracking / incremental sync
-- [ ] Web interface (`zot serve`)
-- [ ] View tags by collection
-
-### Polish
-
-- [ ] GitHub Issues / Discussions setup for user feedback
-- [x] Improve `--help` text with usage examples
-- [x] Shell completion install instructions in README (zsh/bash/fish)
-
-### Distribution
-
-- [x] `pipx` install instructions
-- [x] GitHub Releases with changelogs (v0.1.1, v0.1.2)
-- [x] README badges: PyPI version, CI status, Python versions, License
-
-### MCP Server
-
-- [x] Expand MCP tools: workspace, cite, stats, update-status (45 tools total)
-- [ ] MCP server documentation / integration guide
-
----
-
 ## Author
 
-**Agents365-ai**
-
-- GitHub: [https://github.com/Agents365-ai](https://github.com/Agents365-ai)
-- Bilibili: [https://space.bilibili.com/441831884](https://space.bilibili.com/441831884)
+**Agents365-ai** — [GitHub](https://github.com/Agents365-ai) · [Bilibili](https://space.bilibili.com/441831884)
 
 ## Support
 
@@ -499,4 +111,4 @@ Restart your terminal or `source` the config file to enable tab completions.
 
 ## License
 
-[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) — Free for non-commercial use.
+[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) — free for non-commercial use.
