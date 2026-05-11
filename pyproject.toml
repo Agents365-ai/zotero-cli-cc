@@ -1,6 +1,6 @@
 [project]
 name = "zotero-cli-cc"
-version = "0.4.2"
+version = "0.4.3"
 description = "Zotero CLI for Claude Code — SQLite reads + Web API writes"
 license = "CC-BY-NC-4.0"
 requires-python = ">=3.10"

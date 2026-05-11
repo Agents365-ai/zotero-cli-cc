@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] - 2026-05-11
+
+### Fixed
+
+- Update-available banner hard-coded `uv tool upgrade zotero-cli-cc`, which
+  is wrong for users who installed via pip / conda / pipx. The suggested
+  command is now detected from `sys.executable` (uv tool / pipx) with a
+  `pip install -U` fallback that works for pip, conda, and system installs (#31).
+
 ## [0.4.2] - 2026-05-10
 
 ### Fixed
