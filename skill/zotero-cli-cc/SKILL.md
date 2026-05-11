@@ -1,14 +1,16 @@
 ---
 name: zotero-cli
 description: "Use when user mentions papers, references, citations, Zotero, literature, bibliography, workspaces, or needs to search/read/export documents in zotero. Uses zot CLI for all operations including workspace-based RAG."
-version: 0.5.2
+version: 0.5.3
 ---
 
 # Zotero CLI Skill for Claude Code
 
 **`zot`** — all-in-one Zotero CLI: CRUD, search, PDF, export, workspace-based RAG. Local SQLite for reads, Zotero API for writes.
 
-**Always use `--json` when processing results programmatically.**
+**Always use `--json` when processing results programmatically.** (Auto-enabled when stdout is not a TTY; can be placed before or after the subcommand.)
+
+For exhaustive flags / types / safety tier of any command, run `zot schema <cmd>` (e.g. `zot schema add`) — that's the canonical machine-readable surface.
 
 ## Routing Rules
 
@@ -90,6 +92,23 @@ zot update ITEMKEY --title "New Title"
 zot update ITEMKEY --field volume=42 --field pages=1-10
 zot attach ITEMKEY --file supplement.pdf
 ```
+
+**Agent-safety flags on every mutating command:**
+
+```bash
+# Preview without writing — confirms intent before commit, no Zotero API call
+zot add --doi "10.1038/..." --dry-run
+zot delete ITEMKEY --dry-run
+zot update ITEMKEY --field volume=42 --dry-run
+
+# Idempotency — replay the same write safely after a network blip
+zot add --doi "10.1038/..." --idempotency-key abc-123
+zot update ITEMKEY --title "X" --idempotency-key abc-124
+zot attach ITEMKEY --file x.pdf --idempotency-key abc-125
+zot delete ITEMKEY --yes --idempotency-key abc-126
+```
+
+> Use `--dry-run` before any unfamiliar write, and pass a unique `--idempotency-key` whenever you might retry on failure — agent-native contract documented in `docs/agent-interface.md`.
 
 ### Collections
 
