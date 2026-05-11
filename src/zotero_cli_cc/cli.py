@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+from typing import Any
 
 import click
 
@@ -65,8 +66,45 @@ _WRITE_COMMANDS = {"add", "update", "note", "attach"}
 _DESTRUCTIVE_COMMANDS = {"delete", "update-status"}
 
 
+def _hoist_global_flags(args: list[str]) -> list[str]:
+    """Move `--json` / `--no-json` to the front so they parse regardless of position.
+
+    Agents trained on the GNU "flag travels with the subcommand" convention
+    write `zot search --json "x"`; without this, Click reports the flag as
+    unknown for the subcommand. The two affected tokens are pure flags (no
+    value) and are not redefined by any subcommand, so unconditional hoisting
+    is safe. Tokens after `--` are left untouched.
+    """
+    flags: list[str] = []
+    rest: list[str] = []
+    seen_double_dash = False
+    for tok in args:
+        if seen_double_dash:
+            rest.append(tok)
+            continue
+        if tok == "--":
+            seen_double_dash = True
+            rest.append(tok)
+            continue
+        if tok in ("--json", "--no-json"):
+            flags.append(tok)
+        else:
+            rest.append(tok)
+    return flags + rest
+
+
 class TieredGroup(click.Group):
     """A Click Group that renders the command list grouped by safety tier."""
+
+    def main(  # type: ignore[override]
+        self,
+        args: list[str] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        if args is None:
+            args = sys.argv[1:]
+        args = _hoist_global_flags(list(args))
+        return super().main(args=args, **kwargs)
 
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         commands: list[tuple[str, click.Command]] = []
