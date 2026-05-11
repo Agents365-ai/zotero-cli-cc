@@ -22,6 +22,12 @@
 - **Agent-native** — stable JSON envelope, typed exit codes, `zot schema`, `--dry-run`, `--idempotency-key`, NDJSON streaming
 - **MCP server** — exposes 45 tools to Claude Desktop / LM Studio / Cursor via `zot mcp serve`
 
+## Architecture
+
+<p align="center">
+  <img src="asserts/architecture.png" alt="Architecture diagram" width="720">
+</p>
+
 ## Install
 
 ```bash
@@ -77,17 +83,20 @@ Full docs live at **https://agents365-ai.github.io/zotero-cli-cc/**.
 
 **Why zotero-cli-cc?** The only actively maintained Python CLI that reads Zotero's local SQLite database directly, with a clean read/write split: SQLite for fast offline reads, Web API for safe writes that Zotero stays aware of. See the [comparison page](https://agents365-ai.github.io/zotero-cli-cc/comparison/) for a feature-by-feature breakdown against similar tools.
 
-## Architecture
+## Community
+
+Join us for help, Q&A, and updates:
+
+- **Discord:** https://discord.gg/79JF5Atuk
+- **WeChat:** scan the QR code below
 
 <p align="center">
-  <img src="asserts/architecture.png" alt="Architecture diagram" width="720">
+  <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/agents365ai_wechat_1.png" width="200" alt="WeChat Community Group">
 </p>
 
-## Author
-
-**Agents365-ai** — [GitHub](https://github.com/Agents365-ai) · [Bilibili](https://space.bilibili.com/441831884)
-
 ## Support
+
+If `zot` helps you, consider supporting the author:
 
 <table>
   <tr>
@@ -106,8 +115,20 @@ Full docs live at **https://agents365-ai.github.io/zotero-cli-cc/**.
       <br>
       <b>Buy Me a Coffee</b>
     </td>
+    <td align="center">
+      <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/awarding/award.gif" width="180" alt="Give a Reward">
+      <br>
+      <b>Give a Reward</b>
+    </td>
   </tr>
 </table>
+
+## Author
+
+**Agents365-ai**
+
+- Bilibili: https://space.bilibili.com/441831884
+- GitHub: https://github.com/Agents365-ai
 
 ## License
 
