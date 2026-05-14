@@ -413,10 +413,26 @@ def _handle_tag_remove(keys: list[str], tags: list[str], library: str = "user") 
 def _handle_add(doi: str | None, url: str | None, library: str = "user") -> dict:
     if not doi and not url:
         raise ValueError("Either doi or url must be provided.")
+    from zotero_cli_cc.core.metadata_resolver import MetadataResolveError, resolve_doi
+
+    extra_fields: dict | None = None
+    resolve_warning: str | None = None
+    if doi:
+        try:
+            extra_fields = resolve_doi(doi)
+            if extra_fields is None:
+                resolve_warning = "no_match"
+        except MetadataResolveError as e:
+            resolve_warning = str(e)
     try:
         writer = _get_writer(library)
-        item_key = writer.add_item(doi=doi, url=url)
-        return {"item_key": item_key}
+        item_key = writer.add_item(doi=doi, url=url, extra_fields=extra_fields)
+        result: dict = {"item_key": item_key}
+        if extra_fields:
+            result["resolved"] = {k: v for k, v in extra_fields.items() if k in {"title", "publicationTitle", "date"}}
+        elif doi:
+            result["resolve_warning"] = resolve_warning
+        return result
     except ZoteroWriteError as e:
         return {"error": str(e), "context": "add"}
 
@@ -554,6 +570,7 @@ def _handle_attach(parent_key: str, file_path: str, library: str = "user") -> di
 
 
 def _handle_add_from_pdf(file_path: str, doi_override: str | None = None, library: str = "user") -> dict:
+    from zotero_cli_cc.core.metadata_resolver import MetadataResolveError, resolve_doi
     from zotero_cli_cc.core.pdf_extractor import extract_doi
 
     doi = doi_override
@@ -562,20 +579,30 @@ def _handle_add_from_pdf(file_path: str, doi_override: str | None = None, librar
     if not doi:
         return {"error": "No DOI found in PDF. Use doi_override to specify manually."}
 
+    extra_fields: dict | None = None
+    try:
+        extra_fields = resolve_doi(doi)
+    except MetadataResolveError:
+        extra_fields = None
+
     try:
         writer = _get_writer(library)
-        item_key = writer.add_item(doi=doi)
+        item_key = writer.add_item(doi=doi, extra_fields=extra_fields)
     except ZoteroWriteError as e:
         return {"error": str(e), "context": "add_from_pdf"}
 
     try:
         att_key = writer.upload_attachment(item_key, Path(file_path))
-        return {
+        result: dict = {
             "item_key": item_key,
             "attachment_key": att_key,
             "doi": doi,
-            "note": "Item created with DOI only. Sync with Zotero desktop to retrieve full metadata.",
         }
+        if extra_fields:
+            result["resolved"] = {k: v for k, v in extra_fields.items() if k in {"title", "publicationTitle", "date"}}
+        else:
+            result["note"] = "Crossref had no metadata for this DOI; item created with DOI only."
+        return result
     except ZoteroWriteError as e:
         return {
             "item_key": item_key,

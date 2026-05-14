@@ -34,7 +34,7 @@ ZOT_FORMAT=table zot search foo   # force table even when piped
   "ok": true,
   "data": { "key": "ABC123", "title": "..." },
   "meta": {
-    "schema_version": "1.1.0",
+    "schema_version": "1.2.0",
     "cli_version": "0.3.0",
     "request_id": "a1b2c3d4e5f6",
     "latency_ms": 412
@@ -64,7 +64,7 @@ Mutating commands additionally set `data.sync_required: true` and may carry a `n
     "retryable": false,
     "hint": "Run 'zot search' to find valid item keys"
   },
-  "meta": { "request_id": "...", "schema_version": "1.1.0" }
+  "meta": { "request_id": "...", "schema_version": "1.2.0" }
 }
 ```
 
@@ -194,12 +194,35 @@ zot add --doi "10.1/x" --dry-run
 {
   "ok": true,
   "dry_run": true,
-  "data": { "would": { "source": "doi", "doi": "10.1/x" } },
+  "data": { "would": { "source": "doi", "doi": "10.1/x", "resolve_metadata": true } },
   "meta": { ... }
 }
 ```
 
 Dry-run does not require credentials and never touches the network.
+
+## DOI metadata resolution
+
+`zot add --doi …` calls Crossref before posting to the Zotero Web API so the
+created item is not a bare DOI-only shell. The success envelope echoes a
+compact summary of what was resolved (or, on miss, a `resolve_warning`):
+
+```json
+{
+  "ok": true,
+  "data": {
+    "key": "ABCD1234",
+    "doi": "10.1038/s41586-023-06139-9",
+    "sync_required": true,
+    "resolved": { "title": "...", "author": "Jumper et al.", "journal": "Nature", "date": "2023-07-13" }
+  }
+}
+```
+
+- `--no-resolve` skips the lookup (faster, but item is created with DOI only).
+- Crossref `404` → `data.resolved = null` and `data.resolve_warning = "no_match"`; the item is still created.
+- Network/5xx error → `data.resolved = null` and `data.resolve_warning = "<message>"`; the item is still created (agents can safely retry to populate metadata via `zot update`).
+- Set `ZOT_CROSSREF_MAILTO=<email>` to join Crossref's "polite pool" (higher rate-limit ceiling, no key required).
 
 ## `--idempotency-key`
 
@@ -240,7 +263,7 @@ JSON output envelopes the extracted content:
     "text": "...",
     "meta": { "extractor": "pymupdf", "cached": true }
   },
-  "meta": { "schema_version": "1.1.0", ... }
+  "meta": { "schema_version": "1.2.0", ... }
 }
 ```
 
@@ -342,7 +365,7 @@ Query JSON output:
       { "rank": 2, "score": 0.8123, "item_key": "DEF456", "source": "metadata", "content": "..." }
     ]
   },
-  "meta": { "schema_version": "1.1.0", ... }
+  "meta": { "schema_version": "1.2.0", ... }
 }
 ```
 

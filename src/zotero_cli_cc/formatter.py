@@ -18,7 +18,7 @@ from rich.tree import Tree
 from zotero_cli_cc import __version__
 from zotero_cli_cc.models import Collection, DuplicateGroup, ErrorInfo, Item, Note
 
-SCHEMA_VERSION = "1.1.0"
+SCHEMA_VERSION = "1.2.0"
 
 _request_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("_request_id", default=None)
 _request_start: contextvars.ContextVar[float | None] = contextvars.ContextVar("_request_start", default=None)
