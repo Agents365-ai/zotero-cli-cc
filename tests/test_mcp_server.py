@@ -573,17 +573,22 @@ class TestHandleTagRemove:
 
 
 class TestHandleAdd:
+    @patch("zotero_cli_cc.core.metadata_resolver.resolve_doi")
     @patch("zotero_cli_cc.mcp_server._get_writer")
-    def test_add_by_doi(self, mock_get_writer):
+    def test_add_by_doi(self, mock_get_writer, mock_resolve):
         from zotero_cli_cc.mcp_server import _handle_add
 
+        mock_resolve.return_value = {"title": "Resolved", "publicationTitle": "Journal"}
         writer = MagicMock()
         writer.add_item.return_value = "NEW1"
         mock_get_writer.return_value = writer
 
         result = _handle_add("10.1234/test", None)
         assert result["item_key"] == "NEW1"
-        writer.add_item.assert_called_once_with(doi="10.1234/test", url=None)
+        assert result["resolved"]["title"] == "Resolved"
+        writer.add_item.assert_called_once_with(
+            doi="10.1234/test", url=None, extra_fields={"title": "Resolved", "publicationTitle": "Journal"}
+        )
 
     @patch("zotero_cli_cc.mcp_server._get_writer")
     def test_add_by_url(self, mock_get_writer):
@@ -595,7 +600,7 @@ class TestHandleAdd:
 
         result = _handle_add(None, "https://example.com/paper")
         assert result["item_key"] == "NEW2"
-        writer.add_item.assert_called_once_with(doi=None, url="https://example.com/paper")
+        writer.add_item.assert_called_once_with(doi=None, url="https://example.com/paper", extra_fields=None)
 
     def test_raises_without_doi_or_url(self):
         from zotero_cli_cc.mcp_server import _handle_add

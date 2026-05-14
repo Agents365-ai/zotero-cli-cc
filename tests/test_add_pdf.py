@@ -37,15 +37,19 @@ class TestAddPdfMCP:
     def test_handle_add_from_pdf_with_doi_override(self):
         from zotero_cli_cc.mcp_server import _handle_add_from_pdf
 
-        with patch("zotero_cli_cc.mcp_server._get_writer") as mock_get:
+        with (
+            patch("zotero_cli_cc.mcp_server._get_writer") as mock_get,
+            patch("zotero_cli_cc.core.metadata_resolver.resolve_doi", return_value={"title": "T"}),
+        ):
             mock_writer = MagicMock()
             mock_get.return_value = mock_writer
             mock_writer.add_item.return_value = "NEW001"
             mock_writer.upload_attachment.return_value = "ATT001"
             result = _handle_add_from_pdf("/tmp/test.pdf", doi_override="10.1234/test")
-            mock_writer.add_item.assert_called_once_with(doi="10.1234/test")
+            mock_writer.add_item.assert_called_once_with(doi="10.1234/test", extra_fields={"title": "T"})
             assert result["item_key"] == "NEW001"
             assert result["attachment_key"] == "ATT001"
+            assert result["resolved"]["title"] == "T"
 
     def test_handle_add_from_pdf_no_doi_found(self):
         from zotero_cli_cc.mcp_server import _handle_add_from_pdf
@@ -64,6 +68,7 @@ class TestAddPdfMCP:
         with (
             patch("zotero_cli_cc.mcp_server._get_writer") as mock_get,
             patch("zotero_cli_cc.core.pdf_extractor.extract_doi", return_value="10.1234/test"),
+            patch("zotero_cli_cc.core.metadata_resolver.resolve_doi", return_value=None),
         ):
             mock_writer = MagicMock()
             mock_get.return_value = mock_writer

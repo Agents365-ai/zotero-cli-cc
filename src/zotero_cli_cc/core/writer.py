@@ -99,17 +99,34 @@ class ZoteroWriter:
         except PyZoteroError as e:
             raise _friendly_api_error(e) from e
 
-    def add_item(self, doi: str | None = None, url: str | None = None) -> str:
+    def add_item(
+        self,
+        doi: str | None = None,
+        url: str | None = None,
+        *,
+        extra_fields: dict[str, object] | None = None,
+    ) -> str:
+        """Create a Zotero item from a DOI or URL.
+
+        `extra_fields` is merged into the item template before posting, used
+        by callers that resolved DOI metadata via Crossref (see
+        `core/metadata_resolver.py`) — Zotero's Web API does not auto-resolve
+        DOIs on its own, so without this the created item is a bare shell.
+        """
         if not doi and not url:
             raise ValueError("Either doi or url must be provided")
         try:
             if doi:
                 template = self._zot.item_template("journalArticle")
                 template["DOI"] = doi
+                if extra_fields:
+                    template.update(extra_fields)
                 resp = self._zot.create_items([template])
                 return self._check_response(resp)
             template = self._zot.item_template("webpage")
             template["url"] = url
+            if extra_fields:
+                template.update(extra_fields)
             resp = self._zot.create_items([template])
             return self._check_response(resp)
         except (HttpxConnectError, HttpxTimeoutException) as e:
