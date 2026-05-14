@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.4] - 2026-05-14
+
+### Fixed
+
+- `zot add --doi` created empty items because the Zotero Web API does not
+  auto-resolve DOIs the way the desktop translator does. The CLI now
+  fetches metadata from Crossref (title, creators, journal, volume/issue/
+  pages, date, ISSN, abstract, publisher, language) and merges it into the
+  item template before posting, so created items are populated, not bare
+  shells. Same fix applies to the MCP `add` / `add_from_pdf` handlers.
+  Pass `--no-resolve` to opt out, set `ZOT_CROSSREF_MAILTO` to join
+  Crossref's polite pool. `meta.schema_version` is bumped 1.1.0 → 1.2.0
+  for the additive envelope slot (`data.resolved` / `data.resolve_warning`)
+  (#41, #42).
+
 ## [0.4.3] - 2026-05-11
 
 ### Fixed
