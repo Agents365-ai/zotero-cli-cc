@@ -1,0 +1,14 @@
+{
+  "manifest_version": 2,
+  "name": "Zot CLI Bridge",
+  "version": "0.1.0",
+  "description": "Exposes Zotero's Find Full Text over the local HTTP server (127.0.0.1:23119) so the `zot` CLI / agents can trigger PDF retrieval that reuses the desktop's configured resolvers and authenticated sessions.",
+  "homepage_url": "https://github.com/Agents365-ai/zotero-cli-cc",
+  "applications": {
+    "zotero": {
+      "id": "zot-cli-bridge@zotero-cli-cc",
+      "strict_min_version": "6.999",
+      "strict_max_version": "8.*"
+    }
+  }
+}

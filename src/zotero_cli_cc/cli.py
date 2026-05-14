@@ -16,6 +16,7 @@ from zotero_cli_cc.commands.config import config_group
 from zotero_cli_cc.commands.delete import delete_cmd
 from zotero_cli_cc.commands.duplicates import duplicates_cmd
 from zotero_cli_cc.commands.export import export_cmd
+from zotero_cli_cc.commands.find_pdf import find_pdf_cmd
 from zotero_cli_cc.commands.list_cmd import list_cmd
 from zotero_cli_cc.commands.mcp import mcp_group
 from zotero_cli_cc.commands.note import note_cmd
@@ -62,7 +63,7 @@ _READ_COMMANDS = {
     "schema",
     "trash",
 }
-_WRITE_COMMANDS = {"add", "update", "note", "attach"}
+_WRITE_COMMANDS = {"add", "update", "note", "attach", "find-pdf"}
 _DESTRUCTIVE_COMMANDS = {"delete", "update-status"}
 
 
@@ -274,6 +275,7 @@ main.add_command(update_cmd, "update")
 main.add_command(trash_group, "trash")
 main.add_command(duplicates_cmd, "duplicates")
 main.add_command(attach_cmd, "attach")
+main.add_command(find_pdf_cmd, "find-pdf")
 main.add_command(update_status_cmd, "update-status")
 main.add_command(workspace_group, "workspace")
 main.add_command(schema_cmd, "schema")

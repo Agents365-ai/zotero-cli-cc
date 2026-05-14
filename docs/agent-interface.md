@@ -80,6 +80,9 @@ Error codes:
 | `rate_limited` | 5 | **yes** | includes `retry_after_seconds` |
 | `api_error` | 1 | variable | upstream Zotero API failure |
 | `confirmation_required` | 3 | no | non-interactive stdin on destructive command without `--yes` |
+| `not_reachable` | 5 | **yes** | `zot find-pdf`: Zotero desktop not running on 127.0.0.1:23119 |
+| `bridge_missing` | 3 | no | `zot find-pdf`: `zot-cli-bridge` plugin not installed in Zotero |
+| `bridge_error` | 1 | variable | `zot find-pdf`: local Zotero bridge returned an error |
 
 Agents should read `error.retryable` before retrying.
 
@@ -177,7 +180,7 @@ The input file may be either a full envelope or a bare `data` tree.
 Commands are grouped by risk in `zot --help`:
 
 - **Read** — `search`, `list`, `read`, `export`, `recent`, `stats`, `cite`, `pdf`, `collection list`, `tag list`, ...
-- **Write (MUTATES LIBRARY)** — `add`, `update`, `note`, `attach`
+- **Write (MUTATES LIBRARY)** — `add`, `update`, `note`, `attach`, `find-pdf`
 - **Destructive (MUTATES LIBRARY)** — `delete`, `update-status`
 
 Each write or destructive command's `--help` carries a `MUTATES LIBRARY` marker. The same classification is available via `zot schema <cmd>.safety_tier`.
@@ -223,6 +226,40 @@ compact summary of what was resolved (or, on miss, a `resolve_warning`):
 - Crossref `404` → `data.resolved = null` and `data.resolve_warning = "no_match"`; the item is still created.
 - Network/5xx error → `data.resolved = null` and `data.resolve_warning = "<message>"`; the item is still created (agents can safely retry to populate metadata via `zot update`).
 - Set `ZOT_CROSSREF_MAILTO=<email>` to join Crossref's "polite pool" (higher rate-limit ceiling, no key required).
+
+## Find Full Text (`zot find-pdf`)
+
+The Web API cannot trigger Zotero's "Find Full Text" — that feature relies
+on (1) the user's configured PDF resolvers and (2) authenticated sessions /
+institutional proxies set up inside the desktop app, neither of which Web
+API clients can reach. To bridge that gap, this repo ships a small Zotero 7
+plugin (`extension/zot-cli-bridge/`) that registers `/zot-cli/find-pdf` on
+Zotero's local HTTP server (`127.0.0.1:23119`). With the plugin installed:
+
+```bash
+zot find-pdf ABCD1234           # trigger Find Full Text for one item
+zot find-pdf ABCD1234 --dry-run # only verify the bridge is reachable
+```
+
+Envelope:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "key": "ABCD1234",
+    "found": true,
+    "attachment_key": "ATT0001",
+    "filename": "paper.pdf",
+    "content_type": "application/pdf",
+    "sync_required": true
+  }
+}
+```
+
+When no resolver matched, `found: false` and `message` explains why. New
+error codes for this command: `not_reachable` (Zotero not running),
+`bridge_missing` (plugin not installed), `bridge_error` (Zotero raised).
 
 ## `--idempotency-key`
 
