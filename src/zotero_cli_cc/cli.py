@@ -93,6 +93,25 @@ def _hoist_global_flags(args: list[str]) -> list[str]:
     return flags + rest
 
 
+def _fix_windows_encoding() -> None:
+    """Reconfigure stdout/stderr to UTF-8 on Windows with CJK system locales.
+
+    On Windows with GBK/CP936 default encoding, click.echo() crashes with
+    UnicodeEncodeError when outputting characters outside the GBK range
+    (e.g. emoji, special Unicode symbols). This forces UTF-8 so all Unicode
+    characters can be written safely.
+    """
+    if sys.platform == "win32":
+        for stream in (sys.stdout, sys.stderr):
+            if (
+                hasattr(stream, "reconfigure")
+                and hasattr(stream, "encoding")
+                and stream.encoding
+                and stream.encoding.lower().replace("-", "") not in ("utf8", "utf8sig")
+            ):
+                stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 class TieredGroup(click.Group):
     """A Click Group that renders the command list grouped by safety tier."""
 
@@ -101,6 +120,7 @@ class TieredGroup(click.Group):
         args: list[str] | None = None,
         **kwargs: Any,
     ) -> Any:
+        _fix_windows_encoding()
         if args is None:
             args = sys.argv[1:]
         args = _hoist_global_flags(list(args))
