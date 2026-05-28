@@ -59,7 +59,7 @@ def find_pdf_cmd(ctx: click.Context, item_key: str, library_id: int | None, time
                 str(e),
                 output_json=json_out,
                 retryable=e.retryable,
-                hint="Start Zotero desktop and install the zot-cli-bridge plugin",
+                hint="Start Zotero desktop; run 'zot bridge install' if the plugin is missing",
                 context="find-pdf",
             )
         env = envelope_ok({"key": item_key, "bridge": info}, extra={"dry_run": True})
@@ -79,7 +79,7 @@ def find_pdf_cmd(ctx: click.Context, item_key: str, library_id: int | None, time
             str(e),
             output_json=json_out,
             retryable=e.retryable,
-            hint="Start Zotero desktop; install the zot-cli-bridge plugin if 'bridge_missing'",
+            hint="Start Zotero desktop; run 'zot bridge install' if 'bridge_missing'",
             context="find-pdf",
         )
 

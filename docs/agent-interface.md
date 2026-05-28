@@ -180,7 +180,7 @@ The input file may be either a full envelope or a bare `data` tree.
 Commands are grouped by risk in `zot --help`:
 
 - **Read** — `search`, `list`, `read`, `export`, `recent`, `stats`, `cite`, `pdf`, `collection list`, `tag list`, ...
-- **Write (MUTATES LIBRARY)** — `add`, `update`, `note`, `attach`, `find-pdf`
+- **Write (MUTATES LIBRARY)** — `add`, `update`, `note`, `attach`, `find-pdf`, `bridge` (mutates local config, not the library)
 - **Destructive (MUTATES LIBRARY)** — `delete`, `update-status`
 
 Each write or destructive command's `--help` carries a `MUTATES LIBRARY` marker. The same classification is available via `zot schema <cmd>.safety_tier`.
@@ -260,6 +260,25 @@ Envelope:
 When no resolver matched, `found: false` and `message` explains why. New
 error codes for this command: `not_reachable` (Zotero not running),
 `bridge_missing` (plugin not installed), `bridge_error` (Zotero raised).
+
+### Installing the bridge (`zot bridge`)
+
+`zot bridge install` sideloads the plugin into the active Zotero profile so
+`find-pdf` works without manually building/installing an `.xpi`. It writes a
+proxy file into `<profile>/extensions/` and refreshes `prefs.js`, then prompts
+for a Zotero restart. The profile is auto-detected via `profiles.ini`
+(override with `--profile`). Install/uninstall refuse to run while Zotero is
+live (editing the profile then is unsafe) unless `--force` is passed.
+
+```bash
+zot bridge install              # auto-detect profile, sideload, then restart Zotero
+zot bridge status               # ping the bridge (wraps GET /zot-cli/ping)
+zot bridge uninstall            # remove the proxy file
+```
+
+`bridge install`/`uninstall` use `not_found` (profile not located),
+`validation_error` (Zotero running), and `bridge_error` (assets missing).
+`bridge status` surfaces the same `find-pdf` reachability codes.
 
 ## `--idempotency-key`
 

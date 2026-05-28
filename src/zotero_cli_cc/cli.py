@@ -9,6 +9,7 @@ import click
 from zotero_cli_cc import __version__
 from zotero_cli_cc.commands.add import add_cmd
 from zotero_cli_cc.commands.attach import attach_cmd
+from zotero_cli_cc.commands.bridge import bridge_group
 from zotero_cli_cc.commands.cite import cite_cmd
 from zotero_cli_cc.commands.collection import collection_group
 from zotero_cli_cc.commands.completions import completions_cmd
@@ -63,7 +64,7 @@ _READ_COMMANDS = {
     "schema",
     "trash",
 }
-_WRITE_COMMANDS = {"add", "update", "note", "attach", "find-pdf"}
+_WRITE_COMMANDS = {"add", "update", "note", "attach", "find-pdf", "bridge"}
 _DESTRUCTIVE_COMMANDS = {"delete", "update-status"}
 
 
@@ -276,6 +277,7 @@ main.add_command(trash_group, "trash")
 main.add_command(duplicates_cmd, "duplicates")
 main.add_command(attach_cmd, "attach")
 main.add_command(find_pdf_cmd, "find-pdf")
+main.add_command(bridge_group, "bridge")
 main.add_command(update_status_cmd, "update-status")
 main.add_command(workspace_group, "workspace")
 main.add_command(schema_cmd, "schema")

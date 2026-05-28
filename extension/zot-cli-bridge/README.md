@@ -24,6 +24,24 @@ plugin enables. It registers two endpoints on `http://127.0.0.1:23119`:
 
 ## Install
 
+### Recommended: `zot bridge install`
+
+If you have the `zot` CLI installed, let it sideload the plugin for you:
+
+```bash
+# Quit Zotero first (the profile is rewritten on shutdown), then:
+zot bridge install
+# Restart Zotero, then verify:
+zot bridge status
+```
+
+This auto-detects your Zotero profile (via `profiles.ini`), drops a proxy file
+into `<profile>/extensions/`, and refreshes `prefs.js` so Zotero loads the
+plugin on next launch. Pass `--profile <dir>` if auto-detection picks the
+wrong profile, and `zot bridge uninstall` to remove it.
+
+### Manual
+
 1. Download the latest `zot-cli-bridge.xpi` from the
    [Releases page](https://github.com/Agents365-ai/zotero-cli-cc/releases)
    (or build it locally — see below).
