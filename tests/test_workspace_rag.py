@@ -69,6 +69,14 @@ class TestWorkspaceIndex:
             result = _invoke(["workspace", "index", "test-idx"])
         assert "up to date" in result.output
 
+    def test_index_accepts_skip_tag(self, tmp_path):
+        with _patch_ws_dir(tmp_path):
+            _invoke(["workspace", "new", "test-skip"])
+            _invoke(["workspace", "add", "test-skip", "BILI011"])
+            result = _invoke(["workspace", "index", "test-skip", "--skip-tag", "skip-index"])
+        assert result.exit_code == 0
+        assert "Indexed" in result.output
+
 
 class TestWorkspaceQuery:
     def test_query_workspace(self, tmp_path):

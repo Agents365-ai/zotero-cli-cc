@@ -463,10 +463,21 @@ def _resolve_collection_key(reader: ZoteroReader, name_or_key: str) -> str | Non
 @click.argument("name")
 @click.option("--force", is_flag=True, help="Rebuild index from scratch")
 @click.option("--extractor", default=None, help="PDF text extractor to use")
+@click.option(
+    "--skip-tag",
+    "skip_tags",
+    multiple=True,
+    default=("skip-index",),
+    show_default=True,
+    help="Skip PDF attachments carrying this tag (repeatable). Pass an empty value to disable.",
+)
 @click.pass_context
-def workspace_index(ctx: click.Context, name: str, force: bool, extractor: str | None) -> None:
+def workspace_index(
+    ctx: click.Context, name: str, force: bool, extractor: str | None, skip_tags: tuple[str, ...]
+) -> None:
     """Build RAG index for a workspace."""
     json_out = ctx.obj.get("json", False)
+    skip_set = {t.strip() for t in skip_tags if t.strip()}
     if extractor is None:
         from zotero_cli_cc.config import load_pdf_config
 
@@ -520,7 +531,7 @@ def workspace_index(ctx: click.Context, name: str, force: bool, extractor: str |
                 click.echo(f"Warning: item '{ws_item.key}' not found in Zotero, skipped")
                 continue
             item_map[ws_item.key] = item
-            att = reader.get_pdf_attachment(ws_item.key)
+            att = reader.get_pdf_attachment(ws_item.key, skip_tags=skip_set)
             if att is not None and att.path is not None and att.path.exists():
                 pdf_paths_map[ws_item.key] = att.path
                 path_to_key[att.path] = ws_item.key
