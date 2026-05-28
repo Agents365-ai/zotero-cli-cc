@@ -568,7 +568,7 @@ class ZoteroReader:
         if parent is None:
             return []
         rows = conn.execute(
-            "SELECT i.key, ia.contentType, ia.path "
+            "SELECT i.itemID, i.key, ia.contentType, ia.path "
             "FROM itemAttachments ia "
             "JOIN items i ON ia.itemID = i.itemID "
             "WHERE ia.parentItemID = ?",
@@ -592,14 +592,24 @@ class ZoteroReader:
                     filename=filename,
                     content_type=r["contentType"] or "",
                     path=resolved,
+                    tags=self._get_item_tags(conn, r["itemID"]),
                 )
             )
         return attachments
 
-    def get_pdf_attachment(self, key: str) -> Attachment | None:
+    def get_pdf_attachment(self, key: str, skip_tags: set[str] | None = None) -> Attachment | None:
+        """Return the first PDF attachment, skipping any tagged with a tag in `skip_tags`.
+
+        `skip_tags` lets callers (e.g. the RAG indexer) exclude redundant
+        attachments such as machine-translated copies or slides that carry a
+        marker tag like `skip-index`.
+        """
         for att in self.get_attachments(key):
-            if att.content_type == "application/pdf":
-                return att
+            if att.content_type != "application/pdf":
+                continue
+            if skip_tags and skip_tags.intersection(att.tags):
+                continue
+            return att
         return None
 
     def get_arxiv_preprints(

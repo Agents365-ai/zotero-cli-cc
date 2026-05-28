@@ -828,7 +828,9 @@ def _handle_workspace_search(name: str, query: str, limit: int = 50, library: st
     return {"items": [_item_to_dict(i) for i in matches[:limit]], "total": len(matches)}
 
 
-def _handle_workspace_index(name: str, force: bool = False, library: str = "user") -> dict:
+def _handle_workspace_index(
+    name: str, force: bool = False, library: str = "user", skip_tags: list[str] | None = None
+) -> dict:
     from zotero_cli_cc.core.rag import (
         build_metadata_chunk,
         chunk_text,
@@ -846,6 +848,7 @@ def _handle_workspace_index(name: str, force: bool = False, library: str = "user
         return {"error": f"Workspace '{name}' is empty."}
 
     reader = _get_reader(library)
+    skip_set = {t.strip() for t in (skip_tags if skip_tags is not None else ["skip-index"]) if t.strip()}
 
     idx_path = workspaces_dir() / f"{name}.idx.sqlite"
     idx = RagIndex(idx_path)
@@ -880,7 +883,7 @@ def _handle_workspace_index(name: str, force: bool = False, library: str = "user
             all_chunk_texts.append(meta_text)
             total_chunks += 1
 
-            att = reader.get_pdf_attachment(ws_item.key)
+            att = reader.get_pdf_attachment(ws_item.key, skip_tags=skip_set)
             if att is not None:
                 pdf_path = att.path
                 if pdf_path and pdf_path.exists():
@@ -1668,7 +1671,7 @@ def workspace_search(name: str, query: str, limit: int = 50, library: str = "use
 
 
 @mcp.tool()
-def workspace_index(name: str, force: bool = False, library: str = "user") -> dict:
+def workspace_index(name: str, force: bool = False, library: str = "user", skip_tags: list[str] | None = None) -> dict:
     """Build or update RAG index for a workspace (BM25 + optional embeddings).
 
     Indexes metadata and PDF full text for natural language querying.
@@ -1677,8 +1680,11 @@ def workspace_index(name: str, force: bool = False, library: str = "user") -> di
         name: Workspace name.
         force: If True, rebuild index from scratch (default False).
         library: Library — 'user' (default) or 'group:<id>'.
+        skip_tags: PDF attachments carrying any of these tags are skipped
+            (e.g. machine-translated copies or slides). Defaults to
+            ['skip-index']; pass [] to index every attachment.
     """
-    return _handle_workspace_index(name, force=force, library=library)
+    return _handle_workspace_index(name, force=force, library=library, skip_tags=skip_tags)
 
 
 @mcp.tool()

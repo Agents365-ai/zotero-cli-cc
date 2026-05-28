@@ -224,6 +224,23 @@ def create_test_db() -> None:
     c.execute("INSERT INTO collections VALUES (3, 'Group Papers', NULL, 2, 'GRPCOL03')")
     c.execute("INSERT INTO collectionItems VALUES (3, 9, 0)")
 
+    # Item 11: paper with two PDF attachments, one a translated copy tagged 'skip-index'.
+    # The skip-tagged attachment is inserted first so it is returned first by default;
+    # this exercises get_pdf_attachment's skip_tags filter (issue #44).
+    c.execute("INSERT INTO items VALUES (11, 2, '2015-01-01', '2015-01-02', '2015-01-02', 1, 'BILI011')")
+    c.execute("INSERT INTO itemDataValues VALUES (21, 'A Study on Reading Comprehension')")
+    c.execute("INSERT INTO itemDataValues VALUES (22, '2015')")
+    c.execute("INSERT INTO itemData VALUES (11, 4, 21)")  # title
+    c.execute("INSERT INTO itemData VALUES (11, 14, 22)")  # date
+    c.execute("INSERT INTO tags VALUES (5, 'skip-index')")
+    # Attachment 12: translated copy, tagged skip-index (inserted first)
+    c.execute("INSERT INTO items VALUES (12, 14, '2015-01-01', '2015-01-01', '2015-01-01', 1, 'ATCH012')")
+    c.execute("INSERT INTO itemAttachments VALUES (12, 11, 0, 'application/pdf', NULL, 'storage:translated_cn.pdf')")
+    c.execute("INSERT INTO itemTags VALUES (12, 5, 0)")  # skip-index
+    # Attachment 13: the original PDF, untagged
+    c.execute("INSERT INTO items VALUES (13, 14, '2015-01-01', '2015-01-01', '2015-01-01', 1, 'ATCH013')")
+    c.execute("INSERT INTO itemAttachments VALUES (13, 11, 0, 'application/pdf', NULL, 'storage:original.pdf')")
+
     conn.commit()
     conn.close()
     print(f"Created test DB at {DB_PATH}")

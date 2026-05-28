@@ -112,6 +112,28 @@ class TestAttachments:
         att = reader.get_pdf_attachment("DEEP003")
         assert att is None
 
+    def test_attachment_tags_populated(self, reader: ZoteroReader):
+        atts = {a.key: a for a in reader.get_attachments("BILI011")}
+        assert atts["ATCH012"].tags == ["skip-index"]
+        assert atts["ATCH013"].tags == []
+
+    def test_get_pdf_attachment_returns_first_without_skip(self, reader: ZoteroReader):
+        # Without a skip filter, the first PDF wins — here the translated copy.
+        att = reader.get_pdf_attachment("BILI011")
+        assert att is not None
+        assert att.key == "ATCH012"
+
+    def test_get_pdf_attachment_skips_tagged(self, reader: ZoteroReader):
+        att = reader.get_pdf_attachment("BILI011", skip_tags={"skip-index"})
+        assert att is not None
+        assert att.key == "ATCH013"
+
+    def test_get_pdf_attachment_skip_unmatched_tag(self, reader: ZoteroReader):
+        # A skip set that matches nothing leaves the first PDF in place.
+        att = reader.get_pdf_attachment("BILI011", skip_tags={"other"})
+        assert att is not None
+        assert att.key == "ATCH012"
+
 
 class TestContextManager:
     def test_context_manager(self, test_db_path: Path):
