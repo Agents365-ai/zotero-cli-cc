@@ -42,6 +42,7 @@ zot workspace query "RLHF" --workspace my-ws  # RAG search
 | PDF outline | `zot --json pdf --outline KEY` |
 | PDF section | `zot --json pdf --section SECID KEY` |
 | Fetch/attach missing PDF | `zot find-pdf KEY` (needs Zotero desktop + bridge) |
+| Rename attachment files | `zot rename KEY --dry-run` (needs bridge; preview first) |
 | Set up find-pdf bridge | `zot bridge install` |
 | Collection list | `zot --json collection list` |
 | Collection items | `zot --json collection items COLLKEY` |

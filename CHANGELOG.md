@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `zot rename KEY...` renames an item's PDF attachment files from its metadata
+  via the bridge plugin. The default template is `{journal}_{year}_{title}`
+  (tokens `{journal} {year} {title} {shorttitle} {author}`); `{journal}` is
+  resolved from a `Jab/#` tag or an item-type-aware abbreviation (arXiv →
+  `Pre`). Non-PDF attachments (Excel/Word/snapshots) are filtered out by
+  content type; supplementary PDFs are detected by filename and get an `_SI`
+  suffix so names never collide. Supports `--dry-run`, `--main-only`,
+  `--force`, `--template`, and `--attachment/--name` for explicit single-file
+  renames. Requires the `zot-cli-bridge` plugin **v0.2.0+** (re-run
+  `zot bridge install`). `meta.schema_version` is bumped 1.4.0 → 1.5.0.
+
 ## [0.5.0] - 2026-05-28
 
 ### Added

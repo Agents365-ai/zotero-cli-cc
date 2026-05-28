@@ -90,6 +90,27 @@ zot bridge uninstall                  # show how to remove the plugin
 Tools -> Plugins -> gear -> Install Plugin From File (Zotero owns plugin
 installation, so the CLI cannot sideload silently).
 
+## Rename Attachment Files
+
+`zot rename` renames an item's PDF attachment files from its metadata. Default
+template `{journal}_{year}_{title}.pdf` (tokens: `{journal} {year} {title}
+{shorttitle} {author}`). Non-PDF files (Excel/Word/snapshots) are skipped;
+supplementary PDFs are detected by filename and get an `_SI` suffix. Goes
+through the bridge plugin (needs v0.2.0+), so Zotero must be running.
+
+```bash
+zot rename ITEMKEY --dry-run               # ALWAYS preview first: shows old -> new
+zot rename ITEMKEY                          # rename main + supplementary PDFs
+zot rename ITEMKEY1 ITEMKEY2                # several items at once
+zot rename ITEMKEY --main-only             # only the main PDF
+zot rename ITEMKEY --template "{author}_{year}_{title}"
+zot rename ITEMKEY --force                 # overwrite if the target name exists
+zot rename --attachment ATTKEY --name "X.pdf"   # rename one specific file
+```
+
+**Always `--dry-run` first** so the user can confirm the new names before any
+files change.
+
 ## Collections
 
 ```bash

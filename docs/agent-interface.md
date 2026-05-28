@@ -180,7 +180,7 @@ The input file may be either a full envelope or a bare `data` tree.
 Commands are grouped by risk in `zot --help`:
 
 - **Read** — `search`, `list`, `read`, `export`, `recent`, `stats`, `cite`, `pdf`, `collection list`, `tag list`, ...
-- **Write (MUTATES LIBRARY)** — `add`, `update`, `note`, `attach`, `find-pdf`, `bridge` (mutates local config, not the library)
+- **Write (MUTATES LIBRARY)** — `add`, `update`, `note`, `attach`, `find-pdf`, `rename`, `bridge` (mutates local config, not the library)
 - **Destructive (MUTATES LIBRARY)** — `delete`, `update-status`
 
 Each write or destructive command's `--help` carries a `MUTATES LIBRARY` marker. The same classification is available via `zot schema <cmd>.safety_tier`.
@@ -282,6 +282,39 @@ Plugin From File…**, pick the `.xpi`, restart. `install`/`uninstall` use
 > The plugin manifest must carry `icons` and `applications.zotero.update_url`
 > — Zotero 8/9 reject a manifest lacking them as "incompatible with this
 > version of Zotero".
+
+## Renaming attachment files (`zot rename`)
+
+Renaming an attachment's *stored file* is a desktop operation: the Web API
+can't rename the file in `storage/` without desyncing, and writing the SQLite
+DB directly is forbidden. So `zot rename` goes through the same bridge plugin
+as `find-pdf`, calling `POST /zot-cli/rename` →
+`item.renameAttachmentFile(newName, force)` (and syncing the attachment title).
+Requires the bridge plugin **v0.2.0+** — older installs return `bridge_missing`
+(re-run `zot bridge install`).
+
+```bash
+zot rename ABCD1234 --dry-run        # preview old -> new for main + supp PDFs
+zot rename ABCD1234 EFGH5678         # rename several items
+zot rename ABCD1234 --main-only      # skip supplementary PDFs
+zot rename ABCD1234 --template "{author}_{year}_{title}"
+zot rename --attachment ATT0001 --name "X.pdf"  # rename one file explicitly
+```
+
+`zot` builds the new names from SQLite metadata (no network): the default
+template is `{journal}_{year}_{title}` (tokens: `{journal} {year} {title}
+{shorttitle} {author}`). Attachments are filtered to PDFs by content type, so
+Excel/Word/snapshots are skipped. Among PDFs, supplementary files are detected
+by filename keywords (`supp`, `supplement`, `supporting`, `appendix`, a
+standalone `si`); the main PDF gets the template name and each supplementary
+one gets an `_SI` / `_SI2` suffix so names never collide.
+
+The envelope's `data.results[]` carries a per-attachment `status`
+(`renamed` / `unchanged` / `dry-run` / `error`); `data.renamed_count` and
+`data.sync_required` summarize the run. Per-attachment failures appear inline
+(e.g. `conflict` when the destination exists — pass `--force`); a missing
+bridge or stopped desktop aborts the whole command with `bridge_missing` (3) /
+`not_reachable` (5).
 
 ## `--idempotency-key`
 

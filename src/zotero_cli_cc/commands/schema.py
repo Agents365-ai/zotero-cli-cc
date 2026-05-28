@@ -71,6 +71,7 @@ _SAFETY_TIER: dict[str, str] = {
     "attach": "write",
     "find-pdf": "write",
     "bridge": "write",
+    "rename": "write",
     # destructive
     "delete": "destructive",
     "update-status": "destructive",

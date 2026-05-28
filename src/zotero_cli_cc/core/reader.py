@@ -571,7 +571,8 @@ class ZoteroReader:
             "SELECT i.itemID, i.key, ia.contentType, ia.path "
             "FROM itemAttachments ia "
             "JOIN items i ON ia.itemID = i.itemID "
-            "WHERE ia.parentItemID = ?",
+            "WHERE ia.parentItemID = ? "
+            "ORDER BY i.itemID",
             (parent["itemID"],),
         ).fetchall()
         attachments = []

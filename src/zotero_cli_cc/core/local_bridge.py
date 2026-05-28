@@ -159,6 +159,81 @@ def find_pdf(
     return _parse_json(resp)
 
 
+RENAME_TIMEOUT = 30.0
+
+
+def rename_attachment(
+    attachment_key: str,
+    new_name: str,
+    *,
+    library_id: int | None = None,
+    force: bool = False,
+    timeout: float = RENAME_TIMEOUT,
+) -> dict[str, Any]:
+    """Rename an attachment's stored file via the bridge's `renameAttachmentFile`.
+
+    Returns a dict with `renamed`, `attachment_key`, `old_name`, `new_name`.
+
+    Raises:
+        LocalBridgeError. `bridge_missing` means the endpoint isn't registered
+        (the installed plugin predates rename — re-run `zot bridge install`);
+        `not_found` means the attachment/file is gone; `conflict` means the
+        destination already exists (retry with `force`).
+    """
+    payload: dict[str, Any] = {"attachmentKey": attachment_key, "newName": new_name, "force": force}
+    if library_id is not None:
+        payload["libraryID"] = library_id
+    try:
+        resp = httpx.post(
+            f"{LOCAL_BASE}/zot-cli/rename",
+            json=payload,
+            timeout=timeout,
+            headers={"User-Agent": _user_agent()},
+            trust_env=_TRUST_ENV,
+        )
+    except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+        raise LocalBridgeError(
+            f"Cannot reach Zotero at {LOCAL_BASE} — is the desktop app running?",
+            code="not_reachable",
+            retryable=True,
+        ) from e
+    except httpx.HTTPError as e:
+        raise LocalBridgeError(f"Bridge request failed: {e}", code="network_error", retryable=True) from e
+
+    if resp.status_code == 404:
+        body = _parse_json_or_none(resp)
+        if body and body.get("error"):
+            raise LocalBridgeError(str(body["error"]), code="not_found", retryable=False)
+        raise LocalBridgeError(
+            "The /zot-cli/rename endpoint is missing — update the bridge plugin with 'zot bridge install'.",
+            code="bridge_missing",
+            retryable=False,
+        )
+    if resp.status_code == 409:
+        body = _parse_json_or_none(resp) or {}
+        raise LocalBridgeError(
+            str(body.get("error", "destination file already exists")),
+            code="conflict",
+            retryable=False,
+        )
+    if resp.status_code == 400:
+        body = _parse_json_or_none(resp) or {}
+        raise LocalBridgeError(
+            f"Bridge rejected request: {body.get('error', resp.text)}",
+            code="validation_error",
+            retryable=False,
+        )
+    if resp.status_code >= 500:
+        raise LocalBridgeError(f"Bridge returned HTTP {resp.status_code}", code="bridge_error", retryable=True)
+    if resp.status_code != 200:
+        raise LocalBridgeError(
+            f"Bridge returned HTTP {resp.status_code}: {resp.text}",
+            code="bridge_error",
+            retryable=False,
+        )
+    return _parse_json(resp)
+
+
 def _parse_json(resp: httpx.Response) -> dict[str, Any]:
     try:
         data = resp.json()

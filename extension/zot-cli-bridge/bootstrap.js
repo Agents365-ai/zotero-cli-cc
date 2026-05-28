@@ -8,6 +8,9 @@
  *   POST /zot-cli/find-pdf      — body {"key": "ABCD1234"} (or "?key=" query)
  *                                  triggers Zotero.Attachments.addAvailableFile
  *                                  for that item, returns the attachment key on success
+ *   POST /zot-cli/rename        — body {"attachmentKey","newName","libraryID"?,"force"?}
+ *                                  renames the attachment's stored file via
+ *                                  renameAttachmentFile and syncs its title
  *
  * The whole point of going through Zotero (rather than fetching the PDF
  * directly from Python) is that Zotero's "Find Full Text" reuses the user's
@@ -19,7 +22,7 @@
 
 /* global Zotero, ChromeUtils */
 
-const PLUGIN_VERSION = "0.1.0";
+const PLUGIN_VERSION = "0.2.0";
 
 function buildEndpoint(handler, { methods = ["GET"], dataTypes = ["application/json"] } = {}) {
   const Endpoint = function () {};
@@ -140,7 +143,98 @@ async function handleFindPdf(options) {
   ];
 }
 
+async function handleRename(options) {
+  // Body: {"attachmentKey": "...", "newName": "X.pdf", "libraryID"?, "force"?}
+  let attachmentKey = null;
+  let newName = null;
+  let libraryID = null;
+  let force = false;
+  if (options.data && typeof options.data === "object") {
+    attachmentKey = options.data.attachmentKey || null;
+    newName = options.data.newName || null;
+    libraryID = options.data.libraryID || null;
+    force = options.data.force === true;
+  }
+  if (!attachmentKey || !newName) {
+    return [400, "application/json", JSON.stringify({ ok: false, error: "missing 'attachmentKey' or 'newName'" })];
+  }
+  libraryID = libraryID || Zotero.Libraries.userLibraryID;
+
+  let att;
+  try {
+    att = await Zotero.Items.getByLibraryAndKeyAsync(libraryID, attachmentKey);
+  } catch (e) {
+    return [500, "application/json", JSON.stringify({ ok: false, error: "lookup failed: " + e })];
+  }
+  if (!att) {
+    return [
+      404,
+      "application/json",
+      JSON.stringify({ ok: false, error: "attachment not found", key: attachmentKey, libraryID }),
+    ];
+  }
+  if (!att.isAttachment || !att.isAttachment()) {
+    return [400, "application/json", JSON.stringify({ ok: false, error: "item is not an attachment", key: attachmentKey })];
+  }
+
+  let oldName = null;
+  try {
+    oldName = att.attachmentFilename;
+  } catch (_) {
+    /* tolerate */
+  }
+
+  let status;
+  try {
+    status = await att.renameAttachmentFile(newName, force, false);
+  } catch (e) {
+    Zotero.logError(e);
+    return [500, "application/json", JSON.stringify({ ok: false, error: "rename failed: " + e, key: attachmentKey })];
+  }
+
+  if (status === -1) {
+    return [
+      409,
+      "application/json",
+      JSON.stringify({
+        ok: false,
+        error: "destination file already exists (pass force to overwrite)",
+        code: "exists",
+        key: attachmentKey,
+        new_name: newName,
+      }),
+    ];
+  }
+  if (status !== true) {
+    return [
+      404,
+      "application/json",
+      JSON.stringify({ ok: false, error: "attachment file not found on disk", key: attachmentKey }),
+    ];
+  }
+
+  // Keep the displayed title in sync with the new filename.
+  try {
+    if (newName !== att.getField("title")) {
+      att.setField("title", newName);
+      await att.saveTx();
+    }
+  } catch (e) {
+    Zotero.logError(e);
+  }
+
+  return [
+    200,
+    "application/json",
+    JSON.stringify({ ok: true, renamed: true, attachment_key: attachmentKey, old_name: oldName, new_name: newName }),
+  ];
+}
+
 const PING_ENDPOINT = buildEndpoint(handlePing, { methods: ["GET"] });
+const RENAME_ENDPOINT = buildEndpoint(handleRename, {
+  methods: ["POST"],
+  dataTypes: ["application/json"],
+});
 const FIND_PDF_ENDPOINT = buildEndpoint(handleFindPdf, {
   methods: ["POST", "GET"],
   dataTypes: ["application/json", "application/x-www-form-urlencoded"],
@@ -153,6 +247,7 @@ async function startup({ id, version }) {
   Zotero.debug("[zot-cli-bridge] startup " + id + " v" + version);
   Zotero.Server.Endpoints["/zot-cli/ping"] = PING_ENDPOINT;
   Zotero.Server.Endpoints["/zot-cli/find-pdf"] = FIND_PDF_ENDPOINT;
+  Zotero.Server.Endpoints["/zot-cli/rename"] = RENAME_ENDPOINT;
 }
 
 function shutdown() {
@@ -160,5 +255,6 @@ function shutdown() {
   if (Zotero && Zotero.Server && Zotero.Server.Endpoints) {
     delete Zotero.Server.Endpoints["/zot-cli/ping"];
     delete Zotero.Server.Endpoints["/zot-cli/find-pdf"];
+    delete Zotero.Server.Endpoints["/zot-cli/rename"];
   }
 }

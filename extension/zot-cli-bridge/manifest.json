@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
   "name": "Zot CLI Bridge",
-  "version": "0.1.0",
-  "description": "Exposes Zotero Find Full Text over the local HTTP server for the zot CLI.",
+  "version": "0.2.0",
+  "description": "Exposes Zotero Find Full Text and attachment rename over the local HTTP server for the zot CLI.",
   "author": "zotero-cli-cc",
   "homepage_url": "https://github.com/Agents365-ai/zotero-cli-cc",
   "icons": {

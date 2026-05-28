@@ -15,12 +15,13 @@ Zotero's Find Full Text uses two things that Web-API clients cannot reach:
 
 Both live inside the running Zotero process. The only safe way to drive them
 from outside is to ask Zotero itself to do the work, which is what this
-plugin enables. It registers two endpoints on `http://127.0.0.1:23119`:
+plugin enables. It registers these endpoints on `http://127.0.0.1:23119`:
 
 | Method | Path | Description |
 | --- | --- | --- |
 | `GET` | `/zot-cli/ping` | Health probe — returns plugin + Zotero version |
 | `POST` | `/zot-cli/find-pdf` | Body: `{"key": "ABCD1234"}`. Triggers `Zotero.Attachments.addAvailableFile(item)` and returns the attached PDF's key on success, or `{found: false}` if no resolver had a hit. |
+| `POST` | `/zot-cli/rename` | Body: `{"attachmentKey": "...", "newName": "X.pdf", "force": false}`. Calls `item.renameAttachmentFile(newName, force)` on the attachment, syncs its title, and returns `{renamed, old_name, new_name}`. Powers `zot rename`. |
 
 ## Install
 
@@ -48,7 +49,7 @@ zot bridge status        # verify -> Bridge OK
 3. Verify it's wired up:
    ```bash
    curl http://127.0.0.1:23119/zot-cli/ping
-   # {"ok": true, "bridge_version": "0.1.0", "zotero_version": "9.x.y", ...}
+   # {"ok": true, "bridge_version": "0.2.0", "zotero_version": "9.x.y", ...}
    ```
 
 You can now run `zot find-pdf <item-key>` from the parent repo.
