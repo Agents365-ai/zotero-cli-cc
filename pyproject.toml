@@ -40,6 +40,13 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/zotero_cli_cc"]
 
+# Bundle the Zotero bridge plugin so `zot bridge install` can find it after a
+# pip install (the source lives at repo-root extension/, outside the package).
+[tool.hatch.build.targets.wheel.force-include]
+"extension/zot-cli-bridge/manifest.json" = "zotero_cli_cc/bridge_assets/manifest.json"
+"extension/zot-cli-bridge/bootstrap.js" = "zotero_cli_cc/bridge_assets/bootstrap.js"
+"extension/zot-cli-bridge/icon.png" = "zotero_cli_cc/bridge_assets/icon.png"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

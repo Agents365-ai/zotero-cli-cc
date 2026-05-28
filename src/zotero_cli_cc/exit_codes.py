@@ -27,6 +27,10 @@ CODE_TO_EXIT = {
     "rate_limited": EXIT_NETWORK,
     "conflict": EXIT_CONFLICT,
     "confirmation_required": EXIT_VALIDATION,
+    # Local Zotero bridge (`zot find-pdf`):
+    "not_reachable": EXIT_NETWORK,  # Zotero desktop not running / port closed
+    "bridge_missing": EXIT_VALIDATION,  # plugin not installed — setup issue
+    "bridge_error": EXIT_RUNTIME,  # bridge replied with an error
 }
 
 
