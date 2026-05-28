@@ -111,6 +111,26 @@ zot rename --attachment ATTKEY --name "X.pdf"   # rename one specific file
 **Always `--dry-run` first** so the user can confirm the new names before any
 files change.
 
+## Enrich with Journal Metrics
+
+`zot enrich` writes journal metrics (impact factor, JCR/中科院 quartile,
+北大/南大核心 flags, etc.) into an item's Extra field. **Source-neutral**: you
+supply the values (inline `--set` or a `--from-map` table you maintain); `zot`
+ships no journal data and calls no third-party API. Plain Web-API write (no
+bridge); needs API credentials.
+
+```bash
+zot enrich ITEMKEY --set "SCI IF=5.8" --set "JCR=Q1" --dry-run   # preview first
+zot enrich ITEMKEY --set "中科院分区=2区"
+zot enrich ITEMKEY1 ITEMKEY2 --from-map journals.toml            # apply table by journal name
+zot enrich ITEMKEY --from-map journals.toml --set "JCR=Q1"       # --set overrides the map
+```
+
+Metrics go in a `<!-- zot:metrics -->` block in Extra; re-running replaces only
+that block (idempotent) and preserves other Extra content. The `--from-map`
+file is TOML: a `["Journal Name"]` table per journal with `"metric" = "value"`
+lines.
+
 ## Collections
 
 ```bash

@@ -148,6 +148,28 @@ class ZoteroWriter:
         except PyZoteroError as e:
             raise _friendly_api_error(e) from e
 
+    def update_extra_metrics(self, key: str, metrics: dict[str, str]) -> str:
+        """Merge metrics into the item's Extra managed block via the Web API.
+
+        Reads the current Extra from the live item (authoritative for the
+        version check), replaces only the zot-managed block, and returns the
+        new Extra value.
+        """
+        from zotero_cli_cc.core.enrich import merge_extra
+
+        try:
+            item = self._zot.item(key)
+            new_extra = merge_extra(item["data"].get("extra", ""), metrics)
+            item["data"]["extra"] = new_extra
+            self._zot.update_item(item)
+            return new_extra
+        except ResourceNotFoundError:
+            raise ZoteroWriteError(f"Item '{key}' not found", code="not_found", retryable=False)
+        except (HttpxConnectError, HttpxTimeoutException) as e:
+            raise ZoteroWriteError(f"Network error: {e}", code="network_error", retryable=True) from e
+        except PyZoteroError as e:
+            raise _friendly_api_error(e) from e
+
     def restore_from_trash(self, key: str) -> None:
         """Restore an item from trash by clearing its deleted flag."""
         try:

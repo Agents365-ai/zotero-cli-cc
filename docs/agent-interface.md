@@ -180,7 +180,7 @@ The input file may be either a full envelope or a bare `data` tree.
 Commands are grouped by risk in `zot --help`:
 
 - **Read** — `search`, `list`, `read`, `export`, `recent`, `stats`, `cite`, `pdf`, `collection list`, `tag list`, ...
-- **Write (MUTATES LIBRARY)** — `add`, `update`, `note`, `attach`, `find-pdf`, `rename`, `bridge` (mutates local config, not the library)
+- **Write (MUTATES LIBRARY)** — `add`, `update`, `note`, `attach`, `find-pdf`, `rename`, `enrich`, `bridge` (mutates local config, not the library)
 - **Destructive (MUTATES LIBRARY)** — `delete`, `update-status`
 
 Each write or destructive command's `--help` carries a `MUTATES LIBRARY` marker. The same classification is available via `zot schema <cmd>.safety_tier`.
@@ -315,6 +315,32 @@ The envelope's `data.results[]` carries a per-attachment `status`
 (e.g. `conflict` when the destination exists — pass `--force`); a missing
 bridge or stopped desktop aborts the whole command with `bridge_missing` (3) /
 `not_reachable` (5).
+
+## Journal metrics (`zot enrich`)
+
+`zot enrich` writes journal metrics (impact factor, JCR/CAS quartile, core-journal
+flags, …) into an item's **Extra** field. It is deliberately **source-neutral**:
+the values come from the caller, never from a bundled dataset or a third-party
+API, so `zot` stays independent of any external product.
+
+```bash
+zot enrich ABCD1234 --set "SCI IF=5.8" --set "JCR=Q1" --dry-run
+zot enrich ABCD1234 EFGH5678 --from-map journals.toml   # apply a table by journal name
+zot enrich ABCD1234 --from-map journals.toml --set "JCR=Q1"   # --set overrides the map
+```
+
+- `--set "Label=value"` (repeatable) supplies metrics inline.
+- `--from-map FILE` is a TOML table of `journal name -> {metric: value}`; each item
+  is matched by its `publicationTitle` (or `conferenceName`), case-insensitively.
+- Metrics are written between `<!-- zot:metrics -->` / `<!-- /zot:metrics -->`
+  markers inside Extra (Zotero's official custom-field channel). Re-running
+  **replaces only that block**, so any other Extra content (`DOI:`, `Citation
+  Key:`, `tex.ids`, …) is preserved and re-running is idempotent.
+
+This is a plain Web-API write (no bridge), so it needs API credentials. The
+envelope's `data.results[]` carries per-item `status` (`updated` / `dry-run` /
+`error`) plus the resolved `metrics`; `data.updated_count` / `data.sync_required`
+summarize the run. Missing credentials abort with `auth_missing` (2).
 
 ## `--idempotency-key`
 

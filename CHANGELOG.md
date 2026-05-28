@@ -9,6 +9,14 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `zot enrich KEY...` writes journal metrics (impact factor, JCR/CAS quartile,
+  core-journal flags, …) into an item's Extra field. Deliberately
+  **source-neutral**: values come from inline `--set "Label=value"` flags or a
+  user-maintained `--from-map` TOML table (matched by journal name) — `zot`
+  ships no journal data and calls no third-party API, so it stays independent of
+  any external product. Metrics are written in a `<!-- zot:metrics -->` block,
+  so re-running replaces only that block (idempotent) and preserves other Extra
+  content. Supports `--dry-run`.
 - `zot rename KEY...` renames an item's PDF attachment files from its metadata
   via the bridge plugin. The default template is `{journal}_{year}_{title}`
   (tokens `{journal} {year} {title} {shorttitle} {author}`); `{journal}` is

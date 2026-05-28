@@ -43,6 +43,7 @@ zot workspace query "RLHF" --workspace my-ws  # RAG search
 | PDF section | `zot --json pdf --section SECID KEY` |
 | Fetch/attach missing PDF | `zot find-pdf KEY` (needs Zotero desktop + bridge) |
 | Rename attachment files | `zot rename KEY --dry-run` (needs bridge; preview first) |
+| Add journal metrics (IF/分区) | `zot enrich KEY --set "JCR=Q1"` or `--from-map journals.toml` |
 | Set up find-pdf bridge | `zot bridge install` |
 | Collection list | `zot --json collection list` |
 | Collection items | `zot --json collection items COLLKEY` |
