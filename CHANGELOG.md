@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-05-28
+
+### Added
+
+- `zot find-pdf KEY` triggers Zotero desktop's "Find Full Text" over a local
+  bridge plugin, so the CLI can fetch and attach PDFs that the Zotero Web API
+  cannot reach (paywalled content behind the desktop's configured resolvers,
+  authenticated sessions, and institutional proxies). Ships with
+  `zot bridge install` / `status` / `uninstall` to package the bundled
+  `zot-cli-bridge` plugin into an `.xpi` and guide installation. Both commands
+  are also exposed over MCP. `meta.schema_version` is bumped 1.3.0 → 1.4.0 (#43).
+- `zot workspace index --skip-tag` excludes attachments carrying a given tag
+  from the RAG index (default `skip-index`), so large or irrelevant PDFs can be
+  kept out of the index. Also available on the MCP `workspace_index` tool
+  (#44, #46).
+
+### Fixed
+
+- On Windows with a CJK (GBK/CP936) system locale, `zot` crashed with
+  `UnicodeEncodeError` whenever output contained characters outside the GBK
+  range (e.g. emoji). stdout/stderr are now reconfigured to UTF-8 at startup on
+  Windows when the encoding is not already UTF-8 (#48).
+
+### Changed
+
+- The bundled Claude Code skill was split from a single `SKILL.md` into a
+  concise entry point plus on-demand `references/` files (commands, workspaces,
+  workflows, windows-encoding), and now documents the `find-pdf` / `bridge`
+  commands and `workspace index --skip-tag` (#49).
+
 ## [0.4.4] - 2026-05-14
 
 ### Fixed
