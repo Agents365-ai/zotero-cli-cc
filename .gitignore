@@ -1,6 +1,8 @@
 __pycache__/
 *.pyc
 .venv/
+# Built Zotero bridge plugin (produced by `zot bridge install`)
+extension/*.xpi
 *.egg-info/
 dist/
 build/

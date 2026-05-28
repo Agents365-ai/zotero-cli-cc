@@ -26,19 +26,17 @@ plugin enables. It registers two endpoints on `http://127.0.0.1:23119`:
 
 ### Recommended: `zot bridge install`
 
-If you have the `zot` CLI installed, let it sideload the plugin for you:
+If you have the `zot` CLI installed, let it build the `.xpi` for you, then
+install it through Zotero's plugin manager (modern Zotero won't accept a
+CLI-sideloaded plugin, so this is the reliable path):
 
 ```bash
-# Quit Zotero first (the profile is rewritten on shutdown), then:
 zot bridge install
-# Restart Zotero, then verify:
-zot bridge status
+# -> Built bridge plugin: ~/.cache/zot/zot-cli-bridge.xpi
+#    In Zotero: Tools -> Plugins -> gear -> Install Plugin From File...
+#    pick that .xpi, then restart Zotero.
+zot bridge status        # verify -> Bridge OK
 ```
-
-This auto-detects your Zotero profile (via `profiles.ini`), drops a proxy file
-into `<profile>/extensions/`, and refreshes `prefs.js` so Zotero loads the
-plugin on next launch. Pass `--profile <dir>` if auto-detection picks the
-wrong profile, and `zot bridge uninstall` to remove it.
 
 ### Manual
 
@@ -50,10 +48,14 @@ wrong profile, and `zot bridge uninstall` to remove it.
 3. Verify it's wired up:
    ```bash
    curl http://127.0.0.1:23119/zot-cli/ping
-   # {"ok": true, "bridge_version": "0.1.0", "zotero_version": "7.x.y", ...}
+   # {"ok": true, "bridge_version": "0.1.0", "zotero_version": "9.x.y", ...}
    ```
 
 You can now run `zot find-pdf <item-key>` from the parent repo.
+
+> **Manifest note:** the plugin manifest must include `icons` and
+> `applications.zotero.update_url`. Zotero 8/9 reject a manifest without them
+> as "incompatible with this version of Zotero".
 
 ## Build locally
 

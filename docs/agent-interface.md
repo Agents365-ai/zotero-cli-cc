@@ -263,22 +263,25 @@ error codes for this command: `not_reachable` (Zotero not running),
 
 ### Installing the bridge (`zot bridge`)
 
-`zot bridge install` sideloads the plugin into the active Zotero profile so
-`find-pdf` works without manually building/installing an `.xpi`. It writes a
-proxy file into `<profile>/extensions/` and refreshes `prefs.js`, then prompts
-for a Zotero restart. The profile is auto-detected via `profiles.ini`
-(override with `--profile`). Install/uninstall refuse to run while Zotero is
-live (editing the profile then is unsafe) unless `--force` is passed.
+Modern Zotero's AddonManager won't accept a CLI-sideloaded plugin (it deletes
+pointer files and hand-dropped `.xpi`s on startup), so `zot bridge install`
+*builds* the plugin into an `.xpi` and hands it to Zotero's own installer.
 
 ```bash
-zot bridge install              # auto-detect profile, sideload, then restart Zotero
-zot bridge status               # ping the bridge (wraps GET /zot-cli/ping)
-zot bridge uninstall            # remove the proxy file
+zot bridge install                       # build the .xpi (default: ~/.cache/zot/zot-cli-bridge.xpi)
+zot bridge install --output ~/x.xpi      # build to a chosen path
+zot bridge status                        # ping the bridge (wraps GET /zot-cli/ping)
+zot bridge uninstall                     # print Zotero plugin-manager removal steps
 ```
 
-`bridge install`/`uninstall` use `not_found` (profile not located),
-`validation_error` (Zotero running), and `bridge_error` (assets missing).
-`bridge status` surfaces the same `find-pdf` reachability codes.
+`install` prints the two-click install path: **Tools → Plugins → ⚙ → Install
+Plugin From File…**, pick the `.xpi`, restart. `install`/`uninstall` use
+`bridge_error` (plugin assets missing/malformed); `status` surfaces the same
+`find-pdf` reachability codes (`not_reachable`, `bridge_missing`).
+
+> The plugin manifest must carry `icons` and `applications.zotero.update_url`
+> — Zotero 8/9 reject a manifest lacking them as "incompatible with this
+> version of Zotero".
 
 ## `--idempotency-key`
 
