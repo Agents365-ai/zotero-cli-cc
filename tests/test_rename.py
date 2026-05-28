@@ -77,6 +77,10 @@ class TestJournalShort:
     def test_unknown_falls_back(self):
         assert journal_short(_item(item_type="thesis")) == "Pre"
 
+    def test_single_word_journal_kept_whole(self):
+        # "Nature" must not collapse to a useless single letter "N".
+        assert journal_short(_item(publicationTitle="Nature")) == "Nature"
+
 
 class TestYearAndTemplate:
     def test_extract_year(self):
@@ -98,6 +102,28 @@ class TestYearAndTemplate:
     def test_author_and_shorttitle_tokens(self):
         item = _item(creators=[Creator("Kaiming", "He", "author")], shortTitle="ResNet")
         assert resolve_template("{author}_{shorttitle}", item) == "He_ResNet"
+
+    def test_empty_year_collapses_separators(self):
+        # No date -> the {year} slot is empty; must not leave "TPAMI__X".
+        item = _item(
+            publicationTitle="IEEE Transactions on Pattern Analysis and Machine Intelligence",
+            title="X",
+            date=None,
+        )
+        assert resolve_template("{journal}_{year}_{title}", item) == "TPAMI_X"
+
+    def test_title_prefers_short_title(self):
+        item = _item(title="A Very Long Full Title Here", shortTitle="Short")
+        assert resolve_template("{title}", item) == "Short"
+
+    def test_fulltitle_token_uses_full(self):
+        item = _item(title="A Very Long Full Title Here", shortTitle="Short")
+        assert resolve_template("{fulltitle}", item) == "A Very Long Full Title Here"
+
+    def test_long_title_truncated_to_byte_cap(self):
+        item = _item(publicationTitle="Nature", title="word " * 100)
+        base = resolve_template("{title}", item)
+        assert len(base.encode("utf-8")) <= 180
 
 
 # ---------------------------------------------------------------------------

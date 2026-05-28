@@ -24,7 +24,7 @@ _ABORT_CODES = {"not_reachable", "bridge_missing"}
     "--template",
     default="{journal}_{year}_{title}",
     show_default=True,
-    help="Filename template; tokens: {journal} {year} {title} {shorttitle} {author}",
+    help="Filename template; tokens: {journal} {year} {title} (short title if set, else full) {fulltitle} {shorttitle} {author}",
 )
 @click.option("--main-only", is_flag=True, help="Rename only the main PDF (default also renames supplementary PDFs)")
 @click.option(
