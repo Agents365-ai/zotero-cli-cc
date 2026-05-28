@@ -47,6 +47,13 @@ def _user_agent() -> str:
     return "zot-cli/local-bridge"
 
 
+# The bridge is always on the loopback interface. httpx's default
+# (trust_env=True) would route the request through any system/env HTTP proxy,
+# which then returns 502 for a localhost target it can't reach. Disable env
+# trust so loopback traffic always goes direct.
+_TRUST_ENV = False
+
+
 def ping(timeout: float = PING_TIMEOUT) -> dict[str, Any]:
     """Verify Zotero desktop + the bridge plugin are reachable.
 
@@ -58,6 +65,7 @@ def ping(timeout: float = PING_TIMEOUT) -> dict[str, Any]:
             f"{LOCAL_BASE}/zot-cli/ping",
             timeout=timeout,
             headers={"User-Agent": _user_agent()},
+            trust_env=_TRUST_ENV,
         )
     except (httpx.ConnectError, httpx.ConnectTimeout) as e:
         raise LocalBridgeError(
@@ -105,6 +113,7 @@ def find_pdf(
             json=payload,
             timeout=timeout,
             headers={"User-Agent": _user_agent()},
+            trust_env=_TRUST_ENV,
         )
     except (httpx.ConnectError, httpx.ConnectTimeout) as e:
         raise LocalBridgeError(

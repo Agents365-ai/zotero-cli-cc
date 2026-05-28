@@ -42,6 +42,8 @@ class TestPing:
         # UA must not start with Mozilla/ — Zotero blocks browser-origin requests.
         ua = mock_get.call_args.kwargs["headers"]["User-Agent"]
         assert not ua.startswith("Mozilla/")
+        # Loopback traffic must bypass any system/env proxy (else 502).
+        assert mock_get.call_args.kwargs["trust_env"] is False
 
     @patch("zotero_cli_cc.core.local_bridge.httpx.get")
     def test_zotero_not_running(self, mock_get):
@@ -82,6 +84,8 @@ class TestFindPdf:
         kwargs = mock_post.call_args.kwargs
         assert kwargs["json"] == {"key": "ABCD1234"}
         assert not kwargs["headers"]["User-Agent"].startswith("Mozilla/")
+        # Loopback traffic must bypass any system/env proxy (else 502).
+        assert kwargs["trust_env"] is False
 
     @patch("zotero_cli_cc.core.local_bridge.httpx.post")
     def test_not_found_resolvers(self, mock_post):
