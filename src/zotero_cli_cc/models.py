@@ -56,6 +56,7 @@ class Attachment:
     filename: str
     content_type: str
     path: Path | None = None
+    tags: list[str] = field(default_factory=list)
 
 
 @dataclass

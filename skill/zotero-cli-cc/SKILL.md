@@ -189,6 +189,7 @@ zot workspace export llm-safety --format bibtex       # BibTeX
 # Build RAG index (BM25 over metadata + PDF text)
 zot workspace index llm-safety             # Incremental index
 zot workspace index llm-safety --force     # Full rebuild
+zot workspace index llm-safety --skip-tag skip-index   # Skip attachments with this tag (default: skip-index)
 
 # Query workspace with natural language
 zot workspace query "reward hacking" --workspace llm-safety
