@@ -94,7 +94,8 @@ installation, so the CLI cannot sideload silently).
 
 `zot rename` renames an item's PDF attachment files from its metadata. Default
 template `{journal}_{year}_{title}.pdf` (tokens: `{journal} {year} {title}
-{shorttitle} {author}`). Non-PDF files (Excel/Word/snapshots) are skipped;
+{fulltitle} {shorttitle} {author}`; `{title}` prefers Short Title when set).
+Non-PDF files (Excel/Word/snapshots) are skipped;
 supplementary PDFs are detected by filename and get an `_SI` suffix. Goes
 through the bridge plugin (needs v0.2.0+), so Zotero must be running.
 

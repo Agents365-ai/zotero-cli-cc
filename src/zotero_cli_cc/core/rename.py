@@ -16,12 +16,18 @@ from zotero_cli_cc.models import Attachment, Item
 
 # Tokens a template may reference. Anything else is rejected so a typo surfaces
 # as a validation error instead of a literal "{titel}" in a filename.
-_KNOWN_TOKENS = frozenset({"journal", "year", "title", "shorttitle", "author"})
+_KNOWN_TOKENS = frozenset({"journal", "year", "title", "shorttitle", "fulltitle", "author"})
 
 # Characters that are illegal in filenames on Windows / unsafe on POSIX.
 _ILLEGAL_FS = re.compile(r'[/\\:*?"<>|\x00-\x1f]')
 _HTML_TAG = re.compile(r"<[^>]+>")
 _WS = re.compile(r"\s+")
+_MULTI_SEP = re.compile(r"[_\-]{2,}")
+
+# Cap the base name so the final filename (base + optional _SI suffix + ".pdf")
+# stays well under the 255-byte limit common to ext4/APFS/NTFS — measured in
+# UTF-8 bytes so CJK titles (3 bytes/char) are also safe.
+_MAX_BASE_BYTES = 180
 
 # Filename markers that identify a supplementary / supporting-information PDF.
 _SUPP_WORDS = re.compile(r"supp|supporting|appendix|appendices", re.IGNORECASE)
@@ -60,6 +66,20 @@ def _sanitize(value: str) -> str:
     return _WS.sub(" ", value).strip()
 
 
+def _truncate_bytes(value: str, max_bytes: int) -> str:
+    """Truncate to at most `max_bytes` UTF-8 bytes, not splitting a character."""
+    encoded = value.encode("utf-8")
+    if len(encoded) <= max_bytes:
+        return value
+    cut = encoded[:max_bytes]
+    while cut:
+        try:
+            return cut.decode("utf-8").rstrip()
+        except UnicodeDecodeError:
+            cut = cut[:-1]
+    return ""
+
+
 def extract_year(item: Item) -> str:
     """First 4-digit year found in the item's date field, else empty."""
     m = re.search(r"\d{4}", item.date or "")
@@ -74,8 +94,12 @@ def _first_caps_abbrev(name: str) -> str:
     Intelligence" -> "TPAMI".
     """
     skip = {"IEEE", "ACM", "The"}
-    initials = [w[0] for w in name.split() if w and w[0].isupper() and w not in skip and not re.search(r"\d", w)]
-    return "".join(initials)
+    words = [w for w in name.split() if w and w[0].isupper() and w not in skip and not re.search(r"\d", w)]
+    # A single significant word abbreviates to one useless letter (Nature -> N);
+    # keep the whole word instead. Multi-word venues use the initials (TPAMI).
+    if len(words) == 1:
+        return words[0]
+    return "".join(w[0] for w in words)
 
 
 def journal_short(item: Item) -> str:
@@ -108,13 +132,16 @@ def journal_short(item: Item) -> str:
 
 
 def _tokens(item: Item) -> dict[str, str]:
+    # `{title}` prefers the Short Title field when present (it's the human-chosen
+    # concise form, e.g. "ResNet"); `{fulltitle}` always gives the full title.
     short = item.extra.get("shortTitle") or item.title
     author = item.creators[0].last_name if item.creators else ""
     return {
         "journal": journal_short(item),
         "year": extract_year(item),
-        "title": _sanitize(item.title),
+        "title": _sanitize(short),
         "shorttitle": _sanitize(short),
+        "fulltitle": _sanitize(item.title),
         "author": _sanitize(author),
     }
 
@@ -131,9 +158,12 @@ def resolve_template(template: str, item: Item) -> str:
     tokens = _tokens(item)
     base = re.sub(r"\{(\w+)\}", lambda m: tokens[m.group(1)], template)
     base = _sanitize(base)
-    if not base or base.strip("_-. ") == "":
+    # Empty tokens (missing year/journal) leave doubled separators like
+    # "Pre__title" or a leading "_2016_x"; collapse and trim them away.
+    base = _MULTI_SEP.sub("_", base).strip("_-. ")
+    if not base:
         raise RenameError("Template produced an empty filename (item is missing title/metadata)")
-    return base
+    return _truncate_bytes(base, _MAX_BASE_BYTES).strip("_-. ")
 
 
 def classify_pdfs(attachments: list[Attachment]) -> tuple[Attachment | None, list[Attachment]]:

@@ -303,7 +303,10 @@ zot rename --attachment ATT0001 --name "X.pdf"  # rename one file explicitly
 
 `zot` builds the new names from SQLite metadata (no network): the default
 template is `{journal}_{year}_{title}` (tokens: `{journal} {year} {title}
-{shorttitle} {author}`). Attachments are filtered to PDFs by content type, so
+{fulltitle} {shorttitle} {author}`; `{title}` prefers the Short Title field
+when set). Empty tokens are collapsed (no `Pre__x`), single-word venues keep
+the whole word (`Nature`, not `N`), and the name is truncated to a filesystem-
+safe length. Attachments are filtered to PDFs by content type, so
 Excel/Word/snapshots are skipped. Among PDFs, supplementary files are detected
 by filename keywords (`supp`, `supplement`, `supporting`, `appendix`, a
 standalone `si`); the main PDF gets the template name and each supplementary
