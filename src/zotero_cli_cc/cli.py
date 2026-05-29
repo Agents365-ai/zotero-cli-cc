@@ -8,6 +8,7 @@ import click
 
 from zotero_cli_cc import __version__
 from zotero_cli_cc.commands.add import add_cmd
+from zotero_cli_cc.commands.ask import ask_cmd
 from zotero_cli_cc.commands.attach import attach_cmd
 from zotero_cli_cc.commands.bridge import bridge_group
 from zotero_cli_cc.commands.cite import cite_cmd
@@ -63,6 +64,7 @@ _READ_COMMANDS = {
     "completions",
     "mcp",
     "workspace",
+    "ask",
     "schema",
     "trash",
 }
@@ -303,6 +305,7 @@ main.add_command(enrich_cmd, "enrich")
 main.add_command(bridge_group, "bridge")
 main.add_command(update_status_cmd, "update-status")
 main.add_command(workspace_group, "workspace")
+main.add_command(ask_cmd, "ask")
 main.add_command(schema_cmd, "schema")
 
 
