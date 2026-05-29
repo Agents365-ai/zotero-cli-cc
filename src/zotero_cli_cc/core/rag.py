@@ -173,7 +173,7 @@ def chunk_text(text: str, paper_title: str, max_tokens: int = 500, overlap: int 
 
 def convert_pdf_to_text(
     pdf_path: Path,
-    extractor_name: str = "pymupdf",
+    extractor_name: str = "pdfium",
     progress_callback: Callable[[str, int, int, int], None] | None = None,
 ) -> str:
     cache = PdfCache()
@@ -188,7 +188,7 @@ def convert_pdf_to_text(
 
 def convert_pdfs_to_text(
     pdf_paths: list[Path],
-    extractor_name: str = "pymupdf",
+    extractor_name: str = "pdfium",
     progress_callback: Callable[[str, int, int, int], None] | None = None,
 ) -> dict[Path, str | Exception]:
     cache = PdfCache()

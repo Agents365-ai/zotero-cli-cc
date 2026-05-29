@@ -14,13 +14,28 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
-import pymupdf
-
 
 class PdfExtractionError(Exception):
     """Raised when PDF text extraction fails."""
 
     pass
+
+
+def _import_pymupdf() -> Any:
+    """Lazily import pymupdf, which is an optional dependency.
+
+    pymupdf is AGPL/Artifex-licensed, so it is shipped as the optional
+    ``[pymupdf]`` extra rather than a core dependency; the default extractor is
+    the permissively-licensed pdfium backend.
+    """
+    try:
+        import pymupdf
+    except ImportError as e:
+        raise PdfExtractionError(
+            "The 'pymupdf' extractor requires the optional dependency. "
+            "Install it with: pip install 'zotero-cli-cc[pymupdf]'"
+        ) from e
+    return pymupdf
 
 
 class BasePdfExtractor(ABC):
@@ -77,7 +92,12 @@ class PyMuPdfExtractor(BasePdfExtractor):
                 self._pymupdf4llm_available = False
         return bool(self._pymupdf4llm_available)
 
-    def extract_text(self, pdf_path: Path, pages: tuple[int, int] | None = None) -> str:
+    def extract_text(
+        self,
+        pdf_path: Path,
+        pages: tuple[int, int] | None = None,
+        progress_callback: Callable[[str, int, int, int], None] | None = None,
+    ) -> str:
         if not pdf_path.exists():
             raise FileNotFoundError(f"PDF not found: {pdf_path}")
 
@@ -94,6 +114,7 @@ class PyMuPdfExtractor(BasePdfExtractor):
             except Exception:
                 pass
 
+        pymupdf = _import_pymupdf()
         try:
             doc = pymupdf.open(str(pdf_path))
         except Exception as e:
@@ -116,6 +137,7 @@ class PyMuPdfExtractor(BasePdfExtractor):
     def extract_annotations(self, pdf_path: Path) -> list[dict]:
         if not pdf_path.exists():
             raise FileNotFoundError(f"PDF not found: {pdf_path}")
+        pymupdf = _import_pymupdf()
         try:
             doc = pymupdf.open(str(pdf_path))
         except Exception as e:
@@ -159,6 +181,68 @@ class PyMuPdfExtractor(BasePdfExtractor):
 
     def name(self) -> str:
         return "pymupdf"
+
+
+class PdfiumExtractor(BasePdfExtractor):
+    """Default extractor backed by pypdfium2 (BSD/Apache, no AGPL).
+
+    Covers plain text and DOI extraction. Annotation/highlight extraction is
+    not supported here (it requires the optional pymupdf backend); it returns an
+    empty list so callers degrade gracefully.
+    """
+
+    def extract_text(
+        self,
+        pdf_path: Path,
+        pages: tuple[int, int] | None = None,
+        progress_callback: Callable[[str, int, int, int], None] | None = None,
+    ) -> str:
+        if not pdf_path.exists():
+            raise FileNotFoundError(f"PDF not found: {pdf_path}")
+        import pypdfium2 as pdfium
+
+        try:
+            doc = pdfium.PdfDocument(str(pdf_path))
+        except Exception as e:
+            raise PdfExtractionError(f"Cannot open PDF: {e}") from e
+        try:
+            n = len(doc)
+            if pages:
+                start, end = pages
+                if start > n:
+                    raise PdfExtractionError(f"Start page {start} exceeds document length ({n} pages)")
+                page_range = range(start - 1, min(end, n))
+            else:
+                page_range = range(n)
+            total = len(page_range)
+            texts: list[str] = []
+            for done, i in enumerate(page_range, start=1):
+                page = doc[i]
+                textpage = page.get_textpage()
+                texts.append(textpage.get_text_range())
+                textpage.close()
+                page.close()
+                if progress_callback:
+                    progress_callback("extract", done, total, 0)
+            return "\n".join(texts)
+        finally:
+            doc.close()
+
+    def extract_annotations(self, pdf_path: Path) -> list[dict]:
+        return []
+
+    def extract_doi(self, pdf_path: Path) -> str | None:
+        try:
+            text = self.extract_text(pdf_path, pages=(1, 2))
+        except (FileNotFoundError, OSError, PdfExtractionError):
+            return None
+        match = re.search(r"10\.\d{4,9}/[^\s]+", text)
+        if match:
+            return match.group(0).rstrip(".,;)]}>'\"")
+        return None
+
+    def name(self) -> str:
+        return "pdfium"
 
 
 # ---------------------------------------------------------------------------
@@ -312,6 +396,7 @@ class MinerUExtractor(BasePdfExtractor):
         return _clean_markdown_images(raw_md)
 
     def _split_pdf(self, pdf_path: Path, max_pages: int) -> list[Path]:
+        pymupdf = _import_pymupdf()
         doc = pymupdf.open(str(pdf_path))
         total_pages = len(doc)
         chunks: list[Path] = []
@@ -366,6 +451,7 @@ class MinerUExtractor(BasePdfExtractor):
         if file_size > 200 * 1024 * 1024:
             raise PdfExtractionError("PDF exceeds 200MB limit")
 
+        pymupdf = _import_pymupdf()
         doc = pymupdf.open(str(pdf_path))
         total_pages = len(doc)
         doc.close()
@@ -422,6 +508,7 @@ class MinerUExtractor(BasePdfExtractor):
         pdf_paths: list[Path],
         progress_callback: Callable[[str, int, int, int], None] | None = None,
     ) -> dict[Path, str | Exception]:
+        pymupdf = _import_pymupdf()
         results: dict[Path, str | Exception] = {}
         temp_files: list[Path] = []
         original_to_chunks: dict[Path, list[Path]] = {}
@@ -586,7 +673,11 @@ def _clean_markdown_images(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-_EXTRACTORS: dict[str, type[BasePdfExtractor]] = {"pymupdf": PyMuPdfExtractor, "mineru": MinerUExtractor}
+_EXTRACTORS: dict[str, type[BasePdfExtractor]] = {
+    "pdfium": PdfiumExtractor,
+    "pymupdf": PyMuPdfExtractor,
+    "mineru": MinerUExtractor,
+}
 
 
 def get_extractor(name: str | None = None) -> BasePdfExtractor:
@@ -631,6 +722,7 @@ def extract_text_from_pdf(
     )
     if not pdf_path.exists():
         raise FileNotFoundError(f"PDF not found: {pdf_path}")
+    pymupdf = _import_pymupdf()
     try:
         doc = pymupdf.open(str(pdf_path))
     except Exception as e:
@@ -667,6 +759,7 @@ def extract_annotations(pdf_path: Path) -> list[dict]:
     )
     if not pdf_path.exists():
         raise FileNotFoundError(f"PDF not found: {pdf_path}")
+    pymupdf = _import_pymupdf()
     try:
         doc = pymupdf.open(str(pdf_path))
     except Exception as e:

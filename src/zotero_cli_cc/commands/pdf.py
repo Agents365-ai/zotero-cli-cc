@@ -168,9 +168,9 @@ def pdf_cmd(
                         cache.put(pdf_path, extractor, text)
                     except PdfExtractionError:
                         if extractor == "mineru":
-                            pdf_extractor = get_extractor("pymupdf")
+                            pdf_extractor = get_extractor("pdfium")
                             text = pdf_extractor.extract_text(pdf_path)
-                            cache.put(pdf_path, "pymupdf", text)
+                            cache.put(pdf_path, "pdfium", text)
                         else:
                             raise
             else:
@@ -179,7 +179,7 @@ def pdf_cmd(
                     text = pdf_extractor.extract_text(pdf_path, pages=page_range)
                 except PdfExtractionError:
                     if extractor == "mineru":
-                        pdf_extractor = get_extractor("pymupdf")
+                        pdf_extractor = get_extractor("pdfium")
                         text = pdf_extractor.extract_text(pdf_path, pages=page_range)
                     else:
                         raise

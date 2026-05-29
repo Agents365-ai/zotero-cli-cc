@@ -20,6 +20,25 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `--evidence-k` (default 12) and `--mode auto|bm25|semantic|hybrid`.
 - Schema version bumped to `1.6.0`.
 
+### Changed
+
+- **Default PDF extractor is now `pdfium`** (pypdfium2, BSD/Apache-licensed)
+  instead of `pymupdf`. PyMuPDF is AGPL/Artifex-licensed, so it is no longer a
+  core dependency — a plain `pip install zotero-cli-cc` now ships no AGPL code,
+  making it usable in commercial/closed-source products without an Artifex
+  license. PyMuPDF moves to an optional extra:
+
+  ```
+  pip install 'zotero-cli-cc[pymupdf]'
+  ```
+
+  Install the extra to enable the `pymupdf` extractor, which adds PDF
+  annotation/highlight extraction and higher-quality markdown. The default
+  `pdfium` extractor covers text and DOI extraction; it returns an empty list
+  for annotations. The MinerU fallback now falls back to `pdfium`. Select an
+  extractor explicitly with `extractor = "..."` in config or
+  `ZOT_PDF_EXTRACTOR`.
+
 ## [0.6.0] - 2026-05-28
 
 ### Added

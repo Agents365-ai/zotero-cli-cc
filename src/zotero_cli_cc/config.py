@@ -138,7 +138,7 @@ def load_embedding_config(path: Path | None = None, *, apply_env_overrides: obje
 
 @dataclass
 class PdfConfig:
-    extractor: str = "pymupdf"
+    extractor: str = "pdfium"
     mineru_token: str = ""
 
 

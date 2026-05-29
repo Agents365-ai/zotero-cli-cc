@@ -206,11 +206,11 @@ def _handle_pdf(key: str, pages: str | None, library: str = "user") -> dict:
             text = pdf_extractor.extract_text(pdf_path, pages=page_range)
     except PdfExtractionError as e:
         if extractor_name == "mineru":
-            pdf_extractor = get_extractor("pymupdf")
+            pdf_extractor = get_extractor("pdfium")
             try:
                 if page_range is None:
                     text = pdf_extractor.extract_text(pdf_path)
-                    cache.put(pdf_path, "pymupdf", text)
+                    cache.put(pdf_path, "pdfium", text)
                 else:
                     text = pdf_extractor.extract_text(pdf_path, pages=page_range)
             except PdfExtractionError:
