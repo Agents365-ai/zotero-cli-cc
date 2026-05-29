@@ -318,6 +318,49 @@ def semantic_score_chunks(
     return results
 
 
+def build_evidence_pack(
+    bm25_results: list[tuple[int, float, dict]],
+    semantic_results: list[tuple[int, float, dict]],
+    mode: str,
+    k: int,
+) -> list[dict]:
+    """Merge retrieval rankings into a citation-keyed evidence list for an agent.
+
+    Each entry carries the Zotero item key as the citation anchor, the source
+    label, the full chunk text, and whichever per-method scores apply. zot does
+    not run a generative LLM — it prepares this context and the calling agent
+    does the contextual scoring and synthesis (same contract as `summarize`).
+    """
+    bm25_score = {cid: s for cid, s, _ in bm25_results}
+    sem_score = {cid: s for cid, s, _ in semantic_results}
+    used_rrf = mode == "hybrid" and bool(bm25_results) and bool(semantic_results)
+    if used_rrf:
+        merged = reciprocal_rank_fusion(bm25_results, semantic_results)
+    elif semantic_results and mode in ("semantic", "hybrid"):
+        merged = semantic_results
+    else:
+        merged = bm25_results
+
+    pack: list[dict] = []
+    for cid, score, chunk in merged[:k]:
+        scores: dict[str, float] = {}
+        if cid in bm25_score:
+            scores["bm25"] = round(bm25_score[cid], 4)
+        if cid in sem_score:
+            scores["semantic"] = round(sem_score[cid], 4)
+        if used_rrf:
+            scores["rrf"] = round(score, 4)
+        pack.append(
+            {
+                "cite_key": chunk["item_key"],
+                "source": chunk["source"],
+                "text": chunk["content"],
+                "scores": scores,
+            }
+        )
+    return pack
+
+
 def reciprocal_rank_fusion(*rankings: list[tuple[int, float, dict]], k: int = 60) -> list[tuple[int, float, dict]]:
     scores: dict[int, float] = {}
     chunk_map: dict[int, dict] = {}

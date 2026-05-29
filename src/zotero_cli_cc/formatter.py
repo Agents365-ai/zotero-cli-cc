@@ -18,7 +18,7 @@ from rich.tree import Tree
 from zotero_cli_cc import __version__
 from zotero_cli_cc.models import Collection, DuplicateGroup, ErrorInfo, Item, Note
 
-SCHEMA_VERSION = "1.5.0"
+SCHEMA_VERSION = "1.6.0"
 
 _request_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("_request_id", default=None)
 _request_start: contextvars.ContextVar[float | None] = contextvars.ContextVar("_request_start", default=None)
@@ -359,6 +359,35 @@ def format_workspace_query(results: list, mode: str, output_json: bool = False) 
         preview = chunk["content"][:120].replace("\n", " ")
         console.print(f"[{i + 1}] Score: {score:.2f} | {chunk['item_key']} | {chunk['source']}")
         console.print(f"    {preview}...")
+    return buf.getvalue()
+
+
+ANSWER_INSTRUCTIONS = (
+    "Answer the question using ONLY the evidence below. Cite each claim with its "
+    "cite_key in parentheses, e.g. (ABCD1234). Judge each chunk for relevance and "
+    "ignore unrelated ones. If the evidence is insufficient, say so rather than guessing."
+)
+
+
+def format_ask(question: str, evidence: list[dict], mode: str, output_json: bool = False) -> str:
+    data = {
+        "question": question,
+        "mode": mode,
+        "evidence": evidence,
+        "answer_instructions": ANSWER_INSTRUCTIONS,
+    }
+    if output_json:
+        return _dump(envelope_ok(data, meta={"retrieved": len(evidence)}))
+    if not evidence:
+        return "No evidence found."
+    buf = StringIO()
+    console = Console(file=buf, force_terminal=False, width=120)
+    for i, e in enumerate(evidence, 1):
+        scores = " ".join(f"{k}={v}" for k, v in e["scores"].items())
+        console.print(f"[{i}] ({e['cite_key']}) {e['source']}  {scores}")
+        preview = e["text"][:300].replace("\n", " ")
+        console.print(f"    {preview}...")
+    console.print(f"\n{ANSWER_INSTRUCTIONS}")
     return buf.getvalue()
 
 

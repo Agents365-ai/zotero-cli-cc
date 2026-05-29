@@ -52,9 +52,10 @@ zot workspace query "RLHF" --workspace my-ws  # RAG search
 | Library stats | `zot --json stats` |
 | Workspace create | `zot workspace new NAME` |
 | Workspace RAG query | `zot workspace query "q" --workspace NAME` |
+| Ask (evidence pack) | `zot --json ask "question" --workspace NAME` |
 | Group library | `zot --library group:ID search "q"` |
 
-**Rule of thumb**: `zot search` for quick metadata lookups. `zot workspace query` for deep content search over curated papers.
+**Rule of thumb**: `zot search` for quick metadata lookups. `zot workspace query` for deep content search over curated papers. `zot ask` when you need a citation-keyed evidence pack to write a grounded answer — it returns chunks tagged with their Zotero item key plus `answer_instructions`; `zot` does not call an LLM, so *you* synthesize and cite the answer from the evidence.
 
 ## Global Flags
 

@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `zot ask "QUESTION" --workspace NAME` retrieves a citation-keyed **evidence
+  pack** from a workspace's RAG index (hybrid BM25 + embedding retrieval via
+  reciprocal rank fusion) and returns it with `answer_instructions`, so the
+  calling agent can synthesize a grounded, cited answer. Unlike
+  `workspace query` (which dumps ranked chunks), each evidence entry is tagged
+  with its Zotero item key as the `cite_key` and carries per-method scores.
+  Following the same contract as `summarize`, `zot` prepares the context but
+  calls **no generative LLM** itself — the agent is the model. Options:
+  `--evidence-k` (default 12) and `--mode auto|bm25|semantic|hybrid`.
+- Schema version bumped to `1.6.0`.
+
 ## [0.6.0] - 2026-05-28
 
 ### Added
