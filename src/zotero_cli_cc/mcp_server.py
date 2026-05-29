@@ -257,6 +257,25 @@ def _handle_references(key: str, library: str = "user") -> dict:
     return {"key": key, "references": refs, "total": len(refs)}
 
 
+def _handle_tables(key: str, library: str = "user") -> dict:
+    reader = _get_reader(library)
+    att = reader.get_pdf_attachment(key)
+    if att is None:
+        return {"error": f"No PDF attachment found for '{key}'"}
+    pdf_path = att.path
+    if not pdf_path or not pdf_path.exists():
+        return {"error": f"PDF file not found at {pdf_path or att.filename}"}
+    try:
+        tables = get_extractor("pdfplumber").extract_tables(pdf_path)
+    except PdfExtractionError as e:
+        return {
+            "error": str(e),
+            "context": "tables",
+            "hint": "Install the pdfplumber extra: pip install 'zotero-cli-cc[pdfplumber]'",
+        }
+    return {"key": key, "tables": tables, "total": len(tables)}
+
+
 def _handle_summarize(key: str, library: str = "user") -> dict:
     reader = _get_reader(library)
     item = reader.get_item(key)
@@ -1263,6 +1282,21 @@ def references(key: str, library: str = "user") -> dict:
         library: Library — 'user' (default) or 'group:<id>'.
     """
     return _handle_references(key, library=library)
+
+
+@mcp.tool()
+def tables(key: str, library: str = "user") -> dict:
+    """Extract tables from a PDF attachment (pure-Python pdfplumber, no network).
+
+    Returns a list of tables, each with its page number and rows (list of string
+    cells). Requires the optional pdfplumber extractor; the response carries an
+    'error' + 'hint' if it is not installed.
+
+    Args:
+        key: Item key whose PDF attachment to extract tables from.
+        library: Library — 'user' (default) or 'group:<id>'.
+    """
+    return _handle_tables(key, library=library)
 
 
 @mcp.tool()

@@ -310,6 +310,64 @@ class TestHandleReferences:
         assert "No PDF attachment" in result["error"]
 
 
+class TestHandleTables:
+    def _att(self):
+        return Attachment(
+            key="ATT1",
+            parent_key="ABC123",
+            filename="paper.pdf",
+            content_type="application/pdf",
+            path=Path("/fake/zotero/paper.pdf"),
+        )
+
+    @patch("zotero_cli_cc.mcp_server.get_extractor")
+    @patch("zotero_cli_cc.mcp_server._get_reader")
+    def test_returns_tables(self, mock_get_reader, mock_get_extractor):
+        from zotero_cli_cc.mcp_server import _handle_tables
+
+        reader = MagicMock()
+        reader.get_pdf_attachment.return_value = self._att()
+        mock_get_reader.return_value = reader
+        extractor = MagicMock()
+        extractor.extract_tables.return_value = [{"page": 1, "index": 0, "rows": [["a", "b"], ["1", "2"]]}]
+        mock_get_extractor.return_value = extractor
+
+        with patch.object(Path, "exists", return_value=True):
+            result = _handle_tables("ABC123")
+        assert result["total"] == 1
+        assert result["tables"][0]["rows"] == [["a", "b"], ["1", "2"]]
+        mock_get_extractor.assert_called_once_with("pdfplumber")
+
+    @patch("zotero_cli_cc.mcp_server.get_extractor")
+    @patch("zotero_cli_cc.mcp_server._get_reader")
+    def test_pdfplumber_missing_returns_error_with_hint(self, mock_get_reader, mock_get_extractor):
+        from zotero_cli_cc.core.pdf_extractor import PdfExtractionError
+        from zotero_cli_cc.mcp_server import _handle_tables
+
+        reader = MagicMock()
+        reader.get_pdf_attachment.return_value = self._att()
+        mock_get_reader.return_value = reader
+        extractor = MagicMock()
+        extractor.extract_tables.side_effect = PdfExtractionError("requires the optional dependency")
+        mock_get_extractor.return_value = extractor
+
+        with patch.object(Path, "exists", return_value=True):
+            result = _handle_tables("ABC123")
+        assert "error" in result
+        assert "pdfplumber" in result["hint"]
+
+    @patch("zotero_cli_cc.mcp_server._get_reader")
+    def test_no_pdf_returns_error(self, mock_get_reader):
+        from zotero_cli_cc.mcp_server import _handle_tables
+
+        reader = MagicMock()
+        reader.get_pdf_attachment.return_value = None
+        mock_get_reader.return_value = reader
+
+        result = _handle_tables("ABC123")
+        assert "No PDF attachment" in result["error"]
+
+
 class TestHandleSummarize:
     @patch("zotero_cli_cc.mcp_server._get_reader")
     def test_returns_summary(self, mock_get_reader):

@@ -93,6 +93,21 @@ class BasePdfExtractor(ABC):
             "use the 'grobid' extractor with a running GROBID service"
         )
 
+    def extract_tables(self, pdf_path: Path, pages: tuple[int, int] | None = None) -> list[dict]:
+        """Extract tables from a PDF.
+
+        Only the 'pdfplumber' extractor implements this; others raise so callers
+        can surface a clear message.
+
+        Returns:
+            List of dicts with keys: page (1-indexed), index (table # on the
+            page), rows (list[list[str]]).
+        """
+        raise PdfExtractionError(
+            f"table extraction is not supported by the '{self.name()}' extractor; "
+            "use the 'pdfplumber' extractor (pip install 'zotero-cli-cc[pdfplumber]')"
+        )
+
 
 class PyMuPdfExtractor(BasePdfExtractor):
     def __init__(self) -> None:
@@ -259,6 +274,90 @@ class PdfiumExtractor(BasePdfExtractor):
 
     def name(self) -> str:
         return "pdfium"
+
+
+# ---------------------------------------------------------------------------
+# PdfplumberExtractor - pure-Python table extraction (no ML / GPU / network)
+# ---------------------------------------------------------------------------
+
+
+def _import_pdfplumber() -> Any:
+    """Lazily import pdfplumber, an optional dependency.
+
+    Shipped as the optional ``[pdfplumber]`` extra so the core install stays
+    lean. pdfplumber is pure Python (no models, no network).
+    """
+    try:
+        import pdfplumber
+    except ImportError as e:
+        raise PdfExtractionError(
+            "The 'pdfplumber' extractor requires the optional dependency. "
+            "Install it with: pip install 'zotero-cli-cc[pdfplumber]'"
+        ) from e
+    return pdfplumber
+
+
+class PdfplumberExtractor(BasePdfExtractor):
+    """Pure-Python extractor focused on table extraction (pdfplumber).
+
+    Its strength over pymupdf/pdfium is cell-accurate ``extract_tables``. Text
+    extraction is provided for completeness but is not better than the default
+    backends. No ML models, no GPU, no network.
+    """
+
+    def extract_text(
+        self,
+        pdf_path: Path,
+        pages: tuple[int, int] | None = None,
+        progress_callback: Callable[[str, int, int, int], None] | None = None,
+    ) -> str:
+        if not pdf_path.exists():
+            raise FileNotFoundError(f"PDF not found: {pdf_path}")
+        pdfplumber = _import_pdfplumber()
+        texts: list[str] = []
+        with pdfplumber.open(str(pdf_path)) as pdf:
+            page_objs = _select_pages(pdf.pages, pages)
+            for page in page_objs:
+                texts.append(page.extract_text() or "")
+        return "\n".join(texts)
+
+    def extract_annotations(self, pdf_path: Path) -> list[dict]:
+        return []
+
+    def extract_doi(self, pdf_path: Path) -> str | None:
+        try:
+            text = self.extract_text(pdf_path, pages=(1, 2))
+        except (FileNotFoundError, OSError, PdfExtractionError):
+            return None
+        match = re.search(r"10\.\d{4,9}/[^\s]+", text)
+        if match:
+            return match.group(0).rstrip(".,;)]}>'\"")
+        return None
+
+    def extract_tables(self, pdf_path: Path, pages: tuple[int, int] | None = None) -> list[dict]:
+        if not pdf_path.exists():
+            raise FileNotFoundError(f"PDF not found: {pdf_path}")
+        pdfplumber = _import_pdfplumber()
+        out: list[dict] = []
+        with pdfplumber.open(str(pdf_path)) as pdf:
+            for page in _select_pages(pdf.pages, pages):
+                for idx, table in enumerate(page.extract_tables() or []):
+                    rows = [["" if cell is None else str(cell) for cell in row] for row in table]
+                    out.append({"page": page.page_number, "index": idx, "rows": rows})
+        return out
+
+    def name(self) -> str:
+        return "pdfplumber"
+
+
+def _select_pages(page_list: Any, pages: tuple[int, int] | None) -> Any:
+    """Slice a pdfplumber page list to a 1-indexed inclusive (start, end) range."""
+    if pages is None:
+        return page_list
+    start, end = pages
+    if start < 1:
+        raise PdfExtractionError(f"invalid start page {start}")
+    return page_list[start - 1 : end]
 
 
 # ---------------------------------------------------------------------------
@@ -839,6 +938,7 @@ class GrobidExtractor(BasePdfExtractor):
 _EXTRACTORS: dict[str, type[BasePdfExtractor]] = {
     "pdfium": PdfiumExtractor,
     "pymupdf": PyMuPdfExtractor,
+    "pdfplumber": PdfplumberExtractor,
     "mineru": MinerUExtractor,
     "grobid": GrobidExtractor,
 }

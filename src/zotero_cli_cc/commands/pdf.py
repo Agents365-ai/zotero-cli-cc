@@ -71,6 +71,11 @@ def _extract_section(markdown: str, section_num: int) -> str:
     is_flag=True,
     help="Extract the parsed reference list (requires a running GROBID service)",
 )
+@click.option(
+    "--tables",
+    is_flag=True,
+    help="Extract tables (requires the optional pdfplumber extractor)",
+)
 @click.option("--outline", is_flag=True, help="Extract and list all headings as a numbered outline")
 @click.option("--section", type=int, default=None, help="Extract content under the N-th heading from outline")
 @click.argument("key")
@@ -81,6 +86,7 @@ def pdf_cmd(
     extractor: str | None,
     annotations: bool,
     references: bool,
+    tables: bool,
     outline: bool,
     section: int | None,
     key: str,
@@ -96,6 +102,7 @@ def pdf_cmd(
       zot pdf ABC123 --outline      List all headings as numbered outline
       zot pdf ABC123 --section 3    Extract content under 3rd heading
       zot pdf ABC123 --references   Parsed reference list (needs GROBID)
+      zot pdf ABC123 --tables       Extract tables (needs pdfplumber)
       zot --json pdf ABC123         JSON output with metadata
     """
     cfg = load_config(profile=ctx.obj.get("profile"))
@@ -186,6 +193,31 @@ def pdf_cmd(
                     doi = f"  doi:{r['doi']}" if r.get("doi") else ""
                     lines.append(f"{i}. {r.get('title') or '(no title)'}" + (f" [{head}]" if head else "") + doi)
                 click.echo("\n".join(lines))
+            return
+        if tables:
+            # Tables come from the pure-Python pdfplumber backend.
+            try:
+                extracted = get_extractor("pdfplumber").extract_tables(pdf_path, pages=page_range)
+            except PdfExtractionError as e:
+                emit_error(
+                    "runtime_error",
+                    str(e),
+                    output_json=json_out,
+                    hint="Install the pdfplumber extra: pip install 'zotero-cli-cc[pdfplumber]'",
+                    context="pdf",
+                )
+            if not extracted:
+                click.echo("[]" if json_out else "No tables found.")
+                return
+            if json_out:
+                click.echo(json.dumps({"key": key, "tables": extracted}, ensure_ascii=False))
+            else:
+                blocks = []
+                for t in extracted:
+                    header = f"Table (page {t['page']}, #{t['index'] + 1})"
+                    body = "\n".join("\t".join(row) for row in t["rows"])
+                    blocks.append(f"{header}\n{body}")
+                click.echo("\n\n".join(blocks))
             return
         from zotero_cli_cc.core.pdf_cache import PdfCache
 

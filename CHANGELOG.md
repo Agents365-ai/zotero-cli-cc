@@ -20,6 +20,12 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reference list (title / authors / year / journal / DOI) over MCP, so an agent
   can verify citations without shelling out. Returns `error` + `hint` when no
   GROBID service is reachable.
+- **`pdfplumber` table extractor** (`zotero-cli-cc[pdfplumber]`): pure-Python
+  table extraction (no ML / GPU / network). Adds `extract_tables()` to the
+  extractor interface, a `zot pdf KEY --tables` flag, and a `tables` MCP tool.
+- **`pymupdf4llm` bundled into the `[pymupdf]` extra**: installing the extra now
+  also enables higher-quality local Markdown output (no API / network — the
+  `PyMuPdfExtractor` already uses it when present).
 
 ## [0.7.0] - 2026-05-29
 
