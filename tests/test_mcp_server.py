@@ -250,6 +250,66 @@ class TestHandlePdf:
             _handle_pdf("ABC123", None)
 
 
+class TestHandleReferences:
+    def _att(self):
+        return Attachment(
+            key="ATT1",
+            parent_key="ABC123",
+            filename="paper.pdf",
+            content_type="application/pdf",
+            path=Path("/fake/zotero/paper.pdf"),
+        )
+
+    @patch("zotero_cli_cc.mcp_server.get_extractor")
+    @patch("zotero_cli_cc.mcp_server._get_reader")
+    def test_returns_references(self, mock_get_reader, mock_get_extractor):
+        from zotero_cli_cc.mcp_server import _handle_references
+
+        reader = MagicMock()
+        reader.get_pdf_attachment.return_value = self._att()
+        mock_get_reader.return_value = reader
+        extractor = MagicMock()
+        extractor.extract_references.return_value = [
+            {"title": "A paper", "authors": ["J Smith"], "year": "2020", "journal": "X", "doi": "10.1/x"}
+        ]
+        mock_get_extractor.return_value = extractor
+
+        with patch.object(Path, "exists", return_value=True):
+            result = _handle_references("ABC123")
+        assert result["total"] == 1
+        assert result["references"][0]["doi"] == "10.1/x"
+        mock_get_extractor.assert_called_once_with("grobid")
+
+    @patch("zotero_cli_cc.mcp_server.get_extractor")
+    @patch("zotero_cli_cc.mcp_server._get_reader")
+    def test_grobid_unreachable_returns_error_with_hint(self, mock_get_reader, mock_get_extractor):
+        from zotero_cli_cc.core.pdf_extractor import PdfExtractionError
+        from zotero_cli_cc.mcp_server import _handle_references
+
+        reader = MagicMock()
+        reader.get_pdf_attachment.return_value = self._att()
+        mock_get_reader.return_value = reader
+        extractor = MagicMock()
+        extractor.extract_references.side_effect = PdfExtractionError("Cannot reach GROBID")
+        mock_get_extractor.return_value = extractor
+
+        with patch.object(Path, "exists", return_value=True):
+            result = _handle_references("ABC123")
+        assert "error" in result
+        assert "GROBID" in result["hint"]
+
+    @patch("zotero_cli_cc.mcp_server._get_reader")
+    def test_no_pdf_returns_error(self, mock_get_reader):
+        from zotero_cli_cc.mcp_server import _handle_references
+
+        reader = MagicMock()
+        reader.get_pdf_attachment.return_value = None
+        mock_get_reader.return_value = reader
+
+        result = _handle_references("ABC123")
+        assert "No PDF attachment" in result["error"]
+
+
 class TestHandleSummarize:
     @patch("zotero_cli_cc.mcp_server._get_reader")
     def test_returns_summary(self, mock_get_reader):

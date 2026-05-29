@@ -237,6 +237,26 @@ def _handle_annotations(key: str, library: str = "user") -> dict:
     return {"key": key, "annotations": annots, "total": len(annots)}
 
 
+def _handle_references(key: str, library: str = "user") -> dict:
+    reader = _get_reader(library)
+    att = reader.get_pdf_attachment(key)
+    if att is None:
+        return {"error": f"No PDF attachment found for '{key}'"}
+    pdf_path = att.path
+    if not pdf_path or not pdf_path.exists():
+        return {"error": f"PDF file not found at {pdf_path or att.filename}"}
+    try:
+        refs = get_extractor("grobid").extract_references(pdf_path)
+    except PdfExtractionError as e:
+        return {
+            "error": str(e),
+            "context": "references",
+            "hint": "Reference parsing needs a running GROBID service "
+            "(default http://localhost:8070; set pdf.grobid_url or ZOT_GROBID_URL)",
+        }
+    return {"key": key, "references": refs, "total": len(refs)}
+
+
 def _handle_summarize(key: str, library: str = "user") -> dict:
     reader = _get_reader(library)
     item = reader.get_item(key)
@@ -1227,6 +1247,22 @@ def annotations(key: str, library: str = "user") -> dict:
         library: Library — 'user' (default) or 'group:<id>'.
     """
     return _handle_annotations(key, library=library)
+
+
+@mcp.tool()
+def references(key: str, library: str = "user") -> dict:
+    """Extract the parsed reference list (bibliography) from a PDF attachment.
+
+    Returns each reference's title, authors, year, journal, and DOI. Requires a
+    running GROBID service (configured via pdf.grobid_url / ZOT_GROBID_URL); the
+    response carries an 'error' + 'hint' if it is unreachable. Useful for
+    citation verification and detecting fabricated references.
+
+    Args:
+        key: Item key whose PDF attachment to parse references from.
+        library: Library — 'user' (default) or 'group:<id>'.
+    """
+    return _handle_references(key, library=library)
 
 
 @mcp.tool()

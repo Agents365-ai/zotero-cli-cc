@@ -16,6 +16,10 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reference list (title / authors / year / journal / DOI). Lighter than the
   vision-model extractors; intended for citation verification and metadata
   completion. GROBID is not bundled — the user runs the service.
+- **`references` MCP tool** in `zot mcp serve`: exposes the GROBID-parsed
+  reference list (title / authors / year / journal / DOI) over MCP, so an agent
+  can verify citations without shelling out. Returns `error` + `hint` when no
+  GROBID service is reachable.
 
 ## [0.7.0] - 2026-05-29
 
