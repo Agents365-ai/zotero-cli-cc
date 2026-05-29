@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **GROBID extractor** (`pdf.extractor = "grobid"` / `ZOT_GROBID_URL`): a
+  references/structure tier backed by a running GROBID service (default
+  `http://localhost:8070`). Adds `extract_references()` to the extractor
+  interface and a `zot pdf KEY --references` flag that returns the parsed
+  reference list (title / authors / year / journal / DOI). Lighter than the
+  vision-model extractors; intended for citation verification and metadata
+  completion. GROBID is not bundled — the user runs the service.
+
 ## [0.7.0] - 2026-05-29
 
 ### Added

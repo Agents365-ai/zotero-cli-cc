@@ -66,6 +66,11 @@ def _extract_section(markdown: str, section_num: int) -> str:
 @click.option("--pages", default=None, help="Page range, e.g. '1-5'")
 @click.option("--extractor", default=None, help="PDF extractor to use (mineru, pymupdf). Defaults to auto-detect.")
 @click.option("--annotations", is_flag=True, help="Extract annotations (highlights, notes) instead of text")
+@click.option(
+    "--references",
+    is_flag=True,
+    help="Extract the parsed reference list (requires a running GROBID service)",
+)
 @click.option("--outline", is_flag=True, help="Extract and list all headings as a numbered outline")
 @click.option("--section", type=int, default=None, help="Extract content under the N-th heading from outline")
 @click.argument("key")
@@ -75,6 +80,7 @@ def pdf_cmd(
     pages: str | None,
     extractor: str | None,
     annotations: bool,
+    references: bool,
     outline: bool,
     section: int | None,
     key: str,
@@ -89,6 +95,7 @@ def pdf_cmd(
       zot pdf ABC123 --pages 1-5    Extract pages 1-5
       zot pdf ABC123 --outline      List all headings as numbered outline
       zot pdf ABC123 --section 3    Extract content under 3rd heading
+      zot pdf ABC123 --references   Parsed reference list (needs GROBID)
       zot --json pdf ABC123         JSON output with metadata
     """
     cfg = load_config(profile=ctx.obj.get("profile"))
@@ -152,6 +159,33 @@ def pdf_cmd(
                     click.echo("No annotations found.")
                 return
             click.echo(format_pdf_annotations(annots, output_json=json_out))
+            return
+        if references:
+            # References are a structure tier; only the grobid backend supports them.
+            try:
+                refs = get_extractor("grobid").extract_references(pdf_path)
+            except PdfExtractionError as e:
+                emit_error(
+                    "runtime_error",
+                    str(e),
+                    output_json=json_out,
+                    hint="Reference parsing needs a running GROBID service "
+                    "(default http://localhost:8070; set pdf.grobid_url or ZOT_GROBID_URL)",
+                    context="pdf",
+                )
+            if not refs:
+                click.echo("[]" if json_out else "No references found.")
+                return
+            if json_out:
+                click.echo(json.dumps({"key": key, "references": refs}, ensure_ascii=False))
+            else:
+                lines = []
+                for i, r in enumerate(refs, 1):
+                    authors = ", ".join(r["authors"][:3]) + (" et al." if len(r["authors"]) > 3 else "")
+                    head = " — ".join(p for p in (authors or None, r.get("year") or None) if p)
+                    doi = f"  doi:{r['doi']}" if r.get("doi") else ""
+                    lines.append(f"{i}. {r.get('title') or '(no title)'}" + (f" [{head}]" if head else "") + doi)
+                click.echo("\n".join(lines))
             return
         from zotero_cli_cc.core.pdf_cache import PdfCache
 

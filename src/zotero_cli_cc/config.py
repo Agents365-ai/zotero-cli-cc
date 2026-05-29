@@ -140,6 +140,7 @@ def load_embedding_config(path: Path | None = None, *, apply_env_overrides: obje
 class PdfConfig:
     extractor: str = "pdfium"
     mineru_token: str = ""
+    grobid_url: str = "http://localhost:8070"
 
 
 def load_pdf_config(path: Path | None = None) -> PdfConfig:
@@ -152,9 +153,11 @@ def load_pdf_config(path: Path | None = None) -> PdfConfig:
         defaults = PdfConfig(
             extractor=pdf.get("extractor", defaults.extractor),
             mineru_token=pdf.get("mineru_token", defaults.mineru_token),
+            grobid_url=pdf.get("grobid_url", defaults.grobid_url),
         )
     defaults.extractor = os.environ.get("ZOT_PDF_EXTRACTOR", defaults.extractor)
     defaults.mineru_token = os.environ.get("MINERU_TOKEN", defaults.mineru_token)
+    defaults.grobid_url = os.environ.get("ZOT_GROBID_URL", defaults.grobid_url)
     return defaults
 
 

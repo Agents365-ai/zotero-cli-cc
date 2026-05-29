@@ -6,6 +6,7 @@ import re
 import sys
 import time
 import warnings
+import xml.etree.ElementTree as ET
 import zipfile
 from abc import ABC, abstractmethod
 from collections import deque
@@ -76,6 +77,21 @@ class BasePdfExtractor(ABC):
     def name(self) -> str:
         """Return the extractor name (e.g. 'pymupdf')."""
         ...
+
+    def extract_references(self, pdf_path: Path) -> list[dict]:
+        """Extract parsed bibliographic references from a PDF.
+
+        Only the 'grobid' extractor implements this; others raise so callers can
+        surface a clear message (reference parsing is a structure tier, not plain
+        text extraction).
+
+        Returns:
+            List of dicts with keys: title, authors (list[str]), year, journal, doi.
+        """
+        raise PdfExtractionError(
+            f"reference extraction is not supported by the '{self.name()}' extractor; "
+            "use the 'grobid' extractor with a running GROBID service"
+        )
 
 
 class PyMuPdfExtractor(BasePdfExtractor):
@@ -669,6 +685,153 @@ def _clean_markdown_images(text: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# GrobidExtractor - references/structure tier via a running GROBID service
+# ---------------------------------------------------------------------------
+
+_TEI_NS = {"tei": "http://www.tei-c.org/ns/1.0"}
+
+
+def _tei_text(el: Any) -> str:
+    """Collapsed text content of a TEI element (empty string for None)."""
+    if el is None:
+        return ""
+    return " ".join("".join(el.itertext()).split())
+
+
+def _parse_tei_references(xml_text: str) -> list[dict]:
+    """Parse GROBID processReferences TEI XML into reference dicts.
+
+    Pure function (no network) so it is unit-testable against fixture XML.
+    """
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError as e:
+        raise PdfExtractionError(f"GROBID returned unparseable TEI: {e}") from e
+    refs: list[dict] = []
+    for bibl in root.iterfind(".//tei:biblStruct", _TEI_NS):
+        analytic_title = bibl.find(".//tei:analytic/tei:title", _TEI_NS)
+        title_el = analytic_title if analytic_title is not None else bibl.find(".//tei:title", _TEI_NS)
+        authors: list[str] = []
+        for pers in bibl.iterfind(".//tei:author/tei:persName", _TEI_NS):
+            forename = _tei_text(pers.find("tei:forename", _TEI_NS))
+            surname = _tei_text(pers.find("tei:surname", _TEI_NS))
+            full = " ".join(p for p in (forename, surname) if p)
+            if full:
+                authors.append(full)
+        year = ""
+        date_el = bibl.find(".//tei:date", _TEI_NS)
+        if date_el is not None:
+            m = re.search(r"\d{4}", date_el.get("when") or _tei_text(date_el))
+            if m:
+                year = m.group(0)
+        doi = ""
+        for idno in bibl.iterfind(".//tei:idno", _TEI_NS):
+            if (idno.get("type") or "").upper() == "DOI":
+                doi = _tei_text(idno)
+                break
+        refs.append(
+            {
+                "title": _tei_text(title_el),
+                "authors": authors,
+                "year": year,
+                "journal": _tei_text(bibl.find(".//tei:title[@level='j']", _TEI_NS)),
+                "doi": doi,
+            }
+        )
+    return refs
+
+
+def _parse_tei_header_doi(xml_text: str) -> str | None:
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return None
+    for idno in root.iterfind(".//tei:idno", _TEI_NS):
+        if (idno.get("type") or "").upper() == "DOI":
+            text = _tei_text(idno)
+            if text:
+                return text
+    return None
+
+
+def _parse_tei_fulltext(xml_text: str) -> str:
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError as e:
+        raise PdfExtractionError(f"GROBID returned unparseable TEI: {e}") from e
+    body = root.find(".//tei:text/tei:body", _TEI_NS)
+    if body is None:
+        return ""
+    parts: list[str] = []
+    for el in body.iter():
+        if el.tag.split("}")[-1] in ("head", "p"):
+            text = _tei_text(el)
+            if text:
+                parts.append(text)
+    return "\n\n".join(parts)
+
+
+class GrobidExtractor(BasePdfExtractor):
+    """References/structure tier backed by a running GROBID service.
+
+    GROBID (https://github.com/kermitt2/grobid) parses scholarly PDFs into TEI
+    XML: header metadata, section structure, and a parsed reference list. It is
+    much lighter than the vision-model extractors and is the right backend for
+    citation verification and metadata completion. Requires a running GROBID
+    service (default http://localhost:8070); zot does not bundle it.
+    """
+
+    def __init__(self, base_url: str = "http://localhost:8070") -> None:
+        self._base_url = base_url.rstrip("/")
+        self._session = Session()
+
+    def name(self) -> str:
+        return "grobid"
+
+    def _post(self, endpoint: str, pdf_path: Path) -> str:
+        if not pdf_path.exists():
+            raise FileNotFoundError(f"PDF not found: {pdf_path}")
+        url = f"{self._base_url}/api/{endpoint}"
+        try:
+            with open(pdf_path, "rb") as f:
+                resp = self._session.post(
+                    url,
+                    files={"input": (pdf_path.name, f, "application/pdf")},
+                    timeout=300,
+                )
+        except Exception as e:
+            raise PdfExtractionError(
+                f"Cannot reach GROBID at {self._base_url}: {e}. "
+                "Start a GROBID service or set pdf.grobid_url / ZOT_GROBID_URL."
+            ) from e
+        if resp.status_code != 200:
+            raise PdfExtractionError(f"GROBID {endpoint} failed: {resp.status_code} {resp.text[:200]}")
+        return str(resp.text)
+
+    def extract_text(
+        self,
+        pdf_path: Path,
+        pages: tuple[int, int] | None = None,
+        progress_callback: Callable[[str, int, int, int], None] | None = None,
+    ) -> str:
+        if pages is not None:
+            raise PdfExtractionError("the 'grobid' extractor does not support page ranges")
+        return _parse_tei_fulltext(self._post("processFulltextDocument", pdf_path))
+
+    def extract_annotations(self, pdf_path: Path) -> list[dict]:
+        return []
+
+    def extract_doi(self, pdf_path: Path) -> str | None:
+        try:
+            return _parse_tei_header_doi(self._post("processHeaderDocument", pdf_path))
+        except (FileNotFoundError, PdfExtractionError):
+            return None
+
+    def extract_references(self, pdf_path: Path) -> list[dict]:
+        return _parse_tei_references(self._post("processReferences", pdf_path))
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -677,6 +840,7 @@ _EXTRACTORS: dict[str, type[BasePdfExtractor]] = {
     "pdfium": PdfiumExtractor,
     "pymupdf": PyMuPdfExtractor,
     "mineru": MinerUExtractor,
+    "grobid": GrobidExtractor,
 }
 
 
@@ -703,6 +867,11 @@ def get_extractor(name: str | None = None) -> BasePdfExtractor:
 
         cfg = load_pdf_config()
         return extractor_cls(cfg.mineru_token)  # type: ignore[call-arg]
+    if name == "grobid":
+        from zotero_cli_cc.config import load_pdf_config
+
+        cfg = load_pdf_config()
+        return extractor_cls(cfg.grobid_url)  # type: ignore[call-arg]
     return extractor_cls()
 
 
