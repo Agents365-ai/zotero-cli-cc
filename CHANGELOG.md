@@ -7,8 +7,23 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-03
+
 ### Added
 
+- **`zot orphans`** — find and clean attachments whose stored file is missing
+  from local `storage/` (Zotero's "the attached file could not be found").
+  `orphans list` classifies each as `dead` (no copy anywhere — safe to remove),
+  `recoverable` (server still has it — fix by file-sync), or `unknown`;
+  `orphans clean` deletes the dead ones via the Web API (`--dry-run` / `--yes` /
+  `--idempotency-key`; `--include-recoverable` to also drop server-held ones).
+  Mirrored as the read-only `find_orphans` MCP tool.
+- **`zot attach --via-bridge`** — import a file through the running Zotero
+  desktop (the `zot-cli-bridge` plugin's new `POST /zot-cli/import-file`
+  endpoint → `Zotero.Attachments.importFromFile`) so the binary lands in local
+  storage immediately instead of cloud-only, cooperating with attachment movers
+  like zotero-attanger. Bridge plugin bumped to **v0.3.0**; also exposed as
+  `attach(via_bridge=True)` over MCP.
 - **GROBID extractor** (`pdf.extractor = "grobid"` / `ZOT_GROBID_URL`): a
   references/structure tier backed by a running GROBID service (default
   `http://localhost:8070`). Adds `extract_references()` to the extractor
@@ -28,6 +43,17 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`pymupdf4llm` bundled into the `[pymupdf]` extra**: installing the extra now
   also enables higher-quality local Markdown output (no API / network — the
   `PyMuPdfExtractor` already uses it when present).
+
+### Changed
+
+- **License**: relicensed from CC-BY-NC-4.0 to a dual license —
+  **AGPL-3.0-or-later** for open-source use plus a separate **commercial
+  license** (see `LICENSE` / `LICENSE-COMMERCIAL`). The base install ships no
+  AGPL runtime code (default `pdfium` extractor; `pymupdf` is opt-in).
+- **`zot attach`** now reports where the file landed via `data.stored`
+  (`"cloud"` for the default Web-API upload, `"local"` for `--via-bridge`), and
+  warns that a cloud upload only reaches local `storage/` after a desktop
+  file-sync. `schema_version` 1.6.0 → 1.7.0.
 
 ## [0.7.0] - 2026-05-29
 
