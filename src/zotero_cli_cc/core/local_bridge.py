@@ -234,6 +234,84 @@ def rename_attachment(
     return _parse_json(resp)
 
 
+IMPORT_TIMEOUT = 120.0
+
+
+def import_file(
+    parent_key: str,
+    path: str,
+    *,
+    library_id: int | None = None,
+    title: str | None = None,
+    timeout: float = IMPORT_TIMEOUT,
+) -> dict[str, Any]:
+    """Import a local file as an attachment via the bridge's `importFromFile`.
+
+    Unlike the Web-API upload path (`writer.upload_attachment`), this asks the
+    running desktop to copy the file straight into its local storage, so the
+    binary exists on disk immediately, cooperates with attachment-moving
+    plugins (e.g. zotero-attanger), and syncs *up* to zotero.org afterwards.
+    `path` must be an absolute path the desktop process can read (the CLI and
+    Zotero share the machine).
+
+    Returns a dict with `imported`, `attachment_key`, `parent_key`, `filename`,
+    `content_type`.
+
+    Raises:
+        LocalBridgeError. `bridge_missing` means the endpoint isn't registered
+        (the installed plugin predates import — re-run `zot bridge install`,
+        needs v0.3.0+); `not_found` means the parent item or the file is gone.
+    """
+    payload: dict[str, Any] = {"parentKey": parent_key, "path": path}
+    if library_id is not None:
+        payload["libraryID"] = library_id
+    if title is not None:
+        payload["title"] = title
+    try:
+        resp = httpx.post(
+            f"{LOCAL_BASE}/zot-cli/import-file",
+            json=payload,
+            timeout=timeout,
+            headers={"User-Agent": _user_agent()},
+            trust_env=_TRUST_ENV,
+        )
+    except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+        raise LocalBridgeError(
+            f"Cannot reach Zotero at {LOCAL_BASE} — is the desktop app running?",
+            code="not_reachable",
+            retryable=True,
+        ) from e
+    except httpx.HTTPError as e:
+        raise LocalBridgeError(f"Bridge request failed: {e}", code="network_error", retryable=True) from e
+
+    if resp.status_code == 404:
+        # Disambiguate "endpoint missing" (old plugin) from "parent/file gone".
+        body = _parse_json_or_none(resp)
+        if body and body.get("error"):
+            raise LocalBridgeError(str(body["error"]), code="not_found", retryable=False)
+        raise LocalBridgeError(
+            "The /zot-cli/import-file endpoint is missing — update the bridge plugin with 'zot bridge install'.",
+            code="bridge_missing",
+            retryable=False,
+        )
+    if resp.status_code == 400:
+        body = _parse_json_or_none(resp) or {}
+        raise LocalBridgeError(
+            f"Bridge rejected request: {body.get('error', resp.text)}",
+            code="validation_error",
+            retryable=False,
+        )
+    if resp.status_code >= 500:
+        raise LocalBridgeError(f"Bridge returned HTTP {resp.status_code}", code="bridge_error", retryable=True)
+    if resp.status_code != 200:
+        raise LocalBridgeError(
+            f"Bridge returned HTTP {resp.status_code}: {resp.text}",
+            code="bridge_error",
+            retryable=False,
+        )
+    return _parse_json(resp)
+
+
 def _parse_json(resp: httpx.Response) -> dict[str, Any]:
     try:
         data = resp.json()
