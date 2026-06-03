@@ -55,6 +55,22 @@ zot attach ITEMKEY --file supplement.pdf --via-bridge   # store in LOCAL storage
 > shows as "could not be found", use `--via-bridge` to import through the running
 > desktop so the binary lands in local storage immediately.
 
+#### Cleaning up orphaned attachments
+
+When attachments show "the attached file could not be found" (file missing from
+local `storage/`), scan and clean them:
+
+```bash
+zot orphans list                       # classify: dead / recoverable / unknown
+zot orphans list --dead-only           # only ones with no copy anywhere
+zot orphans clean --dry-run            # preview (targets 'dead' only by default)
+zot orphans clean --yes                # delete dead orphans via the Web API
+```
+
+`recoverable` orphans still have a server copy — run a Zotero file-sync to pull
+them down rather than deleting. `clean --include-recoverable` also deletes those
+(discards the cloud copy too), so use it with care.
+
 ### Safety Flags
 
 ```bash

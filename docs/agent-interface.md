@@ -181,7 +181,7 @@ Commands are grouped by risk in `zot --help`:
 
 - **Read** — `search`, `list`, `read`, `export`, `recent`, `stats`, `cite`, `pdf`, `collection list`, `tag list`, ...
 - **Write (MUTATES LIBRARY)** — `add`, `update`, `note`, `attach`, `find-pdf`, `rename`, `enrich`, `bridge` (mutates local config, not the library)
-- **Destructive (MUTATES LIBRARY)** — `delete`, `update-status`
+- **Destructive (MUTATES LIBRARY)** — `delete`, `update-status`, `orphans` (its `clean` subcommand deletes attachment records)
 
 Each write or destructive command's `--help` carries a `MUTATES LIBRARY` marker. The same classification is available via `zot schema <cmd>.safety_tier`.
 
@@ -332,6 +332,32 @@ import through the running desktop via `POST /zot-cli/import-file` →
 storage (`data.stored: "local"`) and syncs *up* afterwards. `--via-bridge`
 requires the bridge plugin **v0.3.0+** and uses the same reachability codes as
 `find-pdf`/`rename` (`not_reachable` (5), `bridge_missing` (3)).
+
+## Orphaned attachments (`zot orphans`)
+
+The flip side of the cloud-vs-local split: a storage-backed attachment whose
+file is missing from the local `storage/` folder (Zotero shows "the attached
+file could not be found"). `zot orphans list` scans for them (read-only) and
+classifies each:
+
+- `dead` — no copy anywhere (no server hash, not pending download). Safe to remove.
+- `recoverable` — the server still has it (pending download / has a storage hash). Fix by running a Zotero file-sync, **not** by deleting.
+- `unknown` — sync-state columns unavailable (e.g. a minimal database).
+
+```bash
+zot orphans list                       # all missing-file attachments, classified
+zot orphans list --dead-only           # only the truly dead ones
+zot orphans clean --dry-run            # preview deletions (dead only by default)
+zot orphans clean --yes                # delete dead orphans via the Web API
+zot orphans clean --include-recoverable --yes   # also delete server-held ones (discards the cloud copy)
+```
+
+`clean` deletes through the Web API (same path as `zot delete`), so records that
+were never synced to the server come back `not_found` — remove those from the
+Zotero desktop. It honors `--dry-run`, `--yes` / `--no-interaction`, and
+`--idempotency-key`, and reports partial success via the standard
+`envelope_partial` shape. The read scan is also exposed to agents as the MCP
+`find_orphans` tool.
 
 ## Journal metrics (`zot enrich`)
 

@@ -76,6 +76,7 @@ _SAFETY_TIER: dict[str, str] = {
     # destructive
     "delete": "destructive",
     "update-status": "destructive",
+    "orphans": "destructive",
 }
 
 

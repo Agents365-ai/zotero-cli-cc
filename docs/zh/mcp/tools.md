@@ -19,6 +19,7 @@
 | `recent` | 最近添加/修改的条目 | `days?`, `modified?`, `limit?` |
 | `note_view` | 查看条目笔记 | `key` |
 | `tag_view` | 查看条目标签 | `key` |
+| `find_orphans` | 查找本地缺失文件的附件 | `dead_only?` |
 | `collection_list` | 列出所有集合 | — |
 | `collection_items` | 集合中的条目 | `collection_key` |
 | `duplicates` | 查找重复 | `strategy?`, `threshold?`, `limit?` |
@@ -33,7 +34,7 @@
 | `add_from_pdf` | 从本地 PDF 添加 | `file_path`, `doi_override?` |
 | `delete` | 删除条目（移入回收站） | `keys` |
 | `update` | 更新元数据 | `key`, `title?`, `date?`, `fields?` |
-| `attach` | 上传附件 | `parent_key`, `file_path` |
+| `attach` | 上传附件 | `parent_key`, `file_path`, `via_bridge?` |
 | `note_add` | 添加笔记 | `key`, `content` |
 | `note_update` | 更新笔记 | `note_key`, `content` |
 | `tag_add` | 添加标签 | `keys`, `tags` |
