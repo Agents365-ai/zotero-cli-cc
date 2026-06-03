@@ -24,6 +24,7 @@ from zotero_cli_cc.commands.list_cmd import list_cmd
 from zotero_cli_cc.commands.mcp import mcp_group
 from zotero_cli_cc.commands.note import note_cmd
 from zotero_cli_cc.commands.open_cmd import open_cmd
+from zotero_cli_cc.commands.orphans import orphans_group
 from zotero_cli_cc.commands.pdf import pdf_cmd
 from zotero_cli_cc.commands.read import read_cmd
 from zotero_cli_cc.commands.recent import recent_cmd
@@ -69,7 +70,7 @@ _READ_COMMANDS = {
     "trash",
 }
 _WRITE_COMMANDS = {"add", "update", "note", "attach", "find-pdf", "bridge", "rename", "enrich"}
-_DESTRUCTIVE_COMMANDS = {"delete", "update-status"}
+_DESTRUCTIVE_COMMANDS = {"delete", "update-status", "orphans"}
 
 
 def _hoist_global_flags(args: list[str]) -> list[str]:
@@ -303,6 +304,7 @@ main.add_command(find_pdf_cmd, "find-pdf")
 main.add_command(rename_cmd, "rename")
 main.add_command(enrich_cmd, "enrich")
 main.add_command(bridge_group, "bridge")
+main.add_command(orphans_group, "orphans")
 main.add_command(update_status_cmd, "update-status")
 main.add_command(workspace_group, "workspace")
 main.add_command(ask_cmd, "ask")

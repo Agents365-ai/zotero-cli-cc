@@ -343,6 +343,19 @@ def _handle_recent(days: int, modified: bool, limit: int, library: str = "user")
     return {"items": [_item_to_dict(i) for i in items], "total": len(items)}
 
 
+def _handle_find_orphans(dead_only: bool = False, library: str = "user") -> dict:
+    import dataclasses
+
+    reader = _get_reader(library)
+    orphans = reader.find_orphan_attachments()
+    if dead_only:
+        orphans = [o for o in orphans if o.classification == "dead"]
+    counts = {"dead": 0, "recoverable": 0, "unknown": 0}
+    for o in orphans:
+        counts[o.classification] = counts.get(o.classification, 0) + 1
+    return {"orphans": [dataclasses.asdict(o) for o in orphans], "total": len(orphans), "counts": counts}
+
+
 def _handle_note_view(key: str, library: str = "user") -> dict:
     reader = _get_reader(library)
     notes = reader.get_notes(key)
@@ -1631,6 +1644,23 @@ def attach(parent_key: str, file_path: str, library: str = "user", via_bridge: b
         via_bridge: Import through the local Zotero desktop instead of the Web API.
     """
     return _handle_attach(parent_key, file_path, library=library, via_bridge=via_bridge)
+
+
+@mcp.tool()
+def find_orphans(dead_only: bool = False, library: str = "user") -> dict:
+    """Find storage-backed attachments whose file is missing from local storage.
+
+    These show "the attached file could not be found" in Zotero — usually a
+    Web-API upload that landed the file in cloud storage only. Each is
+    classified: 'dead' (no copy anywhere — safe to delete with the `delete`
+    tool), 'recoverable' (server still has it — run a Zotero file-sync), or
+    'unknown'. Read-only; pair with `delete` to clean up the dead ones.
+
+    Args:
+        dead_only: Only return 'dead' orphans (no copy anywhere).
+        library: Library — 'user' (default) or 'group:<id>'.
+    """
+    return _handle_find_orphans(dead_only=dead_only, library=library)
 
 
 @mcp.tool()

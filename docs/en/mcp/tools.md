@@ -19,6 +19,7 @@
 | `recent` | Recently added/modified | `days?`, `modified?`, `limit?` |
 | `note_view` | View item notes | `key` |
 | `tag_view` | View item tags | `key` |
+| `find_orphans` | Find attachments whose file is missing locally | `dead_only?` |
 | `collection_list` | List all collections | — |
 | `collection_items` | Items in a collection | `collection_key` |
 | `duplicates` | Find duplicates | `strategy?`, `threshold?`, `limit?` |
@@ -33,7 +34,7 @@
 | `add_from_pdf` | Add from local PDF | `file_path`, `doi_override?` |
 | `delete` | Delete items (trash) | `keys` |
 | `update` | Update metadata | `key`, `title?`, `date?`, `fields?` |
-| `attach` | Upload file attachment | `parent_key`, `file_path` |
+| `attach` | Upload file attachment | `parent_key`, `file_path`, `via_bridge?` |
 | `note_add` | Add note to item | `key`, `content` |
 | `note_update` | Update existing note | `note_key`, `content` |
 | `tag_add` | Add tags to items | `keys`, `tags` |

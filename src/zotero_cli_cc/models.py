@@ -60,6 +60,25 @@ class Attachment:
 
 
 @dataclass
+class OrphanAttachment:
+    """A storage-backed attachment whose file is missing from local storage.
+
+    classification:
+      - 'dead': no copy anywhere (no server hash, not pending download) — safe to remove.
+      - 'recoverable': a server copy exists (pending download / has storage hash) — fix by syncing.
+      - 'unknown': sync state columns unavailable (e.g. a minimal/test database).
+    """
+
+    attachment_key: str
+    filename: str
+    content_type: str
+    classification: str
+    expected_path: str | None = None
+    parent_key: str | None = None
+    parent_title: str | None = None
+
+
+@dataclass
 class ErrorInfo:
     message: str
     context: str = ""

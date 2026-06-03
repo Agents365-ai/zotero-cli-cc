@@ -16,8 +16,13 @@ from zotero_cli_cc.models import (
     DuplicateGroup,
     Item,
     Note,
+    OrphanAttachment,
     SearchResult,
 )
+
+# Zotero file sync states that mean "the server still has a copy to pull down".
+_SYNC_STATE_TO_DOWNLOAD = 1
+_SYNC_STATE_FORCE_DOWNLOAD = 4
 
 # Excluded type names (looked up dynamically per database)
 _EXCLUDED_TYPE_NAMES = ("attachment", "note", "annotation")
@@ -612,6 +617,65 @@ class ZoteroReader:
                 continue
             return att
         return None
+
+    def find_orphan_attachments(self) -> list[OrphanAttachment]:
+        """Find storage-backed attachments whose file is missing from local storage.
+
+        These are the records that make Zotero show "the attached file could not
+        be found" — typically created by a Web-API upload that landed the file
+        in cloud storage only. Each is classified (see `OrphanAttachment`) so a
+        caller can safely delete the truly dead ones while leaving merely
+        not-yet-downloaded files alone.
+        """
+        conn = self._connect()
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(itemAttachments)")}
+        has_sync = "syncState" in cols
+        has_hash = "storageHash" in cols
+        extra = (", ia.syncState" if has_sync else "") + (", ia.storageHash" if has_hash else "")
+        rows = conn.execute(
+            "SELECT i.key, ia.parentItemID, ia.contentType, ia.path" + extra + " "
+            "FROM itemAttachments ia JOIN items i ON ia.itemID = i.itemID "
+            "WHERE ia.path LIKE 'storage:%' "
+            "ORDER BY i.itemID"
+        ).fetchall()
+
+        orphans: list[OrphanAttachment] = []
+        for r in rows:
+            raw_path = r["path"] or ""
+            resolved = self._resolver.resolve(r["key"], raw_path)
+            if resolved and resolved.exists():
+                continue  # file is present locally — not an orphan
+
+            sync_state = r["syncState"] if has_sync else None
+            storage_hash = r["storageHash"] if has_hash else None
+            if not has_sync and not has_hash:
+                classification = "unknown"
+            elif storage_hash or sync_state in (_SYNC_STATE_TO_DOWNLOAD, _SYNC_STATE_FORCE_DOWNLOAD):
+                classification = "recoverable"
+            else:
+                classification = "dead"
+
+            parent_key = None
+            parent_title = None
+            if r["parentItemID"] is not None:
+                prow = conn.execute("SELECT key FROM items WHERE itemID = ?", (r["parentItemID"],)).fetchone()
+                if prow:
+                    parent_key = prow["key"]
+                    parent_item = self.get_item(parent_key)
+                    parent_title = parent_item.title if parent_item else None
+
+            orphans.append(
+                OrphanAttachment(
+                    attachment_key=r["key"],
+                    filename=raw_path.replace("storage:", "").split("/")[-1] if raw_path else "",
+                    content_type=r["contentType"] or "",
+                    classification=classification,
+                    expected_path=str(resolved) if resolved else None,
+                    parent_key=parent_key,
+                    parent_title=parent_title,
+                )
+            )
+        return orphans
 
     def get_arxiv_preprints(
         self,
