@@ -45,7 +45,15 @@ zot --no-interaction delete ITEMKEY
 zot update ITEMKEY --title "New Title"
 zot update ITEMKEY --field volume=42 --field pages=1-10
 zot attach ITEMKEY --file supplement.pdf
+zot attach ITEMKEY --file supplement.pdf --via-bridge   # store in LOCAL storage (needs Zotero desktop + bridge)
 ```
+
+> **`zot attach` storage note.** The default path uploads via the Web API into
+> zotero.org **cloud** storage — the file only appears in your local `storage/`
+> after the desktop runs a file-sync (and "Sync attachment files" is enabled).
+> If you keep files locally (or use a mover like zotero-attanger) and the file
+> shows as "could not be found", use `--via-bridge` to import through the running
+> desktop so the binary lands in local storage immediately.
 
 ### Safety Flags
 

@@ -319,6 +319,20 @@ The envelope's `data.results[]` carries a per-attachment `status`
 bridge or stopped desktop aborts the whole command with `bridge_missing` (3) /
 `not_reachable` (5).
 
+## Attaching files (`zot attach`)
+
+`zot attach KEY --file paper.pdf` uploads via the Web API, which stores the
+file in **zotero.org cloud storage** (`data.stored: "cloud"`). The binary only
+appears in the local `storage/` folder after the desktop runs a *file* sync
+("Sync attachment files" enabled) — until then the desktop shows "the attached
+file could not be found". For local-first setups (and movers like
+zotero-attanger, which relocate attachments on import), pass `--via-bridge` to
+import through the running desktop via `POST /zot-cli/import-file` →
+`Zotero.Attachments.importFromFile(...)`. That writes straight into local
+storage (`data.stored: "local"`) and syncs *up* afterwards. `--via-bridge`
+requires the bridge plugin **v0.3.0+** and uses the same reachability codes as
+`find-pdf`/`rename` (`not_reachable` (5), `bridge_missing` (3)).
+
 ## Journal metrics (`zot enrich`)
 
 `zot enrich` writes journal metrics (impact factor, JCR/CAS quartile, core-journal

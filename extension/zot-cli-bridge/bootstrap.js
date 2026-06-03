@@ -11,18 +11,27 @@
  *   POST /zot-cli/rename        — body {"attachmentKey","newName","libraryID"?,"force"?}
  *                                  renames the attachment's stored file via
  *                                  renameAttachmentFile and syncs its title
+ *   POST /zot-cli/import-file   — body {"parentKey","path","libraryID"?,"title"?}
+ *                                  imports a local file as an attachment via
+ *                                  Zotero.Attachments.importFromFile so the
+ *                                  binary lands in local storage immediately
  *
  * The whole point of going through Zotero (rather than fetching the PDF
  * directly from Python) is that Zotero's "Find Full Text" reuses the user's
  * configured PDF resolvers AND the authenticated sessions / proxies they've
- * set up in the desktop app, which Web-API access cannot do.
+ * set up in the desktop app, which Web-API access cannot do. import-file
+ * exists for the same reason in reverse: a Web-API upload only lands the file
+ * in zotero.org cloud storage, so it never appears in local storage/ until a
+ * file-sync pulls it back down — and that race breaks plugins that move
+ * attachments on import (e.g. zotero-attanger). Importing through the desktop
+ * writes straight to local storage and syncs *up*.
  *
  * License: CC-BY-NC-4.0 (matches the parent zotero-cli-cc repo).
  */
 
 /* global Zotero, ChromeUtils */
 
-const PLUGIN_VERSION = "0.2.0";
+const PLUGIN_VERSION = "0.3.0";
 
 function buildEndpoint(handler, { methods = ["GET"], dataTypes = ["application/json"] } = {}) {
   const Endpoint = function () {};
@@ -230,6 +239,98 @@ async function handleRename(options) {
   ];
 }
 
+async function handleImportFile(options) {
+  // Body: {"parentKey": "...", "path": "/abs/file.pdf", "libraryID"?, "title"?}
+  let parentKey = null;
+  let path = null;
+  let libraryID = null;
+  let title = null;
+  if (options.data && typeof options.data === "object") {
+    parentKey = options.data.parentKey || null;
+    path = options.data.path || null;
+    libraryID = options.data.libraryID || null;
+    title = options.data.title || null;
+  }
+  if (!parentKey || !path) {
+    return [400, "application/json", JSON.stringify({ ok: false, error: "missing 'parentKey' or 'path'" })];
+  }
+  libraryID = libraryID || Zotero.Libraries.userLibraryID;
+
+  // The CLI and Zotero share the machine (loopback), so the desktop can read
+  // the absolute path directly. Reject early if it can't see the file.
+  let fileExists = false;
+  try {
+    fileExists = Zotero.File.pathToFile(path).exists();
+  } catch (_) {
+    fileExists = false;
+  }
+  if (!fileExists) {
+    return [404, "application/json", JSON.stringify({ ok: false, error: "file not found on disk", path })];
+  }
+
+  let parent;
+  try {
+    parent = await Zotero.Items.getByLibraryAndKeyAsync(libraryID, parentKey);
+  } catch (e) {
+    return [500, "application/json", JSON.stringify({ ok: false, error: "lookup failed: " + e })];
+  }
+  if (!parent) {
+    return [
+      404,
+      "application/json",
+      JSON.stringify({ ok: false, error: "parent item not found", key: parentKey, libraryID }),
+    ];
+  }
+  if (!parent.isRegularItem()) {
+    return [
+      400,
+      "application/json",
+      JSON.stringify({ ok: false, error: "parent is not a regular item (note/attachment)", key: parentKey }),
+    ];
+  }
+
+  const fn = Zotero.Attachments && Zotero.Attachments.importFromFile;
+  if (!fn) {
+    return [
+      500,
+      "application/json",
+      JSON.stringify({ ok: false, error: "Zotero.Attachments.importFromFile is unavailable on this build" }),
+    ];
+  }
+
+  let attachment;
+  try {
+    const opts = { file: path, parentItemID: parent.id, libraryID };
+    if (title) opts.title = title;
+    attachment = await fn.call(Zotero.Attachments, opts);
+  } catch (e) {
+    Zotero.logError(e);
+    return [500, "application/json", JSON.stringify({ ok: false, error: "import failed: " + e, key: parentKey })];
+  }
+
+  let filename = null;
+  let contentType = null;
+  try {
+    filename = attachment.attachmentFilename;
+    contentType = attachment.attachmentContentType;
+  } catch (_) {
+    /* tolerate missing accessors on older builds */
+  }
+
+  return [
+    200,
+    "application/json",
+    JSON.stringify({
+      ok: true,
+      imported: true,
+      parent_key: parentKey,
+      attachment_key: attachment.key,
+      filename,
+      content_type: contentType,
+    }),
+  ];
+}
+
 const PING_ENDPOINT = buildEndpoint(handlePing, { methods: ["GET"] });
 const RENAME_ENDPOINT = buildEndpoint(handleRename, {
   methods: ["POST"],
@@ -238,6 +339,10 @@ const RENAME_ENDPOINT = buildEndpoint(handleRename, {
 const FIND_PDF_ENDPOINT = buildEndpoint(handleFindPdf, {
   methods: ["POST", "GET"],
   dataTypes: ["application/json", "application/x-www-form-urlencoded"],
+});
+const IMPORT_FILE_ENDPOINT = buildEndpoint(handleImportFile, {
+  methods: ["POST"],
+  dataTypes: ["application/json"],
 });
 
 function install() {}
@@ -248,6 +353,7 @@ async function startup({ id, version }) {
   Zotero.Server.Endpoints["/zot-cli/ping"] = PING_ENDPOINT;
   Zotero.Server.Endpoints["/zot-cli/find-pdf"] = FIND_PDF_ENDPOINT;
   Zotero.Server.Endpoints["/zot-cli/rename"] = RENAME_ENDPOINT;
+  Zotero.Server.Endpoints["/zot-cli/import-file"] = IMPORT_FILE_ENDPOINT;
 }
 
 function shutdown() {
@@ -256,5 +362,6 @@ function shutdown() {
     delete Zotero.Server.Endpoints["/zot-cli/ping"];
     delete Zotero.Server.Endpoints["/zot-cli/find-pdf"];
     delete Zotero.Server.Endpoints["/zot-cli/rename"];
+    delete Zotero.Server.Endpoints["/zot-cli/import-file"];
   }
 }
