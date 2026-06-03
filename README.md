@@ -8,7 +8,7 @@
   <a href="https://pypi.org/project/zotero-cli-cc/"><img src="https://img.shields.io/pypi/v/zotero-cli-cc?color=blue" alt="PyPI version"></a>
   <a href="https://github.com/Agents365-ai/zotero-cli-cc/actions/workflows/ci.yml"><img src="https://github.com/Agents365-ai/zotero-cli-cc/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://pypi.org/project/zotero-cli-cc/"><img src="https://img.shields.io/pypi/pyversions/zotero-cli-cc" alt="Python versions"></a>
-  <a href="https://creativecommons.org/licenses/by-nc/4.0/"><img src="https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey" alt="License"></a>
+  <a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/license-AGPL--3.0%20%2B%20Commercial-blue" alt="License"></a>
   <a href="https://agents365-ai.github.io/zotero-cli-cc/"><img src="https://img.shields.io/badge/docs-GitHub%20Pages-blue" alt="Docs"></a>
 </p>
 
@@ -132,4 +132,11 @@ If `zot` helps you, consider supporting the author:
 
 ## License
 
-[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) — free for non-commercial use.
+zotero-cli-cc is **dual-licensed**:
+
+- **Open source:** [GNU AGPL-3.0-or-later](https://www.gnu.org/licenses/agpl-3.0) (see [LICENSE](LICENSE)).
+- **Commercial:** a separate commercial license is available for use in
+  closed-source or commercial products without the AGPL's copyleft obligations
+  (see [LICENSE-COMMERCIAL](LICENSE-COMMERCIAL)).
+
+Contributions are accepted under the project's [Developer Certificate of Origin](CONTRIBUTING.md).

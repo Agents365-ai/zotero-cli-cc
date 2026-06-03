@@ -1,0 +1,33 @@
+Commercial License — zotero-cli-cc
+===================================
+
+zotero-cli-cc is dual-licensed.
+
+1. Open-source license
+----------------------
+By default this software is distributed under the GNU Affero General Public
+License, version 3 or later (AGPL-3.0-or-later); see the LICENSE file. Under the
+AGPL, if you modify the software and make it available to users over a network,
+you must also offer those users the corresponding source code of your modified
+version.
+
+2. Commercial license
+----------------------
+If the AGPL's obligations are not suitable for your use — for example, embedding
+zotero-cli-cc in a closed-source or commercial product without disclosing your
+own source — a separate commercial license is available from the copyright
+holder. The commercial license grants use of this software without the AGPL's
+copyleft and network-source-disclosure requirements, under negotiated terms.
+
+To obtain a commercial license, contact:
+
+    Agents365.ai
+    niehu2025@gmail.com
+
+The copyright holder reserves the right to use, sublicense, and relicense the
+software under separate commercial terms.
+
+Note: the AGPL option above governs only this project's own code. Some optional
+dependencies carry their own licenses (e.g. PyMuPDF is AGPL-3.0-or-later or an
+Artifex commercial license); a commercial product must also satisfy the license
+terms of any dependency it ships.
