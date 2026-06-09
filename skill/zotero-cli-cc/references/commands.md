@@ -41,7 +41,6 @@ zot add --doi "10.1038/s41586-023-06139-9"
 zot add --url "https://arxiv.org/abs/2301.00001"
 zot add --from-file dois.txt              # Batch import (one DOI/URL per line)
 zot add --pdf paper.pdf                   # Add from local PDF (auto-extract DOI)
-zot --no-interaction delete ITEMKEY
 zot update ITEMKEY --title "New Title"
 zot update ITEMKEY --field volume=42 --field pages=1-10
 zot attach ITEMKEY --file supplement.pdf
@@ -74,17 +73,32 @@ them down rather than deleting. `clean --include-recoverable` also deletes those
 ### Safety Flags
 
 ```bash
-# Preview without writing — no API call
+# Preview first — exact behavior is command-specific
 zot add --doi "10.1038/..." --dry-run
-zot delete ITEMKEY --dry-run
 zot update ITEMKEY --field volume=42 --dry-run
 
 # Idempotency — safe retry after network failure
 zot add --doi "10.1038/..." --idempotency-key abc-123
 zot update ITEMKEY --title "X" --idempotency-key abc-124
 zot attach ITEMKEY --file x.pdf --idempotency-key abc-125
-zot delete ITEMKEY --yes --idempotency-key abc-126
 ```
+
+Most write commands preview their planned mutation with `--dry-run`. Some
+bridge-backed or batch commands use command-specific preview semantics instead
+(for example `zot find-pdf --dry-run` checks bridge reachability, while
+`zot update-status` previews by default and uses `--apply` to write).
+
+## Trash Lifecycle
+
+```bash
+zot delete ITEMKEY --dry-run             # preview moving the item to trash
+zot delete ITEMKEY --yes                 # execute without interactive confirmation
+zot delete ITEMKEY --yes --idempotency-key abc-126
+zot trash restore ITEMKEY                # restore from trash
+```
+
+`zot delete` is the destructive step here; `zot trash restore` is the recovery
+path and does not permanently remove records.
 
 ## Find Full Text PDF (Zotero desktop bridge)
 
@@ -191,13 +205,22 @@ zot summarize-all
 
 **Token-saving strategy**: For large PDFs, use `--outline` to get section IDs first, then `--section` to extract only what you need.
 
+#### Getting a local PDF path for agents
+
+Use `zot attachment path KEY` when an agent needs the local PDF file path for
+rendering pages, inspecting figures, or handing the file to another parser.
+Unlike `zot open KEY`, this command does not launch a GUI viewer. In JSON mode
+it returns `item_key`, `attachment_key`, `path`, `filename`, `exists`, and
+`mime_type`. Missing items, missing PDFs, and missing local files return
+`not_found`.
+
 ## Utilities
 
 ```bash
 zot --json stats                     # Library statistics
-zot open ITEMKEY                     # Open PDF in system viewer
+zot open ITEMKEY                     # Open PDF in system viewer (human-facing)
 zot open --url ITEMKEY               # Open URL/DOI in browser
-zot update-status --limit 20        # Check preprint publication status (needs S2_API_KEY)
+zot update-status --limit 20        # Check preprint publication status (works without S2_API_KEY; key raises rate limits)
 ```
 
 ## Group Library
@@ -207,4 +230,6 @@ zot --library group:12345 search "query"
 zot --library group:12345 list
 ```
 
-All commands support `--library group:<id>` to operate on group libraries.
+Most library-scoped commands support `--library group:<id>` to operate on group
+libraries. Some bridge-backed commands expose command-specific selectors
+instead, such as `zot find-pdf ITEMKEY --library-id 42`.

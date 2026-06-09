@@ -10,6 +10,7 @@ from zotero_cli_cc import __version__
 from zotero_cli_cc.commands.add import add_cmd
 from zotero_cli_cc.commands.ask import ask_cmd
 from zotero_cli_cc.commands.attach import attach_cmd
+from zotero_cli_cc.commands.attachment import attachment_group
 from zotero_cli_cc.commands.bridge import bridge_group
 from zotero_cli_cc.commands.cite import cite_cmd
 from zotero_cli_cc.commands.collection import collection_group
@@ -68,6 +69,7 @@ _READ_COMMANDS = {
     "ask",
     "schema",
     "trash",
+    "attachment",
 }
 _WRITE_COMMANDS = {"add", "update", "note", "attach", "find-pdf", "bridge", "rename", "enrich"}
 _DESTRUCTIVE_COMMANDS = {"delete", "update-status", "orphans"}
@@ -309,6 +311,7 @@ main.add_command(update_status_cmd, "update-status")
 main.add_command(workspace_group, "workspace")
 main.add_command(ask_cmd, "ask")
 main.add_command(schema_cmd, "schema")
+main.add_command(attachment_group, "attachment")
 
 
 if __name__ == "__main__":
