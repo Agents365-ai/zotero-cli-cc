@@ -210,10 +210,25 @@ zot summarize-all
 
 Use `zot attachment path KEY` when an agent needs the local PDF file path for
 rendering pages, inspecting figures, or handing the file to another parser.
-Unlike `zot open KEY`, this command does not launch a GUI viewer. In JSON mode
-it returns `item_key`, `attachment_key`, `path`, `filename`, `exists`, and
-`mime_type`. Missing items, missing PDFs, and missing local files return
-`not_found`.
+Unlike `zot open KEY`, this command does not launch a GUI viewer.
+
+```bash
+zot attachment path KEY              # first PDF only (one bare path)
+zot attachment path KEY --all        # every PDF, one path per line
+zot --json attachment path KEY -a    # every PDF as a JSON array
+```
+
+By default it returns the **first** PDF: in JSON mode `item_key`,
+`attachment_key`, `path`, `filename`, `exists`, and `mime_type`. Missing items,
+missing PDFs, and missing local files return `not_found`.
+
+Pass `--all` (`-a`) when an item carries more than one PDF — common now that
+papers ship an **appendix or supplementary file** beside the main article. It
+lists every PDF whose file exists locally (one path per line for humans). JSON
+mode returns `{item_key, count, attachments: [...]}`, each entry with
+`attachment_key`, `path`, `filename`, `exists`, `mime_type`. Attachments not yet
+synced to local storage are skipped; `not_found` comes back only when the item
+has no PDF at all, or none has a local file.
 
 ## Utilities
 

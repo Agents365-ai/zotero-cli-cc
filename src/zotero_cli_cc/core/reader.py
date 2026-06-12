@@ -603,6 +603,24 @@ class ZoteroReader:
             )
         return attachments
 
+    def get_pdf_attachments(self, key: str, skip_tags: set[str] | None = None) -> list[Attachment]:
+        """Return every PDF attachment for a parent item, in attachment order.
+
+        Modern items frequently carry more than one PDF (e.g. the article plus a
+        supplementary appendix or a translated copy). This returns all of them so
+        callers can hand the full set to an agent; use `get_pdf_attachment` when
+        only the first is needed. `skip_tags` excludes attachments carrying a
+        marker tag like `skip-index`.
+        """
+        result: list[Attachment] = []
+        for att in self.get_attachments(key):
+            if att.content_type != "application/pdf":
+                continue
+            if skip_tags and skip_tags.intersection(att.tags):
+                continue
+            result.append(att)
+        return result
+
     def get_pdf_attachment(self, key: str, skip_tags: set[str] | None = None) -> Attachment | None:
         """Return the first PDF attachment, skipping any tagged with a tag in `skip_tags`.
 
@@ -610,13 +628,8 @@ class ZoteroReader:
         attachments such as machine-translated copies or slides that carry a
         marker tag like `skip-index`.
         """
-        for att in self.get_attachments(key):
-            if att.content_type != "application/pdf":
-                continue
-            if skip_tags and skip_tags.intersection(att.tags):
-                continue
-            return att
-        return None
+        attachments = self.get_pdf_attachments(key, skip_tags=skip_tags)
+        return attachments[0] if attachments else None
 
     def find_orphan_attachments(self) -> list[OrphanAttachment]:
         """Find storage-backed attachments whose file is missing from local storage.
