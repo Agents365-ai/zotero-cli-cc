@@ -7,6 +7,26 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-06-12
+
+### Added
+
+- **`zot attachment path KEY --all`** (`-a`) — list every PDF attachment of an
+  item, one local path per line, instead of just the first. Built for items that
+  now routinely ship an appendix or supplementary PDF alongside the main article.
+  In JSON mode it returns `{item_key, count, attachments: [...]}` with each entry
+  carrying `attachment_key`, `path`, `filename`, `exists`, and `mime_type`.
+  Attachments with no local file are skipped; `not_found` is returned only when
+  the item has no PDF at all, or no PDF has been synced to local storage.
+  Default (no flag) behaviour is unchanged — still prints the first PDF's path.
+- New reader API `ZoteroReader.get_pdf_attachments(key)` returning all PDFs;
+  `get_pdf_attachment` (first PDF) is now a thin wrapper over it.
+
+### Changed
+
+- Schema version bumped to `1.9.0` (additive: new `--all` option on
+  `attachment path`).
+
 ## [0.8.0] - 2026-06-03
 
 ### Added

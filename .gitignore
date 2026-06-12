@@ -19,3 +19,4 @@ logs/
 my-docs/
 .sisyphus/
 .claude/
+.DS_Store

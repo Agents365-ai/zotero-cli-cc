@@ -6,13 +6,17 @@
 - **AI agents** (Claude Code, Codex) — stable JSON envelopes, schema introspection, typed errors.
 - **Orchestrators** — deterministic exit codes, delegated auth, structured progress.
 
-Everything on this page is machine-verifiable via `zot schema`.
+`zot schema` is the machine-discoverable source for the command surface:
+command names, nested subcommands, parameters, help text, and
+`safety_tier`. The runtime semantics documented below describe the
+execution-time contract agents should rely on for envelope-backed commands;
+remaining legacy/non-envelope cases are being normalized onto the same model.
 
 ## Channels
 
 | Channel | Primary audience | Contents |
 |---------|-----------------|----------|
-| `stdout` | machines / agents | one JSON envelope per invocation (or NDJSON under `--stream`) |
+| `stdout` | machines / agents | standard JSON envelopes for envelope-backed commands; some documented commands use NDJSON/stream output, and a small number of legacy outputs are still being normalized |
 | `stderr` | humans | prose diagnostics, progress events, `SYNC_REMINDER` |
 | exit code | orchestrators | distinct code per failure class |
 
@@ -26,6 +30,8 @@ ZOT_FORMAT=table zot search foo   # force table even when piped
 ```
 
 ## Envelope
+
+For envelope-backed commands, JSON mode uses the standard shapes below.
 
 ### Success
 
@@ -42,7 +48,7 @@ ZOT_FORMAT=table zot search foo   # force table even when piped
 }
 ```
 
-Mutating commands additionally set `data.sync_required: true` and may carry a `next` slot with follow-up commands:
+Mutating command envelopes may include `data.sync_required`; when present, it is `true` if the command actually changed Zotero state and requires sync. They may also carry a `next` slot with follow-up commands:
 
 ```json
 {
@@ -99,7 +105,7 @@ Agents should read `error.retryable` before retrying.
 }
 ```
 
-Re-running with the same `--idempotency-key` retries only the failed items (see below).
+When a batch reports partial success, inspect `data.failed[]` and explicitly retry the failed entries; do not assume the original batch will automatically replay only those items.
 
 ## Exit codes
 
@@ -177,17 +183,23 @@ The input file may be either a full envelope or a bare `data` tree.
 
 ## Safety tiers
 
-Commands are grouped by risk in `zot --help`:
+Top-level `zot --help` groups commands into risk buckets:
 
-- **Read** — `search`, `list`, `read`, `export`, `recent`, `stats`, `cite`, `pdf`, `collection list`, `tag list`, ...
-- **Write (MUTATES LIBRARY)** — `add`, `update`, `note`, `attach`, `find-pdf`, `rename`, `enrich`, `bridge` (mutates local config, not the library)
-- **Destructive (MUTATES LIBRARY)** — `delete`, `update-status`, `orphans` (its `clean` subcommand deletes attachment records)
+- **Read** — `search`, `list`, `read`, `export`, `recent`, `stats`, `cite`, `pdf`, `attachment`, `collection`, `tag`, `trash`, ...
+- **Write commands (MUTATES LIBRARY)** — `add`, `update`, `note`, `attach`, `find-pdf`, `rename`, `enrich`, `bridge` (`bridge` is a local bridge/setup operation, not a Zotero library record mutation)
+- **Destructive (MUTATES LIBRARY)** — `delete`, `update-status`, `orphans`
 
-Each write or destructive command's `--help` carries a `MUTATES LIBRARY` marker. The same classification is available via `zot schema <cmd>.safety_tier`.
+`data.safety_tier` from `zot schema <cmd>` exposes that same top-level
+classification. Treat it as a coarse gating signal, not a complete runtime
+authorization model: some top-level read groups contain nested mutators (for
+example `trash restore`), while destructive top-level groups may also contain
+inspection-only subcommands alongside the mutating ones (for example
+`orphans list` versus `orphans clean`). Agents should evaluate the full command
+path and documented subcommand semantics, not `safety_tier` alone.
 
 ## `--dry-run`
 
-Every mutating command accepts `--dry-run`:
+Many agent-facing mutating commands support `--dry-run`:
 
 ```bash
 zot add --doi "10.1/x" --dry-run
@@ -202,7 +214,13 @@ zot add --doi "10.1/x" --dry-run
 }
 ```
 
-Dry-run does not require credentials and never touches the network.
+For commands that support it, preview envelopes set `dry_run: true`. Treat
+preview behavior as command-specific: most `--dry-run` flows avoid the write
+itself, `zot find-pdf --dry-run` still pings the local Zotero bridge to verify
+reachability, and `zot update-status` uses preview-by-default / `--apply`
+semantics instead of a `--dry-run` flag. Do not assume every mutating command
+accepts `--dry-run`, or that preview mode is always network-free or
+credential-free, unless that command's help says so.
 
 ## DOI metadata resolution
 
@@ -226,6 +244,39 @@ compact summary of what was resolved (or, on miss, a `resolve_warning`):
 - Crossref `404` → `data.resolved = null` and `data.resolve_warning = "no_match"`; the item is still created.
 - Network/5xx error → `data.resolved = null` and `data.resolve_warning = "<message>"`; the item is still created (agents can safely retry to populate metadata via `zot update`).
 - Set `ZOT_CROSSREF_MAILTO=<email>` to join Crossref's "polite pool" (higher rate-limit ceiling, no key required).
+
+## Local PDF attachment path (`zot attachment path`)
+
+Agents that need to render PDF pages, inspect figures, or pass the file to a
+separate parser should use `zot attachment path` instead of `zot open`.
+`zot open` is for humans and launches the system PDF viewer; `attachment path`
+only resolves the local file path and performs no GUI action or text extraction.
+
+```bash
+zot attachment path ABCD1234
+zot --json attachment path ABCD1234
+```
+
+Envelope:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "item_key": "ABCD1234",
+    "attachment_key": "ATT0001",
+    "path": "/Users/me/Zotero/storage/ATT0001/paper.pdf",
+    "filename": "paper.pdf",
+    "exists": true,
+    "mime_type": "application/pdf"
+  }
+}
+```
+
+The command returns the same first PDF attachment selected by `zot pdf` and
+`zot open`. A missing item, missing PDF attachment, unresolved path, or missing
+local file is reported as `not_found` with exit code 4. Successful output always
+means `path` exists locally.
 
 ## Find Full Text (`zot find-pdf`)
 
@@ -387,7 +438,7 @@ summarize the run. Missing credentials abort with `auth_missing` (2).
 
 ## `--idempotency-key`
 
-Mutating commands (`add`, `update`, `note --add`, `attach`, `delete`) accept `--idempotency-key <string>`:
+Mutating commands (`add`, `update`, `note --add`, `attach`, `delete`, `orphans clean`) accept `--idempotency-key <string>`:
 
 ```bash
 zot add --doi "10.1/x" --idempotency-key "ingest-2026-04-15-001"
