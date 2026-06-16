@@ -173,7 +173,7 @@ zot collection delete COLLECTIONKEY
 zot --json duplicates                # DOI + title matching
 zot --json duplicates --by title     # Title-only matching
 zot --json recent --days 7           # Recently added
-zot --json recent --sort dateModified
+zot --json recent --modified         # Sort by date modified instead of date added
 zot --json trash list                # View trashed items
 zot trash restore ITEMKEY            # Restore from trash
 ```
@@ -182,8 +182,8 @@ zot trash restore ITEMKEY            # Restore from trash
 
 ```bash
 zot --json pdf ITEMKEY                      # Full text extraction
-zot --json pdf --outline ITEMKEY            # Section headings + secid
-zot --json pdf --section SECID ITEMKEY      # Extract specific section
+zot --json pdf --outline ITEMKEY            # Numbered section headings
+zot --json pdf --section N ITEMKEY          # Extract content under the N-th heading
 zot pdf ITEMKEY --annotations               # PDF annotations
 zot --json summarize ITEMKEY
 zot summarize-all

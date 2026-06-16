@@ -10,7 +10,7 @@ zot --json search "single cell RNA sequencing"
 zot --json read K853PGUG
 
 # Step 3: PDF — check structure first, extract selectively
-zot --json pdf --outline K853PGUG             # Get section headings + secid
+zot --json pdf --outline K853PGUG             # Get numbered section headings
 zot --json pdf --section 10 K853PGUG          # Extract only the section you need
 zot --json pdf K853PGUG                       # Full text (only if short or necessary)
 ```
@@ -35,7 +35,7 @@ zot --json workspace query "mechanisms of acquired resistance" --workspace drug-
 
 # Step 4: Drill into specific chunks for more context
 zot --json pdf --outline ITEMKEY
-zot --json pdf --section SECID ITEMKEY
+zot --json pdf --section N ITEMKEY
 ```
 
 ## Pattern 3: Batch Export from Collections

@@ -95,8 +95,8 @@ RAG results return chunks structured as:
 When a chunk is incomplete, drill into the source:
 
 ```bash
-zot --json pdf --outline ITEMKEY            # Get section headings + secid
-zot --json pdf --section SECID ITEMKEY      # Extract full section
+zot --json pdf --outline ITEMKEY            # Get numbered section headings
+zot --json pdf --section N ITEMKEY          # Extract content under the N-th heading
 ```
 
 ## Configuration
