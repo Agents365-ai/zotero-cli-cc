@@ -22,7 +22,7 @@ plugin enables. It registers these endpoints on `http://127.0.0.1:23119`:
 | `GET` | `/zot-cli/ping` | Health probe — returns plugin + Zotero version |
 | `POST` | `/zot-cli/find-pdf` | Body: `{"key": "ABCD1234"}`. Triggers `Zotero.Attachments.addAvailableFile(item)` and returns the attached PDF's key on success, or `{found: false}` if no resolver had a hit. |
 | `POST` | `/zot-cli/rename` | Body: `{"attachmentKey": "...", "newName": "X.pdf", "force": false}`. Calls `item.renameAttachmentFile(newName, force)` on the attachment, syncs its title, and returns `{renamed, old_name, new_name}`. Powers `zot rename`. |
-| `POST` | `/zot-cli/import-file` | Body: `{"parentKey": "...", "path": "/abs/file.pdf", "title": "..."}`. Calls `Zotero.Attachments.importFromFile(...)` so the file is copied into **local** storage immediately (vs a Web-API upload that lands cloud-only). Returns `{imported, attachment_key, filename, content_type}`. Powers `zot attach --via-bridge`. |
+| `POST` | `/zot-cli/import-file` | Body: `{"parentKey": "...", "path": "/abs/file.pdf", "groupID": 123, "title": "..."}`. Calls `Zotero.Attachments.importFromFile(...)` so the file is copied into **local** storage immediately (vs a Web-API upload that lands cloud-only). Pass `groupID` (the Web-API group id) to target a group library — it is mapped to the desktop's internal `libraryID`. Returns `{imported, attachment_key, filename, content_type}`. Powers `zot attach --via-bridge` (`v0.4.0+` for group support). |
 
 ## Install
 
@@ -50,7 +50,7 @@ zot bridge status        # verify -> Bridge OK
 3. Verify it's wired up:
    ```bash
    curl http://127.0.0.1:23119/zot-cli/ping
-   # {"ok": true, "bridge_version": "0.3.0", "zotero_version": "9.x.y", ...}
+   # {"ok": true, "bridge_version": "0.4.0", "zotero_version": "9.x.y", ...}
    ```
 
 You can now run `zot find-pdf <item-key>` and `zot attach <key> --file <path> --via-bridge` from the parent repo.

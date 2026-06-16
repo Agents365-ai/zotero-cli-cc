@@ -616,11 +616,14 @@ def _handle_attach(parent_key: str, file_path: str, library: str = "user", via_b
     from zotero_cli_cc.core.local_bridge import resolve_use_bridge
 
     if resolve_use_bridge(via_bridge):
-        from zotero_cli_cc.core.local_bridge import LocalBridgeError, import_file
+        from zotero_cli_cc.core.local_bridge import LocalBridgeError, ensure_group_import_supported, import_file
 
         fp = Path(file_path)
+        group_id = int(library.split(":", 1)[1]) if library.startswith("group:") else None
         try:
-            result = import_file(parent_key, str(fp.resolve()), title=fp.name)
+            if group_id is not None:
+                ensure_group_import_supported()
+            result = import_file(parent_key, str(fp.resolve()), title=fp.name, group_id=group_id)
         except LocalBridgeError as e:
             return {"error": str(e), "context": "attach", "code": e.code}
         return {

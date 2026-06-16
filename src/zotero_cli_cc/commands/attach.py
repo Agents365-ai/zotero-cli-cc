@@ -7,7 +7,12 @@ from pathlib import Path
 import click
 
 from zotero_cli_cc.config import load_config
-from zotero_cli_cc.core.local_bridge import LocalBridgeError, import_file, resolve_use_bridge
+from zotero_cli_cc.core.local_bridge import (
+    LocalBridgeError,
+    ensure_group_import_supported,
+    import_file,
+    resolve_use_bridge,
+)
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
 from zotero_cli_cc.exit_codes import emit_error
 from zotero_cli_cc.formatter import envelope_ok
@@ -77,8 +82,16 @@ def attach_cmd(
         return
 
     if use_bridge:
+        group_id = ctx.obj.get("group_id")  # set only for --library group:<id>
         try:
-            result = import_file(key, str(fp.resolve()), title=fp.name)
+            if group_id is not None:
+                ensure_group_import_supported()
+            result = import_file(
+                key,
+                str(fp.resolve()),
+                title=fp.name,
+                group_id=int(group_id) if group_id is not None else None,
+            )
         except LocalBridgeError as e:
             emit_error(e.code, str(e), output_json=json_out, retryable=e.retryable, hint=_BRIDGE_HINT, context="attach")
         att_key = result.get("attachment_key")

@@ -89,6 +89,34 @@ def ping(timeout: float = PING_TIMEOUT) -> dict[str, Any]:
 
 AUTODETECT_TIMEOUT = 2.0
 
+# Group-library import (groupID -> internal libraryID mapping) landed in the
+# bridge plugin at this version. Older plugins silently ignore the groupID field
+# and import into the user library, so guard before a group import.
+GROUP_IMPORT_MIN_VERSION = (0, 4, 0)
+
+
+def _version_tuple(v: str) -> tuple[int, ...]:
+    try:
+        return tuple(int(p) for p in v.split(".")[:3])
+    except (ValueError, AttributeError):
+        return (0, 0, 0)
+
+
+def ensure_group_import_supported() -> None:
+    """Verify the running bridge can map a group id to a libraryID (v0.4.0+).
+
+    Raises LocalBridgeError (`bridge_missing`) if the desktop is unreachable or
+    the installed plugin is too old — without this an old bridge would silently
+    import a group file into the user library.
+    """
+    info = ping()
+    if _version_tuple(str(info.get("bridge_version", ""))) < GROUP_IMPORT_MIN_VERSION:
+        raise LocalBridgeError(
+            "Group-library import needs zot-cli-bridge v0.4.0+ — run 'zot bridge install' to update.",
+            code="bridge_missing",
+            retryable=False,
+        )
+
 
 def resolve_use_bridge(preference: bool | None) -> bool:
     """Decide whether an attach should route through the local desktop bridge.
@@ -262,6 +290,7 @@ def import_file(
     path: str,
     *,
     library_id: int | None = None,
+    group_id: int | None = None,
     title: str | None = None,
     timeout: float = IMPORT_TIMEOUT,
 ) -> dict[str, Any]:
@@ -274,6 +303,10 @@ def import_file(
     `path` must be an absolute path the desktop process can read (the CLI and
     Zotero share the machine).
 
+    Pass `group_id` (the Web-API group id, from `--library group:<id>`) to import
+    into a group library; the bridge maps it to the desktop's internal libraryID
+    (needs plugin v0.4.0+ — check first with `ensure_group_import_supported`).
+
     Returns a dict with `imported`, `attachment_key`, `parent_key`, `filename`,
     `content_type`.
 
@@ -285,6 +318,8 @@ def import_file(
     payload: dict[str, Any] = {"parentKey": parent_key, "path": path}
     if library_id is not None:
         payload["libraryID"] = library_id
+    if group_id is not None:
+        payload["groupID"] = group_id
     if title is not None:
         payload["title"] = title
     try:
