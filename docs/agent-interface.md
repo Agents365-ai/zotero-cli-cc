@@ -321,17 +321,27 @@ bridge or stopped desktop aborts the whole command with `bridge_missing` (3) /
 
 ## Attaching files (`zot attach`)
 
-`zot attach KEY --file paper.pdf` uploads via the Web API, which stores the
-file in **zotero.org cloud storage** (`data.stored: "cloud"`). The binary only
-appears in the local `storage/` folder after the desktop runs a *file* sync
-("Sync attachment files" enabled) — until then the desktop shows "the attached
-file could not be found". For local-first setups (and movers like
-zotero-attanger, which relocate attachments on import), pass `--via-bridge` to
-import through the running desktop via `POST /zot-cli/import-file` →
-`Zotero.Attachments.importFromFile(...)`. That writes straight into local
-storage (`data.stored: "local"`) and syncs *up* afterwards. `--via-bridge`
-requires the bridge plugin **v0.3.0+** and uses the same reachability codes as
-`find-pdf`/`rename` (`not_reachable` (5), `bridge_missing` (3)).
+`zot attach KEY --file paper.pdf` **auto-detects** how to route the file: when
+the Zotero desktop bridge is reachable it imports through the desktop (local
+storage); otherwise it uploads via the Web API (cloud storage). Force a route
+with `--via-bridge` / `--no-via-bridge`.
+
+The **Web-API** path stores the file in **zotero.org cloud storage**
+(`data.stored: "cloud"`). The binary only appears in the local `storage/` folder
+after the desktop runs a *file* sync ("Sync attachment files" enabled) — until
+then the desktop shows "the attached file could not be found". The cloud result
+also reports `data.result`: `"created"` (the file was uploaded) or `"exists"`
+(Zotero already held an identical file, so nothing transferred).
+
+The **bridge** path (auto-selected when the desktop is up, or forced with
+`--via-bridge`) is the local-first option — it cooperates with movers like
+zotero-attanger and imports through the running desktop via
+`POST /zot-cli/import-file` → `Zotero.Attachments.importFromFile(...)`, writing
+straight into local storage (`data.stored: "local"`) and syncing *up* afterwards.
+It requires the bridge plugin **v0.3.0+** and uses the same reachability codes as
+`find-pdf`/`rename` (`not_reachable` (5), `bridge_missing` (3)). Auto-detect
+falls back to the Web API silently when the bridge is not reachable; an explicit
+`--via-bridge` surfaces those codes as errors instead.
 
 ## Orphaned attachments (`zot orphans`)
 

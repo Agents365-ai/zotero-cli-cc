@@ -7,7 +7,7 @@ from pathlib import Path
 import click
 
 from zotero_cli_cc.config import load_config
-from zotero_cli_cc.core.local_bridge import LocalBridgeError, import_file
+from zotero_cli_cc.core.local_bridge import LocalBridgeError, import_file, resolve_use_bridge
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
 from zotero_cli_cc.exit_codes import emit_error
 from zotero_cli_cc.formatter import envelope_ok
@@ -19,10 +19,12 @@ _BRIDGE_HINT = "Start Zotero desktop; run 'zot bridge install' to (re)install th
 @click.argument("key")
 @click.option("--file", "file_path", required=True, type=click.Path(exists=True), help="File to upload")
 @click.option(
-    "--via-bridge",
-    is_flag=True,
+    "--via-bridge/--no-via-bridge",
+    "via_bridge",
+    default=None,
     help="Import through the running Zotero desktop (zot-cli-bridge plugin) so the "
-    "file lands in local storage instead of cloud-only. Plays nice with zotero-attanger.",
+    "file lands in local storage instead of cloud-only (plays nice with zotero-attanger). "
+    "Default: auto-detect — use the bridge when the desktop is reachable, else the Web API.",
 )
 @click.option("--dry-run", is_flag=True, help="Preview the upload without calling the API")
 @click.option("--idempotency-key", default=None, help="Key so retries are safe; same key returns the original result")
@@ -31,24 +33,30 @@ def attach_cmd(
     ctx: click.Context,
     key: str,
     file_path: str,
-    via_bridge: bool,
+    via_bridge: bool | None,
     dry_run: bool,
     idempotency_key: str | None,
 ) -> None:
     """Upload a file attachment to an existing Zotero item. MUTATES LIBRARY.
 
-    The default path uploads via the Zotero Web API, which stores the file in
-    zotero.org cloud storage — it only appears in your local `storage/` after
-    the desktop syncs the file down (requires "Sync attachment files" enabled).
-    Use `--via-bridge` to import through the running desktop instead, so the
-    file is written to local storage immediately and cooperates with plugins
-    that relocate attachments (e.g. zotero-attanger).
+    The Web-API path stores the file in zotero.org cloud storage — it only
+    appears in your local `storage/` after the desktop syncs the file down
+    (requires "Sync attachment files" enabled). The bridge path imports through
+    the running desktop instead, so the file is written to local storage
+    immediately and cooperates with plugins that relocate attachments (e.g.
+    zotero-attanger).
+
+    By default the route is auto-detected: the bridge is used when the Zotero
+    desktop is reachable, otherwise the Web API. Force a route with
+    `--via-bridge` or `--no-via-bridge`. The result reports `stored` as `local`
+    (bridge) or `cloud` (Web API); cloud uploads also report `result` as
+    `created` or `exists` (the file was already present, so nothing transferred).
 
     \b
     Examples:
-      zot attach ABC123 --file paper.pdf
-      zot attach ABC123 --file paper.pdf --via-bridge   # store locally via desktop
-      zot attach ABC123 --file ~/Downloads/supplement.pdf
+      zot attach ABC123 --file paper.pdf                # auto: bridge if desktop up, else cloud
+      zot attach ABC123 --file paper.pdf --via-bridge   # force local import via desktop
+      zot attach ABC123 --file paper.pdf --no-via-bridge  # force Web-API cloud upload
       zot attach ABC123 --file paper.pdf --dry-run
     """
     cfg = load_config(profile=ctx.obj.get("profile"))
@@ -57,16 +65,18 @@ def attach_cmd(
     fp = Path(file_path)
     size = fp.stat().st_size if fp.exists() else None
 
+    use_bridge = resolve_use_bridge(via_bridge)
+
     if dry_run:
-        sink = "Zotero desktop (local storage)" if via_bridge else "the Web API (cloud storage)"
-        data = {"would": {"parent": key, "file": str(fp), "size_bytes": size, "via_bridge": via_bridge}}
+        sink = "Zotero desktop (local storage)" if use_bridge else "the Web API (cloud storage)"
+        data = {"would": {"parent": key, "file": str(fp), "size_bytes": size, "via_bridge": use_bridge}}
         if json_out:
             click.echo(json.dumps(envelope_ok(data, extra={"dry_run": True}), indent=2, ensure_ascii=False))
         else:
             click.echo(f"[dry-run] Would attach {fp} ({size} bytes) to '{key}' via {sink}")
         return
 
-    if via_bridge:
+    if use_bridge:
         try:
             result = import_file(key, str(fp.resolve()), title=fp.name)
         except LocalBridgeError as e:
@@ -111,7 +121,7 @@ def attach_cmd(
 
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
-        att_key = writer.upload_attachment(key, fp)
+        att_key, upload_result = writer.upload_attachment(key, fp)
     except ZoteroWriteError as e:
         emit_error(
             e.code,
@@ -123,7 +133,14 @@ def attach_cmd(
         )
 
     env = envelope_ok(
-        {"attachment_key": att_key, "parent_key": key, "file": str(fp), "stored": "cloud", "sync_required": True},
+        {
+            "attachment_key": att_key,
+            "parent_key": key,
+            "file": str(fp),
+            "stored": "cloud",
+            "result": upload_result,
+            "sync_required": True,
+        },
         extra={"next": [f"zot read {key}"]},
     )
     if idempotency_key:
@@ -131,7 +148,10 @@ def attach_cmd(
     if json_out:
         click.echo(json.dumps(env, indent=2, ensure_ascii=False))
     else:
-        click.echo(f"Attachment uploaded: {att_key}")
+        if upload_result == "exists":
+            click.echo(f"Attachment already present (unchanged): {att_key}")
+        else:
+            click.echo(f"Attachment uploaded: {att_key}")
         click.echo(
             "Stored in zotero.org cloud; it reaches local storage/ only after a desktop file-sync. "
             "Use --via-bridge to import into local storage directly.",

@@ -612,8 +612,10 @@ def _handle_trash_restore(key: str, library: str = "user") -> dict:
         return {"error": str(e), "context": "trash_restore"}
 
 
-def _handle_attach(parent_key: str, file_path: str, library: str = "user", via_bridge: bool = False) -> dict:
-    if via_bridge:
+def _handle_attach(parent_key: str, file_path: str, library: str = "user", via_bridge: bool | None = None) -> dict:
+    from zotero_cli_cc.core.local_bridge import resolve_use_bridge
+
+    if resolve_use_bridge(via_bridge):
         from zotero_cli_cc.core.local_bridge import LocalBridgeError, import_file
 
         fp = Path(file_path)
@@ -629,8 +631,14 @@ def _handle_attach(parent_key: str, file_path: str, library: str = "user", via_b
         }
     try:
         writer = _get_writer(library)
-        att_key = writer.upload_attachment(parent_key, Path(file_path))
-        return {"key": att_key, "parent_key": parent_key, "filename": Path(file_path).name, "stored": "cloud"}
+        att_key, upload_result = writer.upload_attachment(parent_key, Path(file_path))
+        return {
+            "key": att_key,
+            "parent_key": parent_key,
+            "filename": Path(file_path).name,
+            "stored": "cloud",
+            "result": upload_result,
+        }
     except ZoteroWriteError as e:
         return {"error": str(e), "context": "attach"}
 
@@ -658,7 +666,7 @@ def _handle_add_from_pdf(file_path: str, doi_override: str | None = None, librar
         return {"error": str(e), "context": "add_from_pdf"}
 
     try:
-        att_key = writer.upload_attachment(item_key, Path(file_path))
+        att_key, _ = writer.upload_attachment(item_key, Path(file_path))
         result: dict = {
             "item_key": item_key,
             "attachment_key": att_key,
@@ -1629,19 +1637,24 @@ def trash_restore(key: str, library: str = "user") -> dict:
 
 
 @mcp.tool()
-def attach(parent_key: str, file_path: str, library: str = "user", via_bridge: bool = False) -> dict:
+def attach(parent_key: str, file_path: str, library: str = "user", via_bridge: bool | None = None) -> dict:
     """Upload a file attachment to an existing Zotero item.
 
-    By default uploads via the Web API into zotero.org cloud storage, which only
-    reaches the local storage/ folder after a desktop file-sync. Set via_bridge=True
-    to import through the running Zotero desktop (zot-cli-bridge plugin) so the file
-    lands in local storage immediately and cooperates with attachment-moving plugins.
+    The Web-API path uploads into zotero.org cloud storage, which only reaches the
+    local storage/ folder after a desktop file-sync. The bridge path imports through
+    the running Zotero desktop (zot-cli-bridge plugin) so the file lands in local
+    storage immediately and cooperates with attachment-moving plugins.
+
+    The route is auto-detected by default (via_bridge=None): the bridge is used when
+    the desktop is reachable, else the Web API. Returns 'stored' as 'local' (bridge)
+    or 'cloud' (Web API); cloud results also report 'result' as 'created' or 'exists'.
 
     Args:
         parent_key: The item key to attach the file to.
         file_path: Path to the file to upload.
         library: Library — 'user' (default) or 'group:<id>'.
-        via_bridge: Import through the local Zotero desktop instead of the Web API.
+        via_bridge: True forces the desktop bridge, False forces the Web API,
+            None (default) auto-detects a running bridge.
     """
     return _handle_attach(parent_key, file_path, library=library, via_bridge=via_bridge)
 

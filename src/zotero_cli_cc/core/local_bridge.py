@@ -87,6 +87,26 @@ def ping(timeout: float = PING_TIMEOUT) -> dict[str, Any]:
     return _parse_json(resp)
 
 
+AUTODETECT_TIMEOUT = 2.0
+
+
+def resolve_use_bridge(preference: bool | None) -> bool:
+    """Decide whether an attach should route through the local desktop bridge.
+
+    ``preference`` is the user's explicit choice: ``True`` forces the bridge,
+    ``False`` forces the Web API, and ``None`` means auto-detect — prefer the
+    bridge when the running desktop is reachable, otherwise fall back to the
+    Web API. The probe is a fast loopback ping; any failure means "not up".
+    """
+    if preference is not None:
+        return preference
+    try:
+        ping(timeout=AUTODETECT_TIMEOUT)
+        return True
+    except LocalBridgeError:
+        return False
+
+
 def find_pdf(
     item_key: str,
     *,
