@@ -44,7 +44,7 @@ class TestAddPdfMCP:
             mock_writer = MagicMock()
             mock_get.return_value = mock_writer
             mock_writer.add_item.return_value = "NEW001"
-            mock_writer.upload_attachment.return_value = "ATT001"
+            mock_writer.upload_attachment.return_value = ("ATT001", "created")
             result = _handle_add_from_pdf("/tmp/test.pdf", doi_override="10.1234/test")
             mock_writer.add_item.assert_called_once_with(doi="10.1234/test", extra_fields={"title": "T"})
             assert result["item_key"] == "NEW001"

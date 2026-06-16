@@ -27,8 +27,9 @@ class TestAttachWriter:
             "unchanged": [],
         }
         writer = ZoteroWriter(library_id="123", api_key="abc")
-        key = writer.upload_attachment("PARENT1", pdf)
+        key, result = writer.upload_attachment("PARENT1", pdf)
         assert key == "ATT001"
+        assert result == "created"
         mock_zot.attachment_simple.assert_called_once()
 
     @patch("zotero_cli_cc.core.writer.zotero.Zotero")
@@ -43,8 +44,9 @@ class TestAttachWriter:
             "unchanged": [{"key": "ATT001"}],
         }
         writer = ZoteroWriter(library_id="123", api_key="abc")
-        key = writer.upload_attachment("PARENT1", pdf)
+        key, result = writer.upload_attachment("PARENT1", pdf)
         assert key == "ATT001"
+        assert result == "exists"
 
     @patch("zotero_cli_cc.core.writer.zotero.Zotero")
     def test_upload_attachment_failure(self, mock_zotero_cls, tmp_path):
@@ -183,10 +185,11 @@ class TestAttachMCP:
         with patch("zotero_cli_cc.mcp_server._get_writer") as mock_get:
             mock_writer = MagicMock()
             mock_get.return_value = mock_writer
-            mock_writer.upload_attachment.return_value = "ATT001"
-            result = _handle_attach("PARENT1", "/tmp/test.pdf")
+            mock_writer.upload_attachment.return_value = ("ATT001", "created")
+            result = _handle_attach("PARENT1", "/tmp/test.pdf", via_bridge=False)
             assert result["key"] == "ATT001"
             assert result["stored"] == "cloud"
+            assert result["result"] == "created"
 
     def test_handle_attach_via_bridge(self, tmp_path):
         from zotero_cli_cc import mcp_server
@@ -199,3 +202,86 @@ class TestAttachMCP:
             assert result["key"] == "ATTLOCAL"
             assert result["stored"] == "local"
             mock_import.assert_called_once()
+
+
+class TestResolveUseBridge:
+    def test_explicit_true_skips_ping(self, monkeypatch):
+        from zotero_cli_cc.core import local_bridge
+
+        monkeypatch.setattr(local_bridge, "ping", lambda *a, **k: pytest.fail("ping must not run when forced on"))
+        assert local_bridge.resolve_use_bridge(True) is True
+
+    def test_explicit_false_skips_ping(self, monkeypatch):
+        from zotero_cli_cc.core import local_bridge
+
+        monkeypatch.setattr(local_bridge, "ping", lambda *a, **k: pytest.fail("ping must not run when forced off"))
+        assert local_bridge.resolve_use_bridge(False) is False
+
+    def test_auto_uses_bridge_when_reachable(self, monkeypatch):
+        from zotero_cli_cc.core import local_bridge
+
+        monkeypatch.setattr(local_bridge, "ping", lambda *a, **k: {"ok": True})
+        assert local_bridge.resolve_use_bridge(None) is True
+
+    def test_auto_falls_back_when_down(self, monkeypatch):
+        from zotero_cli_cc.core import local_bridge
+
+        def boom(*a, **k):
+            raise LocalBridgeError("down", code="not_reachable", retryable=True)
+
+        monkeypatch.setattr(local_bridge, "ping", boom)
+        assert local_bridge.resolve_use_bridge(None) is False
+
+
+class TestAttachWebResultCLI:
+    @staticmethod
+    def _pdf(tmp_path):
+        pdf = tmp_path / "paper.pdf"
+        pdf.write_bytes(b"%PDF-1.4 x")
+        return pdf
+
+    def _mock_writer(self, monkeypatch, key, result):
+        monkeypatch.setenv("ZOT_LIBRARY_ID", "123")
+        monkeypatch.setenv("ZOT_API_KEY", "abc")
+        writer = MagicMock()
+        writer.upload_attachment.return_value = (key, result)
+        monkeypatch.setattr("zotero_cli_cc.commands.attach.ZoteroWriter", lambda **k: writer)
+
+    def test_cloud_result_created(self, tmp_path, monkeypatch):
+        pdf = self._pdf(tmp_path)
+        self._mock_writer(monkeypatch, "ATTCLOUD", "created")
+        result = CliRunner().invoke(main, ["--json", "attach", "P1", "--file", str(pdf), "--no-via-bridge"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)["data"]
+        assert data["stored"] == "cloud"
+        assert data["result"] == "created"
+
+    def test_cloud_result_exists_human(self, tmp_path, monkeypatch):
+        pdf = self._pdf(tmp_path)
+        self._mock_writer(monkeypatch, "ATTCLOUD", "exists")
+        result = CliRunner().invoke(main, ["attach", "P1", "--file", str(pdf), "--no-via-bridge"])
+        assert result.exit_code == 0
+        assert "already present" in result.output
+
+    def test_auto_prefers_bridge_when_up(self, tmp_path, monkeypatch):
+        pdf = self._pdf(tmp_path)
+        monkeypatch.setattr("zotero_cli_cc.core.local_bridge.ping", lambda *a, **k: {"ok": True})
+        monkeypatch.setattr(
+            "zotero_cli_cc.commands.attach.import_file",
+            lambda *a, **k: {"imported": True, "attachment_key": "ATTL", "filename": "paper.pdf"},
+        )
+        result = CliRunner().invoke(main, ["--json", "attach", "P1", "--file", str(pdf)])
+        assert result.exit_code == 0
+        assert json.loads(result.output)["data"]["stored"] == "local"
+
+    def test_auto_falls_back_to_cloud_when_down(self, tmp_path, monkeypatch):
+        pdf = self._pdf(tmp_path)
+
+        def boom(*a, **k):
+            raise LocalBridgeError("down", code="not_reachable", retryable=True)
+
+        monkeypatch.setattr("zotero_cli_cc.core.local_bridge.ping", boom)
+        self._mock_writer(monkeypatch, "ATTCLOUD", "created")
+        result = CliRunner().invoke(main, ["--json", "attach", "P1", "--file", str(pdf)])
+        assert result.exit_code == 0
+        assert json.loads(result.output)["data"]["stored"] == "cloud"

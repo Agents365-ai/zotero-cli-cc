@@ -44,8 +44,9 @@ zot add --pdf paper.pdf                   # Add from local PDF (auto-extract DOI
 zot --no-interaction delete ITEMKEY
 zot update ITEMKEY --title "New Title"
 zot update ITEMKEY --field volume=42 --field pages=1-10
-zot attach ITEMKEY --file supplement.pdf
-zot attach ITEMKEY --file supplement.pdf --via-bridge   # store in LOCAL storage (needs Zotero desktop + bridge)
+zot attach ITEMKEY --file supplement.pdf                 # auto: bridge if desktop up (local), else cloud
+zot attach ITEMKEY --file supplement.pdf --via-bridge    # force LOCAL storage (needs Zotero desktop + bridge)
+zot attach ITEMKEY --file supplement.pdf --no-via-bridge # force cloud (Web API); reports result=created|exists
 ```
 
 > **`zot attach` storage note.** The default path uploads via the Web API into

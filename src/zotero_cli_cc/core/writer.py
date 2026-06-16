@@ -183,16 +183,22 @@ class ZoteroWriter:
         except PyZoteroError as e:
             raise _friendly_api_error(e) from e
 
-    def upload_attachment(self, parent_key: str, file_path: Path) -> str:
-        """Upload a file attachment to an existing item. Returns attachment key."""
+    def upload_attachment(self, parent_key: str, file_path: Path) -> tuple[str, str]:
+        """Upload a file attachment to an existing item.
+
+        Returns ``(attachment_key, result)`` where ``result`` is ``"created"``
+        (the file was newly uploaded) or ``"exists"`` (Zotero already held an
+        identical file, so nothing was transferred). A genuine failure raises
+        ``ZoteroWriteError`` instead of returning.
+        """
         if not file_path.exists():
             raise ZoteroWriteError(f"File not found: {file_path}", code="validation_error", retryable=False)
         try:
             resp = self._zot.attachment_simple([str(file_path)], parentid=parent_key)
             if resp.get("success"):
-                return str(resp["success"][0]["key"])
+                return str(resp["success"][0]["key"]), "created"
             if resp.get("unchanged"):
-                return str(resp["unchanged"][0]["key"])
+                return str(resp["unchanged"][0]["key"]), "exists"
             if resp.get("failure"):
                 msg = resp["failure"][0].get("message", "Upload failed")
                 raise ZoteroWriteError(f"Attachment upload failed: {msg}", code="api_error", retryable=True)

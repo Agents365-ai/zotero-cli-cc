@@ -276,7 +276,7 @@ def _add_from_pdf(
     att_key = None
     attach_error: str | None = None
     try:
-        att_key = writer.upload_attachment(key, pdf_path)
+        att_key, _ = writer.upload_attachment(key, pdf_path)
     except ZoteroWriteError as e:
         attach_error = str(e)
 
