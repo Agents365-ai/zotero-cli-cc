@@ -21,7 +21,7 @@ zot workspace query "RLHF" --workspace my-ws  # RAG search
 1. **Always use `--json`** for programmatic processing (auto-enabled when stdout is not a TTY).
 2. **Windows CJK encoding**: On Windows with a CJK locale, recent `zot` versions auto-reconfigure stdout to UTF-8. For older versions or subprocess calls, set `PYTHONIOENCODING=utf-8`. See `references/windows-encoding.md`.
 3. **Write safety**: Use `--dry-run` to preview mutations. Pass `--idempotency-key` on retries.
-4. **Large PDFs**: Use `--outline` first, then `--section SECID` to extract selectively. Avoid pulling full text when >20k chars.
+4. **Large PDFs**: Use `--outline` first, then `--section N` (the heading number from the outline) to extract selectively. Avoid pulling full text when >20k chars.
 5. **Workspace RAG index**: Do not `--force` rebuild without user confirmation — it is slow.
 6. **Find Full Text**: `zot find-pdf KEY` fetches paywalled PDFs but needs Zotero desktop running + the bridge plugin. One-time setup: `zot bridge install`. See `references/commands.md`.
 7. **Canonical schema**: Run `zot schema <cmd>` for exhaustive flags, types, and safety tiers.
@@ -40,7 +40,7 @@ zot workspace query "RLHF" --workspace my-ws  # RAG search
 | Delete item | `zot --no-interaction delete KEY` |
 | PDF full text | `zot --json pdf KEY` |
 | PDF outline | `zot --json pdf --outline KEY` |
-| PDF section | `zot --json pdf --section SECID KEY` |
+| PDF section | `zot --json pdf --section N KEY` |
 | Fetch/attach missing PDF | `zot find-pdf KEY` (needs Zotero desktop + bridge) |
 | Rename attachment files | `zot rename KEY --dry-run` (needs bridge; preview first) |
 | Add journal metrics (IF/分区) | `zot enrich KEY --set "JCR=Q1"` or `--from-map journals.toml` |
