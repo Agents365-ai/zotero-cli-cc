@@ -297,6 +297,11 @@ class ZoteroReader:
             ).fetchall()
             item_ids.update(r["itemID"] for r in rows)
 
+        # Validate sort column (prevents SQL injection via f-string interpolation)
+        _ALLOWED_SORT_COLS = {"dateAdded", "dateModified", "title", "creator"}
+        if sort and sort not in _ALLOWED_SORT_COLS:
+            raise ValueError(f"Invalid sort column: {sort}")
+
         # Filter by collection (accepts key or name)
         if collection:
             col_row = conn.execute(
@@ -387,6 +392,10 @@ class ZoteroReader:
         conn = self._connect()
         excl_sql, excl_params = self._excluded_filter()
         lib_sql, lib_params = self._library_filter()
+        # Validate sort column (prevents SQL injection via f-string interpolation)
+        _ALLOWED_RECENT_SORT = {"dateAdded", "dateModified"}
+        if sort and sort not in _ALLOWED_RECENT_SORT:
+            raise ValueError(f"Invalid sort column: {sort}")
         col = "dateModified" if sort == "dateModified" else "dateAdded"
         rows = conn.execute(
             f"SELECT itemID FROM items i WHERE {col} >= ? AND itemTypeID {excl_sql} {lib_sql} ORDER BY {col} DESC LIMIT ?",

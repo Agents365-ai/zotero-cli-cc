@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import atexit
+import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,6 +41,20 @@ mcp = FastMCP("zotero", instructions="Read and write access to a local Zotero li
 # ---------------------------------------------------------------------------
 
 _readers: dict[int, ZoteroReader] = {}
+_writers: dict[str, ZoteroWriter] = {}
+_log = logging.getLogger(__name__)
+
+
+def _close_writers() -> None:
+    for w in _writers.values():
+        if hasattr(w, "_zot") and hasattr(w._zot, "client") and w._zot.client is not None:
+            try:
+                w._zot.client.close()
+            except Exception:
+                pass
+
+
+atexit.register(_close_writers)
 
 
 def _get_reader(library: str = "user") -> ZoteroReader:
@@ -69,19 +84,22 @@ def _get_reader(library: str = "user") -> ZoteroReader:
 
 
 def _get_writer(library: str = "user") -> ZoteroWriter:
-    """Create a ZoteroWriter from the user's config.
+    """Return a cached ZoteroWriter, creating it on first use.
 
     Raises ValueError if write credentials are not configured.
     """
-    cfg = load_config()
-    if not cfg.has_write_credentials:
-        raise ValueError("Write credentials not configured. Set library_id and api_key in your Zotero CLI config.")
-    library_type = "user"
-    lib_id = cfg.library_id
-    if library.startswith("group:"):
-        library_type = "group"
-        lib_id = library[6:]
-    return ZoteroWriter(lib_id, cfg.api_key, library_type=library_type)
+    cache_key = library
+    if cache_key not in _writers:
+        cfg = load_config()
+        if not cfg.has_write_credentials:
+            raise ValueError("Write credentials not configured. Set library_id and api_key in your Zotero CLI config.")
+        library_type = "user"
+        lib_id = cfg.library_id
+        if library.startswith("group:"):
+            library_type = "group"
+            lib_id = library[6:]
+        _writers[cache_key] = ZoteroWriter(lib_id, cfg.api_key, library_type=library_type)
+    return _writers[cache_key]
 
 
 def _item_to_dict(item: Item, detail: str = "standard") -> dict:
@@ -213,8 +231,8 @@ def _handle_pdf(key: str, pages: str | None, library: str = "user") -> dict:
                     cache.put(pdf_path, "pdfium", text)
                 else:
                     text = pdf_extractor.extract_text(pdf_path, pages=page_range)
-            except PdfExtractionError:
-                return {"error": str(e), "context": "pdf"}
+            except PdfExtractionError as e2:
+                return {"error": str(e2), "context": "pdf"}
         else:
             return {"error": str(e), "context": "pdf"}
     finally:
@@ -977,7 +995,7 @@ def _handle_workspace_index(
                             all_chunk_texts.append(chunk_content)
                             total_chunks += 1
                     except Exception:
-                        pass
+                        _log.warning("Failed to extract/index PDF for item %s", ws_item.key, exc_info=True)
 
         # Update BM25 statistics
         all_chunks = idx.get_all_chunks()
@@ -998,8 +1016,7 @@ def _handle_workspace_index(
                         idx.set_embedding(cid, vec)
                     mode_label = "bm25+embeddings"
             except Exception:
-                pass
-
+                _log.warning("Failed to compute embeddings for %d chunks", len(all_chunk_texts), exc_info=True)
         elapsed = time.monotonic() - t0
         return {
             "items_indexed": len(to_index),

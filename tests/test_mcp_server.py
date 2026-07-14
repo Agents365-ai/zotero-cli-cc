@@ -598,8 +598,9 @@ class TestErrorPropagation:
 class TestGetWriter:
     @patch("zotero_cli_cc.mcp_server.load_config")
     def test_returns_writer_when_credentials(self, mock_config):
-        from zotero_cli_cc.mcp_server import _get_writer
+        from zotero_cli_cc.mcp_server import _get_writer, _writers
 
+        _writers.clear()
         cfg = MagicMock()
         cfg.has_write_credentials = True
         cfg.library_id = "12345"
@@ -613,8 +614,9 @@ class TestGetWriter:
 
     @patch("zotero_cli_cc.mcp_server.load_config")
     def test_raises_without_credentials(self, mock_config):
-        from zotero_cli_cc.mcp_server import _get_writer
+        from zotero_cli_cc.mcp_server import _get_writer, _writers
 
+        _writers.clear()
         cfg = MagicMock()
         cfg.has_write_credentials = False
         mock_config.return_value = cfg
