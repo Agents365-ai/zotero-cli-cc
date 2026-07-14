@@ -48,3 +48,19 @@ def test_note_add(mock_writer_cls, test_db_path):
     )
     assert result.exit_code == 0
     mock_writer.add_note.assert_called_once()
+
+
+def test_note_add_dry_run(test_db_path):
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        ["note", "ATTN001", "--add", "New note", "--dry-run"],
+        env={
+            "ZOT_DATA_DIR": str(test_db_path.parent),
+            "ZOT_LIBRARY_ID": "123",
+            "ZOT_API_KEY": "abc",
+            "ZOT_FORMAT": "table",
+        },
+    )
+    assert result.exit_code == 0
+    assert "Would add note" in result.output

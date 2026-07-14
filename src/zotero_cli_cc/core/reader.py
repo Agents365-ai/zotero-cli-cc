@@ -517,8 +517,9 @@ class ZoteroReader:
                         items = self._get_items_batch(conn, cluster)
                         best_score = (
                             max(
-                                SequenceMatcher(None, _normalize(items[0].title), _normalize(it.title)).ratio()
-                                for it in items[1:]
+                                SequenceMatcher(None, _normalize(items[i].title), _normalize(items[j].title)).ratio()
+                                for i in range(len(items))
+                                for j in range(i + 1, len(items))
                             )
                             if len(items) >= 2
                             else 0.0
@@ -588,17 +589,14 @@ class ZoteroReader:
         if col_row is None:
             return []
         rows = conn.execute(
-            "SELECT i.key FROM collectionItems ci "
+            "SELECT i.itemID FROM collectionItems ci "
             "JOIN items i ON ci.itemID = i.itemID "
             "WHERE ci.collectionID = ? AND i.itemTypeID " + self._get_excluded_sql(),
             (col_row["collectionID"],),
         ).fetchall()
-        items = []
-        for r in rows:
-            item = self.get_item(r["key"])
-            if item:
-                items.append(item)
-        return items
+        if not rows:
+            return []
+        return self._get_items_batch(conn, [r["itemID"] for r in rows])
 
     def get_attachments(self, key: str) -> list[Attachment]:
         conn = self._connect()

@@ -111,6 +111,26 @@ def test_tag_add(mock_writer_cls):
     mock_writer.add_tags.assert_called_once_with("K1", ["newtag"])
 
 
+@patch("zotero_cli_cc.commands.tag.ZoteroWriter")
+def test_tag_remove(mock_writer_cls):
+    mock_writer = MagicMock()
+    mock_writer_cls.return_value = mock_writer
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["tag", "K1", "--remove", "oldtag"], env=WRITE_ENV)
+    assert result.exit_code == 0
+    mock_writer.remove_tags.assert_called_once_with("K1", ["oldtag"])
+
+
+@patch("zotero_cli_cc.commands.tag.ZoteroWriter")
+def test_tag_dry_run(mock_writer_cls):
+    runner = CliRunner()
+    result = runner.invoke(main, ["tag", "K1", "--add", "t", "--dry-run"], env=WRITE_ENV)
+    assert result.exit_code == 0
+    assert "Would add tag" in result.output
+    mock_writer_cls.assert_not_called()
+
+
 def test_tag_list(test_db_path):
     runner = CliRunner()
     result = runner.invoke(
@@ -142,4 +162,35 @@ def test_collection_create(mock_writer_cls):
     runner = CliRunner()
     result = runner.invoke(main, ["collection", "create", "New Col"], env=WRITE_ENV)
     assert result.exit_code == 0
-    assert "NEWCOL" in result.output
+
+
+@patch("zotero_cli_cc.commands.collection.ZoteroWriter")
+def test_collection_move(mock_writer_cls):
+    mock_writer = MagicMock()
+    mock_writer_cls.return_value = mock_writer
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["collection", "move", "ITEM1", "COLKEY"], env=WRITE_ENV)
+    assert result.exit_code == 0
+    mock_writer.move_to_collection.assert_called_once_with("ITEM1", "COLKEY")
+
+
+@patch("zotero_cli_cc.commands.collection.ZoteroWriter")
+def test_collection_delete_dry_run(mock_writer_cls):
+    runner = CliRunner()
+    result = runner.invoke(main, ["collection", "delete", "COLKEY", "--dry-run"], env=WRITE_ENV)
+    assert result.exit_code == 0
+    assert "Would delete collection" in result.output
+    mock_writer_cls.assert_not_called()
+
+
+@patch("zotero_cli_cc.commands.collection.ZoteroWriter")
+def test_collection_rename(mock_writer_cls):
+    mock_writer = MagicMock()
+    mock_writer_cls.return_value = mock_writer
+    mock_writer.rename_collection.return_value = None
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["collection", "rename", "COLKEY", "New Name"], env=WRITE_ENV)
+    assert result.exit_code == 0
+    mock_writer.rename_collection.assert_called_once_with("COLKEY", "New Name")

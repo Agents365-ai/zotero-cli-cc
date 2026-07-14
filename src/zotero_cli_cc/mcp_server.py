@@ -900,7 +900,9 @@ def _handle_workspace_search(name: str, query: str, limit: int = 50, library: st
                 ],
             )
         ).lower()
-        if query_lower in searchable:
+        # Tokenized word match: every query word must appear somewhere
+        query_words = query_lower.split()
+        if all(w in searchable for w in query_words):
             matches.append(item)
     return {"items": [_item_to_dict(i) for i in matches[:limit]], "total": len(matches)}
 
