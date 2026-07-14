@@ -8,8 +8,7 @@ from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
 from zotero_cli_cc.exit_codes import emit_error
-from zotero_cli_cc.formatter import format_items, print_error
-from zotero_cli_cc.models import ErrorInfo
+from zotero_cli_cc.formatter import format_items
 
 
 @click.group("trash")
@@ -53,8 +52,9 @@ def trash_list_cmd(ctx: click.Context, limit: int | None) -> None:
 @trash_group.command("restore")
 @click.argument("keys", nargs=-1, required=True)
 @click.option("--dry-run", is_flag=True, help="Show what would be restored without executing")
+@click.option("--idempotency-key", default=None, help="Key so retries are safe; same key returns the original result")
 @click.pass_context
-def trash_restore_cmd(ctx: click.Context, keys: tuple[str, ...], dry_run: bool) -> None:
+def trash_restore_cmd(ctx: click.Context, keys: tuple[str, ...], dry_run: bool, idempotency_key: str | None) -> None:
     """Restore item(s) from trash. MUTATES LIBRARY.
 
     \b
@@ -91,17 +91,31 @@ def trash_restore_cmd(ctx: click.Context, keys: tuple[str, ...], dry_run: bool) 
             context="trash restore",
         )
 
+    from zotero_cli_cc.core.idempotency import get_cached, store_cached
+
+    cache_scope = f"trash_restore:{':'.join(sorted(keys))}"
+    if idempotency_key:
+        cached = get_cached(cache_scope, idempotency_key)
+        if cached is not None:
+            if json_out:
+                click.echo(_json.dumps(cached, indent=2, ensure_ascii=False))
+            else:
+                count = len(cached.get("data", {}).get("restored", []))
+                click.echo(f"Restored {count} item(s) (cached).")
+            return
+
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
-    any_success = False
     for key in keys:
         try:
             writer.restore_from_trash(key)
             click.echo(f"Restored: {key}")
-            any_success = True
         except ZoteroWriteError as e:
-            print_error(
-                ErrorInfo(message=str(e), context="trash restore", hint=f"Failed for key '{key}'"),
-                output_json=json_out,
-            )
-    if any_success:
+            emit_error("runtime_error", str(e), output_json=json_out, context="trash restore")
+
+    env = envelope_ok({"restored": list(keys)})
+    if idempotency_key:
+        store_cached(cache_scope, idempotency_key, env)
+    if json_out:
+        click.echo(_json.dumps(env, indent=2, ensure_ascii=False))
+    else:
         click.echo(SYNC_REMINDER)

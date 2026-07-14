@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 
 import click
@@ -7,9 +8,8 @@ import click
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
-from zotero_cli_cc.exit_codes import EXIT_RUNTIME, emit_error
-from zotero_cli_cc.formatter import format_collections, format_items, print_error
-from zotero_cli_cc.models import ErrorInfo
+from zotero_cli_cc.exit_codes import emit_error
+from zotero_cli_cc.formatter import envelope_ok, format_collections, format_items
 
 
 @click.group("collection")
@@ -54,81 +54,22 @@ def collection_items(ctx: click.Context, key: str) -> None:
 @collection_group.command("create")
 @click.argument("name")
 @click.option("--parent", default=None, help="Parent collection key")
+@click.option("--dry-run", is_flag=True, help="Preview without calling the API")
+@click.option("--idempotency-key", default=None, help="Key so retries are safe; same key returns the original result")
 @click.pass_context
-def collection_create(ctx: click.Context, name: str, parent: str | None) -> None:
+def collection_create(
+    ctx: click.Context, name: str, parent: str | None, dry_run: bool, idempotency_key: str | None
+) -> None:
     """Create a new collection."""
     cfg = load_config(profile=ctx.obj.get("profile"))
     json_out = ctx.obj.get("json", False)
-    library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
-    api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
-    library_type = ctx.obj.get("library_type", "user")
-    if library_type == "group" and ctx.obj.get("group_id"):
-        library_id = ctx.obj["group_id"]
-    if not library_id or not api_key:
-        emit_error(
-            "auth_missing",
-            "Write credentials not configured",
-            output_json=json_out,
-            hint="Run 'zot config init' to set up API credentials",
-            context="collection",
-        )
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
-    try:
-        key = writer.create_collection(name, parent_key=parent)
-        click.echo(f"Collection created: {key}")
-        click.echo(SYNC_REMINDER)
-    except ZoteroWriteError as e:
-        print_error(
-            ErrorInfo(message=str(e), context="collection create", hint="Check API credentials and network"),
-            output_json=json_out,
-        )
-        ctx.exit(EXIT_RUNTIME)
-
-
-@collection_group.command("move")
-@click.argument("item_key")
-@click.argument("collection_key")
-@click.pass_context
-def collection_move(ctx: click.Context, item_key: str, collection_key: str) -> None:
-    """Move an item to a collection."""
-    cfg = load_config(profile=ctx.obj.get("profile"))
-    json_out = ctx.obj.get("json", False)
-    library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
-    api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
-    library_type = ctx.obj.get("library_type", "user")
-    if library_type == "group" and ctx.obj.get("group_id"):
-        library_id = ctx.obj["group_id"]
-    if not library_id or not api_key:
-        emit_error(
-            "auth_missing",
-            "Write credentials not configured",
-            output_json=json_out,
-            hint="Run 'zot config init' to set up API credentials",
-            context="collection",
-        )
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
-    try:
-        writer.move_to_collection(item_key, collection_key)
-        click.echo(f"Item {item_key} moved to collection {collection_key}")
-        click.echo(SYNC_REMINDER)
-    except ZoteroWriteError as e:
-        print_error(
-            ErrorInfo(message=str(e), context="collection move", hint="Check item and collection keys"),
-            output_json=json_out,
-        )
-        ctx.exit(EXIT_RUNTIME)
-
-
-@collection_group.command("delete")
-@click.argument("key")
-@click.option("--dry-run", is_flag=True, help="Show what would be deleted without executing")
-@click.pass_context
-def collection_delete(ctx: click.Context, key: str, dry_run: bool) -> None:
-    """Delete a collection."""
-    cfg = load_config(profile=ctx.obj.get("profile"))
-    json_out = ctx.obj.get("json", False)
     if dry_run:
-        click.echo(f"[dry-run] Would delete collection '{key}'")
+        data = {"would": {"name": name, "parent": parent}}
+        env = envelope_ok(data, extra={"dry_run": True})
+        if json_out:
+            click.echo(json.dumps(env, indent=2, ensure_ascii=False))
+        else:
+            click.echo(f"[dry-run] Would create collection '{name}'" + (f" under '{parent}'" if parent else ""))
         return
     library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
     api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
@@ -143,17 +84,151 @@ def collection_delete(ctx: click.Context, key: str, dry_run: bool) -> None:
             hint="Run 'zot config init' to set up API credentials",
             context="collection",
         )
+    from zotero_cli_cc.core.idempotency import get_cached, store_cached
+
+    cache_scope = f"collection_create:{name}"
+    if idempotency_key:
+        cached = get_cached(cache_scope, idempotency_key)
+        if cached is not None:
+            if json_out:
+                click.echo(json.dumps(cached, indent=2, ensure_ascii=False))
+            else:
+                click.echo(f"Collection created: {cached.get('data', {}).get('key', '?')} (cached).")
+            return
+
+    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
+    try:
+        key = writer.create_collection(name, parent_key=parent)
+    except ZoteroWriteError as e:
+        emit_error("runtime_error", str(e), output_json=json_out, context="collection create")
+
+    env = envelope_ok({"key": key, "name": name, "parent": parent})
+    if idempotency_key:
+        store_cached(cache_scope, idempotency_key, env)
+    if json_out:
+        click.echo(json.dumps(env, indent=2, ensure_ascii=False))
+    else:
+        click.echo(f"Collection created: {key}")
+        click.echo(SYNC_REMINDER)
+
+
+@collection_group.command("move")
+@click.argument("item_key")
+@click.argument("collection_key")
+@click.option("--dry-run", is_flag=True, help="Preview without calling the API")
+@click.option("--idempotency-key", default=None, help="Key so retries are safe; same key returns the original result")
+@click.pass_context
+def collection_move(
+    ctx: click.Context, item_key: str, collection_key: str, dry_run: bool, idempotency_key: str | None
+) -> None:
+    """Move an item to a collection."""
+    cfg = load_config(profile=ctx.obj.get("profile"))
+    json_out = ctx.obj.get("json", False)
+    if dry_run:
+        data = {"would": {"item_key": item_key, "collection_key": collection_key}}
+        env = envelope_ok(data, extra={"dry_run": True})
+        if json_out:
+            click.echo(json.dumps(env, indent=2, ensure_ascii=False))
+        else:
+            click.echo(f"[dry-run] Would move {item_key} to collection {collection_key}")
+        return
+    library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
+    api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
+    library_type = ctx.obj.get("library_type", "user")
+    if library_type == "group" and ctx.obj.get("group_id"):
+        library_id = ctx.obj["group_id"]
+    if not library_id or not api_key:
+        emit_error(
+            "auth_missing",
+            "Write credentials not configured",
+            output_json=json_out,
+            hint="Run 'zot config init' to set up API credentials",
+            context="collection",
+        )
+    from zotero_cli_cc.core.idempotency import get_cached, store_cached
+
+    cache_scope = f"collection_move:{item_key}:{collection_key}"
+    if idempotency_key:
+        cached = get_cached(cache_scope, idempotency_key)
+        if cached is not None:
+            if json_out:
+                click.echo(json.dumps(cached, indent=2, ensure_ascii=False))
+            else:
+                click.echo(f"Item {item_key} moved to collection {collection_key} (cached).")
+            return
+
+    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
+    try:
+        writer.move_to_collection(item_key, collection_key)
+    except ZoteroWriteError as e:
+        emit_error("runtime_error", str(e), output_json=json_out, context="collection move")
+
+    env = envelope_ok({"item_key": item_key, "collection_key": collection_key})
+    if idempotency_key:
+        store_cached(cache_scope, idempotency_key, env)
+    if json_out:
+        click.echo(json.dumps(env, indent=2, ensure_ascii=False))
+    else:
+        click.echo(f"Item {item_key} moved to collection {collection_key}")
+        click.echo(SYNC_REMINDER)
+
+
+@collection_group.command("delete")
+@click.argument("key")
+@click.option("--dry-run", is_flag=True, help="Show what would be deleted without executing")
+@click.option("--idempotency-key", default=None, help="Key so retries are safe; same key returns the original result")
+@click.pass_context
+def collection_delete(ctx: click.Context, key: str, dry_run: bool, idempotency_key: str | None) -> None:
+    """Delete a collection."""
+    cfg = load_config(profile=ctx.obj.get("profile"))
+    json_out = ctx.obj.get("json", False)
+    if dry_run:
+        data = {"would": {"key": key}}
+        env = envelope_ok(data, extra={"dry_run": True})
+        if json_out:
+            click.echo(json.dumps(env, indent=2, ensure_ascii=False))
+        else:
+            click.echo(f"[dry-run] Would delete collection '{key}'")
+        return
+    library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
+    api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
+    library_type = ctx.obj.get("library_type", "user")
+    if library_type == "group" and ctx.obj.get("group_id"):
+        library_id = ctx.obj["group_id"]
+    if not library_id or not api_key:
+        emit_error(
+            "auth_missing",
+            "Write credentials not configured",
+            output_json=json_out,
+            hint="Run 'zot config init' to set up API credentials",
+            context="collection",
+        )
+    from zotero_cli_cc.core.idempotency import get_cached, store_cached
+
+    cache_scope = f"collection_delete:{key}"
+    if idempotency_key:
+        cached = get_cached(cache_scope, idempotency_key)
+        if cached is not None:
+            if json_out:
+                click.echo(json.dumps(cached, indent=2, ensure_ascii=False))
+            else:
+                click.echo(f"Collection {key} deleted (cached).")
+            return
+
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
         writer.delete_collection(key)
+    except ZoteroWriteError as e:
+        emit_error("runtime_error", str(e), output_json=json_out, context="collection delete")
+
+    env = envelope_ok({"key": key})
+    if idempotency_key:
+        store_cached(cache_scope, idempotency_key, env)
+    if json_out:
+        click.echo(json.dumps(env, indent=2, ensure_ascii=False))
+    else:
         click.echo(f"Collection {key} deleted")
         click.echo(SYNC_REMINDER)
-    except ZoteroWriteError as e:
-        print_error(
-            ErrorInfo(message=str(e), context="collection delete", hint="Check collection key"),
-            output_json=json_out,
-        )
-        ctx.exit(EXIT_RUNTIME)
 
 
 @collection_group.command("reorganize")
@@ -238,11 +313,21 @@ def collection_reorganize(ctx: click.Context, plan_file: str, dry_run: bool) -> 
 @collection_group.command("rename")
 @click.argument("key")
 @click.argument("new_name")
+@click.option("--dry-run", is_flag=True, help="Preview without calling the API")
+@click.option("--idempotency-key", default=None, help="Key so retries are safe; same key returns the original result")
 @click.pass_context
-def collection_rename(ctx: click.Context, key: str, new_name: str) -> None:
+def collection_rename(ctx: click.Context, key: str, new_name: str, dry_run: bool, idempotency_key: str | None) -> None:
     """Rename a collection."""
     cfg = load_config(profile=ctx.obj.get("profile"))
     json_out = ctx.obj.get("json", False)
+    if dry_run:
+        data = {"would": {"key": key, "new_name": new_name}}
+        env = envelope_ok(data, extra={"dry_run": True})
+        if json_out:
+            click.echo(json.dumps(env, indent=2, ensure_ascii=False))
+        else:
+            click.echo(f"[dry-run] Would rename collection {key} to '{new_name}'")
+        return
     library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
     api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
     library_type = ctx.obj.get("library_type", "user")
@@ -256,14 +341,29 @@ def collection_rename(ctx: click.Context, key: str, new_name: str) -> None:
             hint="Run 'zot config init' to set up API credentials",
             context="collection",
         )
+    from zotero_cli_cc.core.idempotency import get_cached, store_cached
+
+    cache_scope = f"collection_rename:{key}:{new_name}"
+    if idempotency_key:
+        cached = get_cached(cache_scope, idempotency_key)
+        if cached is not None:
+            if json_out:
+                click.echo(json.dumps(cached, indent=2, ensure_ascii=False))
+            else:
+                click.echo(f"Collection {key} renamed to '{new_name}' (cached).")
+            return
+
     writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
         writer.rename_collection(key, new_name)
+    except ZoteroWriteError as e:
+        emit_error("runtime_error", str(e), output_json=json_out, context="collection rename")
+
+    env = envelope_ok({"key": key, "new_name": new_name})
+    if idempotency_key:
+        store_cached(cache_scope, idempotency_key, env)
+    if json_out:
+        click.echo(json.dumps(env, indent=2, ensure_ascii=False))
+    else:
         click.echo(f"Collection {key} renamed to '{new_name}'")
         click.echo(SYNC_REMINDER)
-    except ZoteroWriteError as e:
-        print_error(
-            ErrorInfo(message=str(e), context="collection rename", hint="Check collection key"),
-            output_json=json_out,
-        )
-        ctx.exit(EXIT_RUNTIME)

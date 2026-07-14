@@ -28,13 +28,15 @@ class TestStatsCmd:
         )
         assert result.exit_code == 0
         data = json.loads(result.output)
-        assert "total_items" in data
-        assert "by_type" in data
-        assert "top_tags" in data
-        assert "collections" in data
-        assert "pdf_attachments" in data
-        assert "notes" in data
-        assert data["total_items"] > 0
+        assert data["ok"] is True
+        stats = data["data"]
+        assert "total_items" in stats
+        assert "by_type" in stats
+        assert "top_tags" in stats
+        assert "collections" in stats
+        assert "pdf_attachments" in stats
+        assert "notes" in stats
+        assert stats["total_items"] > 0
 
 
 class TestOpenCmd:

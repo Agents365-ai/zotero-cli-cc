@@ -11,6 +11,8 @@ from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.core.semantic_scholar import PreprintInfo, SemanticScholarClient, extract_preprint_info
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
+from zotero_cli_cc.exit_codes import emit_error
+from zotero_cli_cc.formatter import envelope_ok
 
 
 @click.command("update-status")
@@ -24,6 +26,7 @@ from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWri
 )
 @click.option("--collection", default=None, help="Only check items in this collection")
 @click.option("--limit", default=None, type=int, help="Max items to check")
+@click.option("--idempotency-key", default=None, help="Key so retries are safe; same key returns the original result")
 @click.pass_context
 def update_status_cmd(
     ctx: click.Context,
@@ -32,6 +35,7 @@ def update_status_cmd(
     ss_api_key: str | None,
     collection: str | None,
     limit: int | None,
+    idempotency_key: str | None,
 ) -> None:
     """Check if preprints (arXiv, bioRxiv, medRxiv) have been formally published.
 
@@ -80,15 +84,13 @@ def update_status_cmd(
         if key:
             item = reader.get_item(key)
             if not item:
-                click.echo(f"Error: Item '{key}' not found.", err=True)
-                raise SystemExit(1)
+                emit_error("not_found", f"Item '{key}' not found", output_json=json_out, context="update_status")
             items = [item]
         else:
             try:
                 items = reader.get_arxiv_preprints(collection=collection, limit=limit)
             except ValueError as e:
-                click.echo(f"Error: {e}", err=True)
-                raise SystemExit(1)
+                emit_error("runtime_error", str(e), output_json=json_out, context="update_status")
     finally:
         reader.close()
 
@@ -195,6 +197,20 @@ def update_status_cmd(
         click.echo("\nDry-run mode. Use --apply to update Zotero metadata.")
         return
 
+    from zotero_cli_cc.core.idempotency import get_cached, store_cached
+
+    preprint_keys = sorted(ik for ik, _, _ in preprint_items)
+    cache_scope = f"update_status:{':'.join(preprint_keys)}"
+    if idempotency_key:
+        cached = get_cached(cache_scope, idempotency_key)
+        if cached is not None:
+            if json_out:
+                click.echo(json.dumps(cached, indent=2, ensure_ascii=False))
+            else:
+                count = cached.get("data", {}).get("updated_count", 0)
+                click.echo(f"Updated {count} preprint(s) (cached).")
+            return
+
     # Apply updates via Zotero Web API
     zot_library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
     zot_api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
@@ -203,11 +219,12 @@ def update_status_cmd(
         zot_library_id = ctx.obj["group_id"]
 
     if not zot_library_id or not zot_api_key:
-        click.echo(
-            "\nError: Zotero write credentials not configured. Run 'zot config init' to set up API credentials.",
-            err=True,
+        emit_error(
+            "auth_missing",
+            "Zotero write credentials not configured. Run 'zot config init' to set up API credentials.",
+            output_json=json_out,
+            context="update_status",
         )
-        raise SystemExit(1)
 
     writer = ZoteroWriter(library_id=zot_library_id, api_key=zot_api_key, library_type=library_type)
     updated = 0
@@ -232,6 +249,11 @@ def update_status_cmd(
         except ZoteroWriteError as e:
             click.echo(f"  Failed {r['key']}: {e}", err=True)
 
+    env = envelope_ok({"updated_count": updated, "results": results})
+    if idempotency_key:
+        store_cached(cache_scope, idempotency_key, env)
+    if json_out:
+        click.echo(json.dumps(env, indent=2, ensure_ascii=False))
     click.echo(f"\nUpdated {updated} item(s).")
     if updated > 0:
         click.echo(SYNC_REMINDER)
