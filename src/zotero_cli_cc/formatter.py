@@ -379,6 +379,8 @@ def format_ask(question: str, evidence: list[dict], mode: str, output_json: bool
     if output_json:
         return _dump(envelope_ok(data, meta={"retrieved": len(evidence)}))
     if not evidence:
+        if output_json:
+            return _dump(envelope_error(code="not_found", message="No evidence found."))
         return "No evidence found."
     buf = StringIO()
     console = Console(file=buf, force_terminal=False, width=120)

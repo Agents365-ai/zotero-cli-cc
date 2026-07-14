@@ -259,7 +259,7 @@ class ZoteroWriter:
         try:
             self._zot.addto_collection(collection_key, self._zot.item(item_key))
         except ResourceNotFoundError:
-            raise ZoteroWriteError("Item or collection not found")
+            raise ZoteroWriteError("Item or collection not found", code="not_found")
         except (HttpxConnectError, HttpxTimeoutException) as e:
             raise ZoteroWriteError(f"Network error: {e}", code="network_error", retryable=True) from e
         except PyZoteroError as e:

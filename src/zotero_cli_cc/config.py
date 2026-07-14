@@ -184,21 +184,64 @@ def get_default_profile(path: Path | None = None) -> str:
 def save_config(config: AppConfig, path: Path | None = None) -> None:
     path = path or CONFIG_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
-    lines = [
-        "[zotero]",
-        f"data_dir = '{config.data_dir}'",
-        f"library_id = '{config.library_id}'",
-        f"api_key = '{config.api_key}'",
-        f"semantic_scholar_api_key = '{config.semantic_scholar_api_key}'",
-        "",
-        "[output]",
-        f"default_format = '{config.default_format}'",
-        f"limit = {config.default_limit}",
-        "",
-        "[export]",
-        f"default_style = '{config.default_export_style}'",
-        "",
-    ]
+
+    # Check if existing config uses profile-based structure
+    existing_raw = ""
+    if path.exists():
+        existing_raw = path.read_text()
+    has_profiles = any(
+        line.strip().startswith("[profile.") or line.strip() == "[default]" for line in existing_raw.splitlines()
+    )
+
+    if has_profiles:
+        lines = [
+            "[default]",
+            "profile = 'default'",
+            "",
+            "[profile.default]",
+            f"data_dir = '{config.data_dir}'",
+            f"library_id = '{config.library_id}'",
+            f"api_key = '{config.api_key}'",
+        ]
+        if config.semantic_scholar_api_key:
+            lines.append(f"semantic_scholar_api_key = '{config.semantic_scholar_api_key}'")
+        if config.prefs_js_path:
+            lines.append(f"prefs_js_path = '{config.prefs_js_path}'")
+        lines.extend(
+            [
+                "",
+                "[output]",
+                f"default_format = '{config.default_format}'",
+                f"limit = {config.default_limit}",
+                "",
+                "[export]",
+                f"default_style = '{config.default_export_style}'",
+                "",
+            ]
+        )
+    else:
+        lines = [
+            "[zotero]",
+            f"data_dir = '{config.data_dir}'",
+            f"library_id = '{config.library_id}'",
+            f"api_key = '{config.api_key}'",
+        ]
+        if config.semantic_scholar_api_key:
+            lines.append(f"semantic_scholar_api_key = '{config.semantic_scholar_api_key}'")
+        if config.prefs_js_path:
+            lines.append(f"prefs_js_path = '{config.prefs_js_path}'")
+        lines.extend(
+            [
+                "",
+                "[output]",
+                f"default_format = '{config.default_format}'",
+                f"limit = {config.default_limit}",
+                "",
+                "[export]",
+                f"default_style = '{config.default_export_style}'",
+                "",
+            ]
+        )
     path.write_text("\n".join(lines))
 
 
