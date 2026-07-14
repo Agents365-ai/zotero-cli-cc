@@ -343,6 +343,12 @@ It requires the bridge plugin **v0.3.0+** and uses the same reachability codes a
 falls back to the Web API silently when the bridge is not reachable; an explicit
 `--via-bridge` surfaces those codes as errors instead.
 
+Importing into a **group library** (`--library group:<id>`) via the bridge needs
+plugin **v0.4.0+** — the bridge maps the Web-API group id to the desktop's
+internal `libraryID`. The CLI checks the running plugin's version first and fails
+with `bridge_missing` (3) if it is too old, rather than silently importing into
+your personal library.
+
 ## Orphaned attachments (`zot orphans`)
 
 The flip side of the cloud-vs-local split: a storage-backed attachment whose

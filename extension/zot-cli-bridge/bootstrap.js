@@ -11,10 +11,13 @@
  *   POST /zot-cli/rename        — body {"attachmentKey","newName","libraryID"?,"force"?}
  *                                  renames the attachment's stored file via
  *                                  renameAttachmentFile and syncs its title
- *   POST /zot-cli/import-file   — body {"parentKey","path","libraryID"?,"title"?}
+ *   POST /zot-cli/import-file   — body {"parentKey","path","libraryID"?,"groupID"?,"title"?}
  *                                  imports a local file as an attachment via
  *                                  Zotero.Attachments.importFromFile so the
- *                                  binary lands in local storage immediately
+ *                                  binary lands in local storage immediately.
+ *                                  Pass "groupID" (the Web-API group id) to
+ *                                  target a group library — it is mapped to the
+ *                                  desktop's internal libraryID.
  *
  * The whole point of going through Zotero (rather than fetching the PDF
  * directly from Python) is that Zotero's "Find Full Text" reuses the user's
@@ -31,7 +34,22 @@
 
 /* global Zotero, ChromeUtils */
 
-const PLUGIN_VERSION = "0.3.0";
+const PLUGIN_VERSION = "0.4.0";
+
+// Map a Web-API group id to the desktop client's internal libraryID. The two
+// differ: the group id is what the Zotero Web API / `--library group:<id>`
+// uses, while items on disk are keyed by libraryID. Both Zotero.Groups
+// accessors are synchronous cache reads populated at startup. Returns null when
+// the group is unknown (not joined / not yet synced on this desktop).
+function libraryIDFromGroupID(groupID) {
+  const gid = parseInt(groupID, 10);
+  if (!gid) return null;
+  if (typeof Zotero.Groups.getLibraryIDFromGroupID === "function") {
+    return Zotero.Groups.getLibraryIDFromGroupID(gid) || null;
+  }
+  const group = Zotero.Groups.get(gid);
+  return group ? group.libraryID : null;
+}
 
 function buildEndpoint(handler, { methods = ["GET"], dataTypes = ["application/json"] } = {}) {
   const Endpoint = function () {};
@@ -240,19 +258,29 @@ async function handleRename(options) {
 }
 
 async function handleImportFile(options) {
-  // Body: {"parentKey": "...", "path": "/abs/file.pdf", "libraryID"?, "title"?}
+  // Body: {"parentKey": "...", "path": "/abs/file.pdf", "libraryID"?, "groupID"?, "title"?}
   let parentKey = null;
   let path = null;
   let libraryID = null;
+  let groupID = null;
   let title = null;
   if (options.data && typeof options.data === "object") {
     parentKey = options.data.parentKey || null;
     path = options.data.path || null;
     libraryID = options.data.libraryID || null;
+    groupID = options.data.groupID || null;
     title = options.data.title || null;
   }
   if (!parentKey || !path) {
     return [400, "application/json", JSON.stringify({ ok: false, error: "missing 'parentKey' or 'path'" })];
+  }
+  // A group library's Web-API id is not the desktop's internal libraryID; map it.
+  if (groupID != null) {
+    const mapped = libraryIDFromGroupID(groupID);
+    if (!mapped) {
+      return [404, "application/json", JSON.stringify({ ok: false, error: "group not found", groupID })];
+    }
+    libraryID = mapped;
   }
   libraryID = libraryID || Zotero.Libraries.userLibraryID;
 

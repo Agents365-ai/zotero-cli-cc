@@ -203,6 +203,23 @@ class TestAttachMCP:
             assert result["stored"] == "local"
             mock_import.assert_called_once()
 
+    def test_handle_attach_group_via_bridge(self, tmp_path, monkeypatch):
+        from zotero_cli_cc import mcp_server
+
+        pdf = tmp_path / "paper.pdf"
+        pdf.write_bytes(b"%PDF-1.4 x")
+        monkeypatch.setattr("zotero_cli_cc.core.local_bridge.ping", lambda *a, **k: {"bridge_version": "0.4.0"})
+        captured: dict = {}
+
+        def fake_import(parent, path, **kw):
+            captured["group_id"] = kw.get("group_id")
+            return {"attachment_key": "ATTG", "filename": "paper.pdf"}
+
+        monkeypatch.setattr("zotero_cli_cc.core.local_bridge.import_file", fake_import)
+        result = mcp_server._handle_attach("PARENT1", str(pdf), library="group:123", via_bridge=True)
+        assert result["key"] == "ATTG"
+        assert captured["group_id"] == 123
+
 
 class TestResolveUseBridge:
     def test_explicit_true_skips_ping(self, monkeypatch):
@@ -285,3 +302,91 @@ class TestAttachWebResultCLI:
         result = CliRunner().invoke(main, ["--json", "attach", "P1", "--file", str(pdf)])
         assert result.exit_code == 0
         assert json.loads(result.output)["data"]["stored"] == "cloud"
+
+
+class TestGroupImportSupport:
+    def test_import_file_sends_group_id(self, monkeypatch):
+        from zotero_cli_cc.core import local_bridge
+
+        captured: dict = {}
+
+        def fake_post(url, **kw):
+            captured["json"] = kw.get("json")
+            r = MagicMock()
+            r.status_code = 200
+            r.json.return_value = {"ok": True, "attachment_key": "ATT1", "imported": True}
+            r.text = "{}"
+            return r
+
+        monkeypatch.setattr(local_bridge.httpx, "post", fake_post)
+        local_bridge.import_file("PARENT1", "/abs/p.pdf", group_id=123)
+        assert captured["json"]["groupID"] == 123
+        assert "libraryID" not in captured["json"]
+
+    def test_ensure_ok_on_new_bridge(self, monkeypatch):
+        from zotero_cli_cc.core import local_bridge
+
+        monkeypatch.setattr(local_bridge, "ping", lambda *a, **k: {"bridge_version": "0.4.0"})
+        local_bridge.ensure_group_import_supported()  # must not raise
+
+    def test_ensure_raises_on_old_bridge(self, monkeypatch):
+        from zotero_cli_cc.core import local_bridge
+
+        monkeypatch.setattr(local_bridge, "ping", lambda *a, **k: {"bridge_version": "0.3.0"})
+        with pytest.raises(LocalBridgeError) as ei:
+            local_bridge.ensure_group_import_supported()
+        assert ei.value.code == "bridge_missing"
+
+
+class TestAttachGroupBridgeCLI:
+    @staticmethod
+    def _pdf(tmp_path):
+        pdf = tmp_path / "paper.pdf"
+        pdf.write_bytes(b"%PDF-1.4 x")
+        return pdf
+
+    def test_group_import_passes_group_id(self, tmp_path, monkeypatch):
+        pdf = self._pdf(tmp_path)
+        monkeypatch.setattr("zotero_cli_cc.core.local_bridge.ping", lambda *a, **k: {"bridge_version": "0.4.0"})
+        captured: dict = {}
+
+        def fake_import(parent, path, **kw):
+            captured.update(parent=parent, group_id=kw.get("group_id"))
+            return {"imported": True, "attachment_key": "ATTG", "filename": "paper.pdf"}
+
+        monkeypatch.setattr("zotero_cli_cc.commands.attach.import_file", fake_import)
+        result = CliRunner().invoke(
+            main, ["--json", "--library", "group:123", "attach", "P1", "--file", str(pdf), "--via-bridge"]
+        )
+        assert result.exit_code == 0
+        assert captured["group_id"] == 123
+        assert json.loads(result.output)["data"]["stored"] == "local"
+
+    def test_group_import_old_bridge_exits_3(self, tmp_path, monkeypatch):
+        pdf = self._pdf(tmp_path)
+        monkeypatch.setattr("zotero_cli_cc.core.local_bridge.ping", lambda *a, **k: {"bridge_version": "0.3.0"})
+        monkeypatch.setattr(
+            "zotero_cli_cc.commands.attach.import_file",
+            lambda *a, **k: pytest.fail("import_file must not run when the bridge is too old"),
+        )
+        result = CliRunner().invoke(
+            main, ["--library", "group:123", "attach", "P1", "--file", str(pdf), "--via-bridge"]
+        )
+        assert result.exit_code == 3
+
+    def test_user_import_does_not_check_version(self, tmp_path, monkeypatch):
+        pdf = self._pdf(tmp_path)
+        monkeypatch.setattr(
+            "zotero_cli_cc.core.local_bridge.ping",
+            lambda *a, **k: pytest.fail("user-library import must not version-check"),
+        )
+        captured: dict = {}
+
+        def fake_import(parent, path, **kw):
+            captured["group_id"] = kw.get("group_id")
+            return {"imported": True, "attachment_key": "ATTU", "filename": "paper.pdf"}
+
+        monkeypatch.setattr("zotero_cli_cc.commands.attach.import_file", fake_import)
+        result = CliRunner().invoke(main, ["--json", "attach", "P1", "--file", str(pdf), "--via-bridge"])
+        assert result.exit_code == 0
+        assert captured["group_id"] is None
