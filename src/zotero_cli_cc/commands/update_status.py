@@ -7,8 +7,8 @@ import os
 
 import click
 
-from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
-from zotero_cli_cc.core.reader import ZoteroReader
+from zotero_cli_cc.commands._helpers import open_reader
+from zotero_cli_cc.config import load_config
 from zotero_cli_cc.core.semantic_scholar import PreprintInfo, SemanticScholarClient, extract_preprint_info
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
 from zotero_cli_cc.exit_codes import emit_error
@@ -75,12 +75,7 @@ def update_status_cmd(
             click.echo(rate_msg, err=True)
 
     # Read items from local DB
-    data_dir = get_data_dir(cfg)
-    db_path = data_dir / "zotero.sqlite"
-    library_id = resolve_library_id(db_path, ctx.obj)
-    reader = ZoteroReader(db_path, library_id=library_id)
-
-    try:
+    with open_reader(ctx, cfg) as reader:
         if key:
             item = reader.get_item(key)
             if not item:
@@ -91,8 +86,6 @@ def update_status_cmd(
                 items = reader.get_arxiv_preprints(collection=collection, limit=limit)
             except ValueError as e:
                 emit_error("runtime_error", str(e), output_json=json_out, context="update_status")
-    finally:
-        reader.close()
 
     if not items:
         if json_out:

@@ -148,7 +148,7 @@ class TestOrphansCleanCLI:
             def delete_item(self, key):
                 deleted.append(key)
 
-        monkeypatch.setattr("zotero_cli_cc.commands.orphans.ZoteroWriter", FakeWriter)
+        monkeypatch.setattr("zotero_cli_cc.commands._helpers.ZoteroWriter", FakeWriter)
         env = {"ZOT_DATA_DIR": str(tmp_path), "ZOT_LIBRARY_ID": "123", "ZOT_API_KEY": "abc"}
         result = CliRunner().invoke(main, ["--json", "orphans", "clean", "--yes"], env=env)
         assert result.exit_code == 0

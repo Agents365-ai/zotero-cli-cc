@@ -172,7 +172,7 @@ class TestEnrichCLI:
                 calls[key] = metrics
                 return "merged"
 
-        monkeypatch.setattr("zotero_cli_cc.commands.enrich._build_writer", lambda *a, **k: FakeWriter())
+        monkeypatch.setattr("zotero_cli_cc.commands.enrich.build_writer", lambda *a, **k: FakeWriter())
         result = _invoke(["enrich", "ATTN001", "--set", "JCR=Q1"], test_db_path, json_out=True)
         assert result.exit_code == 0
         assert calls == {"ATTN001": {"JCR": "Q1"}}

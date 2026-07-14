@@ -6,9 +6,8 @@ import json
 
 import click
 
-from zotero_cli_cc.config import get_data_dir, get_prefs_js_path, load_config, resolve_library_id
+from zotero_cli_cc.commands._helpers import open_reader
 from zotero_cli_cc.core.local_bridge import LocalBridgeError, ping, rename_attachment
-from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.core.rename import RenameError, build_plan
 from zotero_cli_cc.core.writer import SYNC_REMINDER
 from zotero_cli_cc.exit_codes import emit_error
@@ -131,59 +130,54 @@ def rename_cmd(
         except LocalBridgeError as e:
             emit_error(e.code, str(e), output_json=json_out, retryable=e.retryable, hint=_BRIDGE_HINT, context="rename")
 
-    cfg = load_config(profile=ctx.obj.get("profile"))
-    db_path = get_data_dir(cfg) / "zotero.sqlite"
-    reader = ZoteroReader(
-        db_path, library_id=resolve_library_id(db_path, ctx.obj), prefs_js_path=get_prefs_js_path(cfg)
-    )
-
     results: list[dict] = []
     renamed = 0
-    for key in item_keys:
-        item = reader.get_item(key)
-        if item is None:
-            results.append({"key": key, "error": "item not found", "code": "not_found"})
-            continue
-        try:
-            plan = build_plan(item, reader.get_attachments(key), template=template, include_supp=not main_only)
-        except RenameError as e:
-            results.append({"key": key, "error": str(e), "code": e.code})
-            continue
-        if not plan:
-            results.append({"key": key, "warning": "no PDF attachments found"})
-            continue
-        renames: list[dict] = []
-        for entry in plan:
-            row = {
-                "attachment_key": entry.attachment_key,
-                "old_name": entry.old_name,
-                "new_name": entry.new_name,
-                "role": entry.role,
-            }
-            if entry.skip:
-                row["status"] = "unchanged"
-            elif dry_run:
-                row["status"] = "dry-run"
-            else:
-                try:
-                    rename_attachment(entry.attachment_key, entry.new_name, library_id=library_id, force=force)
-                    row["status"] = "renamed"
-                    renamed += 1
-                except LocalBridgeError as e:
-                    if e.code in _ABORT_CODES:
-                        emit_error(
-                            e.code,
-                            str(e),
-                            output_json=json_out,
-                            retryable=e.retryable,
-                            hint=_BRIDGE_HINT,
-                            context="rename",
-                        )
-                    row["status"] = "error"
-                    row["error"] = str(e)
-                    row["code"] = e.code
-            renames.append(row)
-        results.append({"key": key, "renames": renames})
+    with open_reader(ctx) as reader:
+        for key in item_keys:
+            item = reader.get_item(key)
+            if item is None:
+                results.append({"key": key, "error": "item not found", "code": "not_found"})
+                continue
+            try:
+                plan = build_plan(item, reader.get_attachments(key), template=template, include_supp=not main_only)
+            except RenameError as e:
+                results.append({"key": key, "error": str(e), "code": e.code})
+                continue
+            if not plan:
+                results.append({"key": key, "warning": "no PDF attachments found"})
+                continue
+            renames: list[dict] = []
+            for entry in plan:
+                row = {
+                    "attachment_key": entry.attachment_key,
+                    "old_name": entry.old_name,
+                    "new_name": entry.new_name,
+                    "role": entry.role,
+                }
+                if entry.skip:
+                    row["status"] = "unchanged"
+                elif dry_run:
+                    row["status"] = "dry-run"
+                else:
+                    try:
+                        rename_attachment(entry.attachment_key, entry.new_name, library_id=library_id, force=force)
+                        row["status"] = "renamed"
+                        renamed += 1
+                    except LocalBridgeError as e:
+                        if e.code in _ABORT_CODES:
+                            emit_error(
+                                e.code,
+                                str(e),
+                                output_json=json_out,
+                                retryable=e.retryable,
+                                hint=_BRIDGE_HINT,
+                                context="rename",
+                            )
+                        row["status"] = "error"
+                        row["error"] = str(e)
+                        row["code"] = e.code
+                renames.append(row)
+            results.append({"key": key, "renames": renames})
 
     env = _emit(ctx, json_out, results, renamed=renamed, dry_run=dry_run)
     if idempotency_key:

@@ -12,14 +12,13 @@ from __future__ import annotations
 
 import dataclasses
 import json
-import os
 import sys
 
 import click
 
-from zotero_cli_cc.config import get_data_dir, get_prefs_js_path, load_config, resolve_library_id
-from zotero_cli_cc.core.reader import ZoteroReader
-from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
+from zotero_cli_cc.commands._helpers import build_writer, open_reader
+from zotero_cli_cc.config import load_config
+from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError
 from zotero_cli_cc.exit_codes import EXIT_RUNTIME, emit_error
 from zotero_cli_cc.formatter import envelope_ok, envelope_partial
 from zotero_cli_cc.models import OrphanAttachment
@@ -31,12 +30,8 @@ def orphans_group() -> None:
 
 
 def _scan(ctx: click.Context) -> list[OrphanAttachment]:
-    cfg = load_config(profile=ctx.obj.get("profile"))
-    db_path = get_data_dir(cfg) / "zotero.sqlite"
-    reader = ZoteroReader(
-        db_path, library_id=resolve_library_id(db_path, ctx.obj), prefs_js_path=get_prefs_js_path(cfg)
-    )
-    return reader.find_orphan_attachments()
+    with open_reader(ctx) as reader:
+        return reader.find_orphan_attachments()
 
 
 def _counts(orphans: list[OrphanAttachment]) -> dict[str, int]:
@@ -145,19 +140,7 @@ def orphans_clean(
         return
 
     cfg = load_config(profile=ctx.obj.get("profile"))
-    library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
-    api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
-    library_type = ctx.obj.get("library_type", "user")
-    if library_type == "group" and ctx.obj.get("group_id"):
-        library_id = ctx.obj["group_id"]
-    if not library_id or not api_key:
-        emit_error(
-            "auth_missing",
-            "Write credentials not configured",
-            output_json=json_out,
-            hint="Run 'zot config init' to set up API credentials",
-            context="orphans clean",
-        )
+    writer = build_writer(ctx, cfg, json_out, context="orphans clean")
 
     no_interaction = ctx.obj.get("no_interaction", False)
     if not yes and not no_interaction:
@@ -188,7 +171,6 @@ def orphans_clean(
                 click.echo(f"Deleted {len(keys)} orphan(s) (cached).")
             return
 
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     succeeded: list[dict] = []
     failed: list[dict] = []
     for key in keys:

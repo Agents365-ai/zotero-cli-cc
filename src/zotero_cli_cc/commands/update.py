@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
-import os
 
 import click
 
+from zotero_cli_cc.commands._helpers import build_writer
 from zotero_cli_cc.config import load_config
-from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
+from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError
 from zotero_cli_cc.exit_codes import emit_error
 from zotero_cli_cc.formatter import envelope_ok
 
@@ -75,19 +75,7 @@ def update_cmd(
             click.echo(f"[dry-run] Would update '{key}' with {len(fields)} field(s): {list(fields.keys())}")
         return
 
-    library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
-    api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
-    library_type = ctx.obj.get("library_type", "user")
-    if library_type == "group" and ctx.obj.get("group_id"):
-        library_id = ctx.obj["group_id"]
-    if not library_id or not api_key:
-        emit_error(
-            "auth_missing",
-            "Write credentials not configured",
-            output_json=json_out,
-            hint="Run 'zot config init' to set up API credentials",
-            context="update",
-        )
+    writer = build_writer(ctx, cfg, json_out, context="update")
 
     # Idempotency cache check
     from zotero_cli_cc.core.idempotency import get_cached, store_cached
@@ -99,7 +87,6 @@ def update_cmd(
             click.echo(json.dumps(cached, indent=2, ensure_ascii=False) if json_out else f"Updated '{key}' (cached).")
             return
 
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
         writer.update_item(key, fields)
     except ZoteroWriteError as e:

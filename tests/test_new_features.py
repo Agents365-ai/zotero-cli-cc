@@ -186,7 +186,7 @@ class TestPdfExtractionError:
 
 
 class TestBatchDelete:
-    @patch("zotero_cli_cc.commands.delete.ZoteroWriter")
+    @patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
     def test_delete_multiple_keys(self, mock_writer_cls):
         mock_writer = MagicMock()
         mock_writer_cls.return_value = mock_writer
@@ -211,7 +211,7 @@ class TestBatchDelete:
         assert "K1" in result.output
         assert "K2" in result.output
 
-    @patch("zotero_cli_cc.commands.delete.ZoteroWriter")
+    @patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
     def test_delete_partial_failure(self, mock_writer_cls):
         mock_writer = MagicMock()
         mock_writer_cls.return_value = mock_writer
@@ -232,7 +232,7 @@ class TestBatchDelete:
 
 
 class TestBatchTag:
-    @patch("zotero_cli_cc.commands.tag.ZoteroWriter")
+    @patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
     def test_tag_add_multiple_keys(self, mock_writer_cls):
         mock_writer = MagicMock()
         mock_writer_cls.return_value = mock_writer
@@ -249,7 +249,7 @@ class TestBatchTag:
         assert "K2" in result.output
         assert "K3" in result.output
 
-    @patch("zotero_cli_cc.commands.tag.ZoteroWriter")
+    @patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
     def test_tag_remove_multiple_keys(self, mock_writer_cls):
         mock_writer = MagicMock()
         mock_writer_cls.return_value = mock_writer
@@ -317,7 +317,7 @@ class TestTimeout:
 
 
 class TestWriteErrorInCommands:
-    @patch("zotero_cli_cc.commands.add.ZoteroWriter")
+    @patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
     def test_add_write_error(self, mock_writer_cls):
         mock_writer = MagicMock()
         mock_writer_cls.return_value = mock_writer
@@ -328,7 +328,7 @@ class TestWriteErrorInCommands:
         assert result.exit_code != 0
         assert "Bad request" in result.output
 
-    @patch("zotero_cli_cc.commands.delete.ZoteroWriter")
+    @patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
     def test_delete_write_error(self, mock_writer_cls):
         mock_writer = MagicMock()
         mock_writer_cls.return_value = mock_writer
@@ -339,7 +339,7 @@ class TestWriteErrorInCommands:
         assert result.exit_code != 0
         assert "not found" in result.output
 
-    @patch("zotero_cli_cc.commands.tag.ZoteroWriter")
+    @patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
     def test_tag_add_write_error(self, mock_writer_cls):
         mock_writer = MagicMock()
         mock_writer_cls.return_value = mock_writer
@@ -350,7 +350,7 @@ class TestWriteErrorInCommands:
         assert result.exit_code != 0
         assert "not found" in result.output
 
-    @patch("zotero_cli_cc.commands.note.ZoteroWriter")
+    @patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
     def test_note_write_error(self, mock_writer_cls):
         mock_writer = MagicMock()
         mock_writer_cls.return_value = mock_writer
@@ -361,7 +361,7 @@ class TestWriteErrorInCommands:
         assert result.exit_code != 0
         assert "timeout" in result.output
 
-    @patch("zotero_cli_cc.commands.collection.ZoteroWriter")
+    @patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
     def test_collection_create_write_error(self, mock_writer_cls):
         mock_writer = MagicMock()
         mock_writer_cls.return_value = mock_writer

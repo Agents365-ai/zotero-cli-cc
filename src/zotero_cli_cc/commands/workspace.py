@@ -8,7 +8,8 @@ from pathlib import Path
 
 import click
 
-from zotero_cli_cc.config import get_data_dir, get_prefs_js_path, load_config, load_embedding_config, resolve_library_id
+from zotero_cli_cc.commands._helpers import open_reader
+from zotero_cli_cc.config import load_embedding_config
 from zotero_cli_cc.core.rag import (
     bm25_score_chunks,
     build_metadata_chunk,
@@ -116,12 +117,7 @@ def workspace_add(ctx: click.Context, name: str, keys: tuple[str, ...]) -> None:
             context="workspace add",
         )
 
-    cfg = load_config(profile=ctx.obj.get("profile"))
-    data_dir = get_data_dir(cfg)
-    db_path = data_dir / "zotero.sqlite"
-    library_id = resolve_library_id(db_path, ctx.obj)
-    reader = ZoteroReader(db_path, library_id=library_id)
-    try:
+    with open_reader(ctx) as reader:
         ws = load_workspace(name)
         added = 0
         for key in keys:
@@ -135,8 +131,6 @@ def workspace_add(ctx: click.Context, name: str, keys: tuple[str, ...]) -> None:
                 click.echo(f"Skipped: '{key}' already in workspace")
         save_workspace(ws)
         click.echo(f"Added {added} item(s) to workspace '{name}'")
-    finally:
-        reader.close()
 
 
 @workspace_group.command("remove")
@@ -198,12 +192,7 @@ def workspace_show(ctx: click.Context, name: str) -> None:
         click.echo(f"Workspace '{name}' is empty. Use 'zot workspace add {name} KEY' to add items.")
         return
 
-    cfg = load_config(profile=ctx.obj.get("profile"))
-    data_dir = get_data_dir(cfg)
-    db_path = data_dir / "zotero.sqlite"
-    library_id = resolve_library_id(db_path, ctx.obj)
-    reader = ZoteroReader(db_path, library_id=library_id)
-    try:
+    with open_reader(ctx) as reader:
         items = []
         missing = []
         for ws_item in ws.items[:limit]:
@@ -216,8 +205,6 @@ def workspace_show(ctx: click.Context, name: str) -> None:
             click.echo(format_items(items, output_json=json_out, detail=detail))
         for key in missing:
             click.echo(f"Warning: item '{key}' not found in Zotero library (may have been deleted)")
-    finally:
-        reader.close()
 
 
 @workspace_group.command("export")
@@ -247,12 +234,7 @@ def workspace_export(ctx: click.Context, name: str, fmt: str) -> None:
         click.echo(f"Workspace '{name}' is empty.")
         return
 
-    cfg = load_config(profile=ctx.obj.get("profile"))
-    data_dir = get_data_dir(cfg)
-    db_path = data_dir / "zotero.sqlite"
-    library_id = resolve_library_id(db_path, ctx.obj)
-    reader = ZoteroReader(db_path, library_id=library_id)
-    try:
+    with open_reader(ctx) as reader:
         items = []
         for ws_item in ws.items:
             item = reader.get_item(ws_item.key)
@@ -292,8 +274,6 @@ def workspace_export(ctx: click.Context, name: str, fmt: str) -> None:
                     lines.append(f"**Abstract:** {item.abstract}")
                 lines.append("")
             click.echo("\n".join(lines))
-    finally:
-        reader.close()
 
 
 @workspace_group.command("import")
@@ -325,12 +305,7 @@ def workspace_import_cmd(
             context="workspace import",
         )
 
-    cfg = load_config(profile=ctx.obj.get("profile"))
-    data_dir = get_data_dir(cfg)
-    db_path = data_dir / "zotero.sqlite"
-    library_id = resolve_library_id(db_path, ctx.obj)
-    reader = ZoteroReader(db_path, library_id=library_id)
-    try:
+    with open_reader(ctx) as reader:
         ws = load_workspace(name)
         items_to_import: list[Item] = []
 
@@ -379,8 +354,6 @@ def workspace_import_cmd(
             f"Imported {added} item(s) into workspace '{name}'"
             + (f" ({skipped} skipped, already present)" if skipped else "")
         )
-    finally:
-        reader.close()
 
 
 @workspace_group.command("search")
@@ -407,12 +380,7 @@ def workspace_search(ctx: click.Context, query: str, ws_name: str) -> None:
         click.echo(f"Workspace '{ws_name}' is empty.")
         return
 
-    cfg = load_config(profile=ctx.obj.get("profile"))
-    data_dir = get_data_dir(cfg)
-    db_path = data_dir / "zotero.sqlite"
-    library_id = resolve_library_id(db_path, ctx.obj)
-    reader = ZoteroReader(db_path, library_id=library_id)
-    try:
+    with open_reader(ctx) as reader:
         query_lower = query.lower()
         matches = []
         for ws_item in ws.items:
@@ -439,8 +407,6 @@ def workspace_search(ctx: click.Context, query: str, ws_name: str) -> None:
             return
 
         click.echo(format_items(matches[:limit], output_json=json_out, detail=detail))
-    finally:
-        reader.close()
 
 
 def _resolve_collection_key(reader: ZoteroReader, name_or_key: str) -> str | None:
@@ -496,11 +462,8 @@ def workspace_index(
         click.echo(f"Workspace '{name}' is empty. Add items first with: zot workspace add {name} KEY")
         return
 
-    cfg = load_config(profile=ctx.obj.get("profile"))
-    data_dir = get_data_dir(cfg)
-    db_path = data_dir / "zotero.sqlite"
-    library_id = resolve_library_id(db_path, ctx.obj)
-    reader = ZoteroReader(db_path, library_id=library_id, prefs_js_path=get_prefs_js_path(cfg))
+    # Reader and idx share one finally-cleanup below, so no `with` block here.
+    reader = open_reader(ctx)
 
     idx_path = workspaces_dir() / f"{name}.idx.sqlite"
     idx = RagIndex(idx_path)

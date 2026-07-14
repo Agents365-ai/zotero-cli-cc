@@ -5,9 +5,8 @@ import re
 
 import click
 
-from zotero_cli_cc.config import get_data_dir, get_prefs_js_path, load_config, resolve_library_id
+from zotero_cli_cc.commands._helpers import open_reader
 from zotero_cli_cc.core.pdf_extractor import PdfExtractionError, get_extractor
-from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.exit_codes import emit_error
 from zotero_cli_cc.formatter import format_pdf_annotations, format_pdf_text
 
@@ -105,7 +104,6 @@ def pdf_cmd(
       zot pdf ABC123 --tables       Extract tables (needs pdfplumber)
       zot --json pdf ABC123         JSON output with metadata
     """
-    cfg = load_config(profile=ctx.obj.get("profile"))
     json_out = ctx.obj.get("json", False)
     page_range = None
     if extractor is None:
@@ -128,11 +126,7 @@ def pdf_cmd(
                 hint="Use format: '1-5' or '3' for a single page",
                 context="pdf",
             )
-    data_dir = get_data_dir(cfg)
-    db_path = data_dir / "zotero.sqlite"
-    library_id = resolve_library_id(db_path, ctx.obj)
-    reader = ZoteroReader(db_path, library_id=library_id, prefs_js_path=get_prefs_js_path(cfg))
-    try:
+    with open_reader(ctx) as reader:
         att = reader.get_pdf_attachment(key)
         if att is None:
             emit_error(
@@ -282,5 +276,3 @@ def pdf_cmd(
                 click.echo(format_pdf_text(key, pages, outline=outline_json, output_json=json_out))
             return
         click.echo(format_pdf_text(key, pages, text=text, output_json=json_out))
-    finally:
-        reader.close()

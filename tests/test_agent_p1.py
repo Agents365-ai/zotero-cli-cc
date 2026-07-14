@@ -109,7 +109,7 @@ class TestIdempotency:
     def setup_method(self, method):
         idempotency.clear()
 
-    @patch("zotero_cli_cc.commands.update.ZoteroWriter")
+    @patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
     def test_update_idempotency_returns_cached_envelope(self, mock_writer_cls):
         mock_writer_cls.return_value.update_item.return_value = None
         env = {"ZOT_LIBRARY_ID": "abc", "ZOT_API_KEY": "xyz"}
@@ -124,7 +124,7 @@ class TestIdempotency:
         assert env_second["meta"]["request_id"] == env_first["meta"]["request_id"]
         assert env_second["data"]["key"] == "ABC"
 
-    @patch("zotero_cli_cc.commands.update.ZoteroWriter")
+    @patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
     def test_update_without_idempotency_key_always_calls_writer(self, mock_writer_cls):
         mock_writer_cls.return_value.update_item.return_value = None
         env = {"ZOT_LIBRARY_ID": "abc", "ZOT_API_KEY": "xyz"}
@@ -135,7 +135,7 @@ class TestIdempotency:
 
 
 class TestNextHints:
-    @patch("zotero_cli_cc.commands.update.ZoteroWriter")
+    @patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
     def test_update_success_has_next_hint(self, mock_writer_cls):
         idempotency.clear()
         mock_writer_cls.return_value.update_item.return_value = None
@@ -172,7 +172,7 @@ class TestHelpTiers:
 
 
 class TestRetryableFlag:
-    @patch("zotero_cli_cc.commands.update.ZoteroWriter")
+    @patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
     def test_network_error_flagged_retryable(self, mock_writer_cls):
         from zotero_cli_cc.core.writer import ZoteroWriteError
 
@@ -186,7 +186,7 @@ class TestRetryableFlag:
         assert env_out["error"]["code"] == "network_error"
         assert env_out["error"]["retryable"] is True
 
-    @patch("zotero_cli_cc.commands.update.ZoteroWriter")
+    @patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
     def test_not_found_flagged_not_retryable(self, mock_writer_cls):
         from zotero_cli_cc.core.writer import ZoteroWriteError
 

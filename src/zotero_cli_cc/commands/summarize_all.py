@@ -6,8 +6,7 @@ import json
 
 import click
 
-from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
-from zotero_cli_cc.core.reader import ZoteroReader
+from zotero_cli_cc.commands._helpers import open_reader
 from zotero_cli_cc.formatter import emit_progress, envelope_ok
 
 
@@ -24,13 +23,8 @@ def summarize_all_cmd(ctx: click.Context, offset: int, limit: int | None) -> Non
       zot summarize-all --limit 100       First 100 items
       zot summarize-all --offset 100      Skip first 100 (pagination)
     """
-    cfg = load_config(profile=ctx.obj.get("profile"))
-    data_dir = get_data_dir(cfg)
-    db_path = data_dir / "zotero.sqlite"
     limit = limit if limit is not None else ctx.obj.get("limit", 10000)
-    library_id = resolve_library_id(db_path, ctx.obj)
-    reader = ZoteroReader(db_path, library_id=library_id)
-    try:
+    with open_reader(ctx) as reader:
         emit_progress("start", phase="summarize_all", offset=offset, limit=limit)
         result = reader.search("", limit=limit, offset=offset)
         total = len(result.items)
@@ -54,5 +48,3 @@ def summarize_all_cmd(ctx: click.Context, offset: int, limit: int | None) -> Non
             click.echo(json.dumps(envelope_ok(items, meta={"count": total}), indent=2, ensure_ascii=False))
         else:
             click.echo(json.dumps(items, indent=2, ensure_ascii=False))
-    finally:
-        reader.close()

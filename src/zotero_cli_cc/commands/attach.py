@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import click
 
+from zotero_cli_cc.commands._helpers import build_writer
 from zotero_cli_cc.config import load_config
 from zotero_cli_cc.core.local_bridge import (
     LocalBridgeError,
@@ -13,7 +13,7 @@ from zotero_cli_cc.core.local_bridge import (
     import_file,
     resolve_use_bridge,
 )
-from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
+from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError
 from zotero_cli_cc.exit_codes import emit_error
 from zotero_cli_cc.formatter import envelope_ok
 
@@ -106,19 +106,7 @@ def attach_cmd(
             click.echo(SYNC_REMINDER, err=True)
         return
 
-    library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
-    api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
-    library_type = ctx.obj.get("library_type", "user")
-    if library_type == "group" and ctx.obj.get("group_id"):
-        library_id = ctx.obj["group_id"]
-    if not library_id or not api_key:
-        emit_error(
-            "auth_missing",
-            "Write credentials not configured",
-            output_json=json_out,
-            hint="Run 'zot config init' to set up API credentials",
-            context="attach",
-        )
+    writer = build_writer(ctx, cfg, json_out, context="attach")
 
     from zotero_cli_cc.core.idempotency import get_cached, store_cached
 
@@ -132,7 +120,6 @@ def attach_cmd(
                 click.echo(f"Attachment uploaded: {cached.get('data', {}).get('attachment_key', '?')} (cached).")
             return
 
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
         att_key, upload_result = writer.upload_attachment(key, fp)
     except ZoteroWriteError as e:

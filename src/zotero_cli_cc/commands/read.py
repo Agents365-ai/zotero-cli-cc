@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import click
 
-from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
-from zotero_cli_cc.core.reader import ZoteroReader
+from zotero_cli_cc.commands._helpers import open_reader
 from zotero_cli_cc.exit_codes import emit_error
 from zotero_cli_cc.formatter import format_item_detail
 
@@ -20,13 +19,8 @@ def read_cmd(ctx: click.Context, key: str) -> None:
       zot --json read ABC123
       zot --detail full read ABC123
     """
-    cfg = load_config(profile=ctx.obj.get("profile"))
-    data_dir = get_data_dir(cfg)
-    db_path = data_dir / "zotero.sqlite"
-    library_id = resolve_library_id(db_path, ctx.obj)
-    reader = ZoteroReader(db_path, library_id=library_id)
     json_out = ctx.obj.get("json", False)
-    try:
+    with open_reader(ctx) as reader:
         item = reader.get_item(key)
         if item is None:
             emit_error(
@@ -39,5 +33,3 @@ def read_cmd(ctx: click.Context, key: str) -> None:
         notes = reader.get_notes(key)
         detail = ctx.obj.get("detail", "standard")
         click.echo(format_item_detail(item, notes, output_json=json_out, detail=detail))
-    finally:
-        reader.close()

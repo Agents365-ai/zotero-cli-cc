@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import click
 
-from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
-from zotero_cli_cc.core.reader import ZoteroReader
+from zotero_cli_cc.commands._helpers import open_reader
+from zotero_cli_cc.config import load_config
 from zotero_cli_cc.exit_codes import EXIT_CONFLICT
 from zotero_cli_cc.formatter import format_duplicates
 
@@ -30,11 +30,7 @@ def duplicates_cmd(ctx: click.Context, strategy: str, threshold: float, limit: i
       zot --json duplicates
     """
     cfg = load_config(profile=ctx.obj.get("profile"))
-    data_dir = get_data_dir(cfg)
-    db_path = data_dir / "zotero.sqlite"
-    library_id = resolve_library_id(db_path, ctx.obj)
-    reader = ZoteroReader(db_path, library_id=library_id)
-    try:
+    with open_reader(ctx, cfg) as reader:
         limit = limit if limit is not None else ctx.obj.get("limit", cfg.default_limit)
         groups = reader.find_duplicates(strategy=strategy, threshold=threshold, limit=limit)
         if not groups:
@@ -44,8 +40,6 @@ def duplicates_cmd(ctx: click.Context, strategy: str, threshold: float, limit: i
                 click.echo("No duplicates found.")
             return
         click.echo(format_duplicates(groups, output_json=ctx.obj.get("json", False)))
-    finally:
-        reader.close()
     # Signal "duplicates detected" via typed exit code so agents/scripts can
     # branch on `if zot duplicates ...; then ...; else act_on_duplicates; fi`.
     ctx.exit(EXIT_CONFLICT)

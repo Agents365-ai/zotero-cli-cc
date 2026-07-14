@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
-import os
 
 import click
 
+from zotero_cli_cc.commands._helpers import build_writer
 from zotero_cli_cc.config import load_config
-from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
+from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError
 from zotero_cli_cc.exit_codes import EXIT_RUNTIME, emit_error
 from zotero_cli_cc.formatter import envelope_ok, envelope_partial
 
@@ -38,19 +38,6 @@ def delete_cmd(
             for key in keys:
                 click.echo(f"[dry-run] Would delete item '{key}' (move to trash)")
         return
-    library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
-    api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
-    library_type = ctx.obj.get("library_type", "user")
-    if library_type == "group" and ctx.obj.get("group_id"):
-        library_id = ctx.obj["group_id"]
-    if not library_id or not api_key:
-        emit_error(
-            "auth_missing",
-            "Write credentials not configured",
-            output_json=json_out,
-            hint="Run 'zot config init' to set up API credentials",
-            context="delete",
-        )
     no_interaction = ctx.obj.get("no_interaction", False)
     import sys
 
@@ -70,6 +57,9 @@ def delete_cmd(
             else:
                 click.echo("Cancelled.", err=True)
             return
+
+    writer = build_writer(ctx, cfg, json_out, context="delete")
+
     from zotero_cli_cc.core.idempotency import get_cached, store_cached
 
     cache_scope = "delete:" + ",".join(sorted(keys))
@@ -82,7 +72,6 @@ def delete_cmd(
                 click.echo(f"Deleted {len(keys)} item(s) (cached).")
             return
 
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     succeeded: list[dict] = []
     failed: list[dict] = []
     for key in keys:

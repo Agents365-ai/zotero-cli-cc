@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import os
-
 import click
 
-from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
-from zotero_cli_cc.core.reader import ZoteroReader
-from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
+from zotero_cli_cc.commands._helpers import build_writer, open_reader
+from zotero_cli_cc.config import load_config
+from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError
 from zotero_cli_cc.exit_codes import emit_error
 from zotero_cli_cc.formatter import format_items
 
@@ -30,11 +28,7 @@ def trash_list_cmd(ctx: click.Context, limit: int | None) -> None:
       zot --json trash list
     """
     cfg = load_config(profile=ctx.obj.get("profile"))
-    data_dir = get_data_dir(cfg)
-    db_path = data_dir / "zotero.sqlite"
-    library_id = resolve_library_id(db_path, ctx.obj)
-    reader = ZoteroReader(db_path, library_id=library_id)
-    try:
+    with open_reader(ctx, cfg) as reader:
         limit = limit if limit is not None else ctx.obj.get("limit", cfg.default_limit)
         items = reader.get_trash_items(limit=limit)
         if not items:
@@ -45,8 +39,6 @@ def trash_list_cmd(ctx: click.Context, limit: int | None) -> None:
             return
         detail = ctx.obj.get("detail", "standard")
         click.echo(format_items(items, output_json=ctx.obj.get("json", False), detail=detail))
-    finally:
-        reader.close()
 
 
 @trash_group.command("restore")
@@ -77,20 +69,6 @@ def trash_restore_cmd(ctx: click.Context, keys: tuple[str, ...], dry_run: bool, 
             for k in keys:
                 click.echo(f"[dry-run] Would restore '{k}'")
         return
-    library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
-    api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
-    library_type = ctx.obj.get("library_type", "user")
-    if library_type == "group" and ctx.obj.get("group_id"):
-        library_id = ctx.obj["group_id"]
-    if not library_id or not api_key:
-        emit_error(
-            "auth_missing",
-            "Write credentials not configured",
-            output_json=json_out,
-            hint="Run 'zot config init' to set up API credentials",
-            context="trash restore",
-        )
-
     from zotero_cli_cc.core.idempotency import get_cached, store_cached
 
     cache_scope = f"trash_restore:{':'.join(sorted(keys))}"
@@ -104,7 +82,7 @@ def trash_restore_cmd(ctx: click.Context, keys: tuple[str, ...], dry_run: bool, 
                 click.echo(f"Restored {count} item(s) (cached).")
             return
 
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
+    writer = build_writer(ctx, cfg, json_out, context="trash restore")
     for key in keys:
         try:
             writer.restore_from_trash(key)

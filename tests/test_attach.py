@@ -262,7 +262,7 @@ class TestAttachWebResultCLI:
         monkeypatch.setenv("ZOT_API_KEY", "abc")
         writer = MagicMock()
         writer.upload_attachment.return_value = (key, result)
-        monkeypatch.setattr("zotero_cli_cc.commands.attach.ZoteroWriter", lambda **k: writer)
+        monkeypatch.setattr("zotero_cli_cc.commands._helpers.ZoteroWriter", lambda **k: writer)
 
     def test_cloud_result_created(self, tmp_path, monkeypatch):
         pdf = self._pdf(tmp_path)

@@ -29,7 +29,7 @@ def test_note_read_json(test_db_path):
     assert len(data) >= 1
 
 
-@patch("zotero_cli_cc.commands.note.ZoteroWriter")
+@patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
 def test_note_add(mock_writer_cls, test_db_path):
     mock_writer = MagicMock()
     mock_writer_cls.return_value = mock_writer

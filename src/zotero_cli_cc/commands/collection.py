@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import json
-import os
 
 import click
 
-from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
-from zotero_cli_cc.core.reader import ZoteroReader
-from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
+from zotero_cli_cc.commands._helpers import build_writer, open_reader
+from zotero_cli_cc.config import load_config
+from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError
 from zotero_cli_cc.exit_codes import emit_error
 from zotero_cli_cc.formatter import envelope_ok, format_collections, format_items
 
@@ -22,16 +21,9 @@ def collection_group() -> None:
 @click.pass_context
 def collection_list(ctx: click.Context) -> None:
     """List all collections."""
-    cfg = load_config(profile=ctx.obj.get("profile"))
-    data_dir = get_data_dir(cfg)
-    db_path = data_dir / "zotero.sqlite"
-    library_id = resolve_library_id(db_path, ctx.obj)
-    reader = ZoteroReader(db_path, library_id=library_id)
-    try:
+    with open_reader(ctx) as reader:
         collections = reader.get_collections()
         click.echo(format_collections(collections, output_json=ctx.obj.get("json", False)))
-    finally:
-        reader.close()
 
 
 @collection_group.command("items")
@@ -39,16 +31,9 @@ def collection_list(ctx: click.Context) -> None:
 @click.pass_context
 def collection_items(ctx: click.Context, key: str) -> None:
     """List items in a collection."""
-    cfg = load_config(profile=ctx.obj.get("profile"))
-    data_dir = get_data_dir(cfg)
-    db_path = data_dir / "zotero.sqlite"
-    library_id = resolve_library_id(db_path, ctx.obj)
-    reader = ZoteroReader(db_path, library_id=library_id)
-    try:
+    with open_reader(ctx) as reader:
         items = reader.get_collection_items(key)
         click.echo(format_items(items, output_json=ctx.obj.get("json", False)))
-    finally:
-        reader.close()
 
 
 @collection_group.command("create")
@@ -71,19 +56,6 @@ def collection_create(
         else:
             click.echo(f"[dry-run] Would create collection '{name}'" + (f" under '{parent}'" if parent else ""))
         return
-    library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
-    api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
-    library_type = ctx.obj.get("library_type", "user")
-    if library_type == "group" and ctx.obj.get("group_id"):
-        library_id = ctx.obj["group_id"]
-    if not library_id or not api_key:
-        emit_error(
-            "auth_missing",
-            "Write credentials not configured",
-            output_json=json_out,
-            hint="Run 'zot config init' to set up API credentials",
-            context="collection",
-        )
     from zotero_cli_cc.core.idempotency import get_cached, store_cached
 
     cache_scope = f"collection_create:{name}"
@@ -96,7 +68,7 @@ def collection_create(
                 click.echo(f"Collection created: {cached.get('data', {}).get('key', '?')} (cached).")
             return
 
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
+    writer = build_writer(ctx, cfg, json_out, context="collection")
     try:
         key = writer.create_collection(name, parent_key=parent)
     except ZoteroWriteError as e:
@@ -132,19 +104,6 @@ def collection_move(
         else:
             click.echo(f"[dry-run] Would move {item_key} to collection {collection_key}")
         return
-    library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
-    api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
-    library_type = ctx.obj.get("library_type", "user")
-    if library_type == "group" and ctx.obj.get("group_id"):
-        library_id = ctx.obj["group_id"]
-    if not library_id or not api_key:
-        emit_error(
-            "auth_missing",
-            "Write credentials not configured",
-            output_json=json_out,
-            hint="Run 'zot config init' to set up API credentials",
-            context="collection",
-        )
     from zotero_cli_cc.core.idempotency import get_cached, store_cached
 
     cache_scope = f"collection_move:{item_key}:{collection_key}"
@@ -157,7 +116,7 @@ def collection_move(
                 click.echo(f"Item {item_key} moved to collection {collection_key} (cached).")
             return
 
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
+    writer = build_writer(ctx, cfg, json_out, context="collection")
     try:
         writer.move_to_collection(item_key, collection_key)
     except ZoteroWriteError as e:
@@ -190,19 +149,6 @@ def collection_delete(ctx: click.Context, key: str, dry_run: bool, idempotency_k
         else:
             click.echo(f"[dry-run] Would delete collection '{key}'")
         return
-    library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
-    api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
-    library_type = ctx.obj.get("library_type", "user")
-    if library_type == "group" and ctx.obj.get("group_id"):
-        library_id = ctx.obj["group_id"]
-    if not library_id or not api_key:
-        emit_error(
-            "auth_missing",
-            "Write credentials not configured",
-            output_json=json_out,
-            hint="Run 'zot config init' to set up API credentials",
-            context="collection",
-        )
     from zotero_cli_cc.core.idempotency import get_cached, store_cached
 
     cache_scope = f"collection_delete:{key}"
@@ -215,7 +161,7 @@ def collection_delete(ctx: click.Context, key: str, dry_run: bool, idempotency_k
                 click.echo(f"Collection {key} deleted (cached).")
             return
 
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
+    writer = build_writer(ctx, cfg, json_out, context="collection")
     try:
         writer.delete_collection(key)
     except ZoteroWriteError as e:
@@ -269,21 +215,7 @@ def collection_reorganize(ctx: click.Context, plan_file: str, dry_run: bool) -> 
         click.echo(f"\n[dry-run] Total: {len(collections)} collections to create")
         return
 
-    library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
-    api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
-    library_type = ctx.obj.get("library_type", "user")
-    if library_type == "group" and ctx.obj.get("group_id"):
-        library_id = ctx.obj["group_id"]
-    if not library_id or not api_key:
-        emit_error(
-            "auth_missing",
-            "Write credentials not configured",
-            output_json=json_out,
-            hint="Run 'zot config init' to set up API credentials",
-            context="collection reorganize",
-        )
-
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
+    writer = build_writer(ctx, cfg, json_out, context="collection reorganize")
     created_collections: dict[str, str] = {}  # name -> key mapping for parent lookups
 
     for coll in collections:
@@ -328,19 +260,6 @@ def collection_rename(ctx: click.Context, key: str, new_name: str, dry_run: bool
         else:
             click.echo(f"[dry-run] Would rename collection {key} to '{new_name}'")
         return
-    library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
-    api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
-    library_type = ctx.obj.get("library_type", "user")
-    if library_type == "group" and ctx.obj.get("group_id"):
-        library_id = ctx.obj["group_id"]
-    if not library_id or not api_key:
-        emit_error(
-            "auth_missing",
-            "Write credentials not configured",
-            output_json=json_out,
-            hint="Run 'zot config init' to set up API credentials",
-            context="collection",
-        )
     from zotero_cli_cc.core.idempotency import get_cached, store_cached
 
     cache_scope = f"collection_rename:{key}:{new_name}"
@@ -353,7 +272,7 @@ def collection_rename(ctx: click.Context, key: str, new_name: str, dry_run: bool
                 click.echo(f"Collection {key} renamed to '{new_name}' (cached).")
             return
 
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
+    writer = build_writer(ctx, cfg, json_out, context="collection")
     try:
         writer.rename_collection(key, new_name)
     except ZoteroWriteError as e:

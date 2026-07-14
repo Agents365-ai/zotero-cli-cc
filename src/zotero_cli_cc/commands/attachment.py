@@ -4,8 +4,7 @@ import json
 
 import click
 
-from zotero_cli_cc.config import get_data_dir, get_prefs_js_path, load_config, resolve_library_id
-from zotero_cli_cc.core.reader import ZoteroReader
+from zotero_cli_cc.commands._helpers import open_reader
 from zotero_cli_cc.exit_codes import emit_error
 from zotero_cli_cc.formatter import envelope_ok
 from zotero_cli_cc.models import Attachment
@@ -39,15 +38,8 @@ def attachment_path(ctx: click.Context, item_key: str, show_all: bool) -> None:
       zot attachment path ABC123 --all      # all PDFs, one per line
       zot --json attachment path ABC123 -a  # all PDFs as a JSON array
     """
-    cfg = load_config(profile=ctx.obj.get("profile"))
     json_out = ctx.obj.get("json", False)
-    db_path = get_data_dir(cfg) / "zotero.sqlite"
-    reader = ZoteroReader(
-        db_path,
-        library_id=resolve_library_id(db_path, ctx.obj),
-        prefs_js_path=get_prefs_js_path(cfg),
-    )
-    try:
+    with open_reader(ctx) as reader:
         if reader.get_item(item_key) is None:
             emit_error(
                 "not_found",
@@ -72,8 +64,6 @@ def attachment_path(ctx: click.Context, item_key: str, show_all: bool) -> None:
             return
 
         _emit_first(item_key, pdfs[0], json_out)
-    finally:
-        reader.close()
 
 
 def _emit_first(item_key: str, attachment: Attachment, json_out: bool) -> None:

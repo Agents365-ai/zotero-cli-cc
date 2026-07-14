@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import click
 
-from zotero_cli_cc.config import load_config
+from zotero_cli_cc.commands._helpers import build_writer
+from zotero_cli_cc.config import AppConfig, load_config
 from zotero_cli_cc.core.metadata_resolver import MetadataResolveError, resolve_doi
-from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
+from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError
 from zotero_cli_cc.exit_codes import emit_error
 from zotero_cli_cc.formatter import emit_progress, envelope_ok, envelope_partial
 
@@ -127,30 +127,12 @@ def add_cmd(
             click.echo(f"[dry-run] Would add: {would}")
         return
 
-    library_id = os.environ.get("ZOT_LIBRARY_ID", cfg.library_id)
-    api_key = os.environ.get("ZOT_API_KEY", cfg.api_key)
-    library_type = ctx.obj.get("library_type", "user")
-    if library_type == "group" and ctx.obj.get("group_id"):
-        library_id = ctx.obj["group_id"]
-    if not library_id or not api_key:
-        emit_error(
-            "auth_missing",
-            "Write credentials not configured",
-            output_json=json_out,
-            hint="Run 'zot config init' to set up API credentials",
-            context="add",
-        )
-
     if pdf_file:
-        _add_from_pdf(
-            Path(pdf_file), doi, library_id, api_key, json_out, library_type=library_type, resolve=not no_resolve
-        )
+        _add_from_pdf(Path(pdf_file), doi, ctx, cfg, json_out, resolve=not no_resolve)
         return
 
     if from_file:
-        _add_from_file(
-            Path(from_file), library_id, api_key, json_out, library_type=library_type, resolve=not no_resolve
-        )
+        _add_from_file(Path(from_file), ctx, cfg, json_out, resolve=not no_resolve)
         return
 
     if not doi and not url:
@@ -161,6 +143,8 @@ def add_cmd(
             hint="Example: zot add --doi '10.1038/...' or --from-file dois.txt",
             context="add",
         )
+
+    writer = build_writer(ctx, cfg, json_out, context="add")
 
     from zotero_cli_cc.core.idempotency import get_cached, store_cached
 
@@ -204,7 +188,6 @@ def add_cmd(
                     err=True,
                 )
 
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
         key = writer.add_item(doi=doi, url=url, extra_fields=extra_fields)
     except ZoteroWriteError as e:
@@ -238,10 +221,9 @@ def add_cmd(
 def _add_from_pdf(
     pdf_path: Path,
     doi_override: str | None,
-    library_id: str,
-    api_key: str,
+    ctx: click.Context,
+    cfg: AppConfig,
     json_out: bool,
-    library_type: str = "user",
     resolve: bool = True,
 ) -> None:
     """Add item from PDF: extract DOI, create item, upload attachment."""
@@ -259,6 +241,7 @@ def _add_from_pdf(
             context="add",
         )
 
+    writer = build_writer(ctx, cfg, json_out, context="add")
     extra_fields: dict | None = None
     resolved_summary: dict | None = None
     resolve_warning: str | None = None
@@ -267,7 +250,6 @@ def _add_from_pdf(
         if extra_fields:
             resolved_summary = _resolved_summary(extra_fields)
 
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     try:
         key = writer.add_item(doi=doi, extra_fields=extra_fields)
     except ZoteroWriteError as e:
@@ -319,10 +301,9 @@ def _add_from_pdf(
 
 def _add_from_file(
     file_path: Path,
-    library_id: str,
-    api_key: str,
+    ctx: click.Context,
+    cfg: AppConfig,
     json_out: bool,
-    library_type: str = "user",
     resolve: bool = True,
 ) -> None:
     """Batch add items from a file with one DOI or URL per line."""
@@ -336,10 +317,10 @@ def _add_from_file(
             context="add",
         )
 
+    writer = build_writer(ctx, cfg, json_out, context="add")
     emit_progress("start", phase="batch_add", total=len(lines), source=str(file_path))
     if not json_out:
         click.echo(f"Adding {len(lines)} items from {file_path}...", err=True)
-    writer = ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
     succeeded: list[dict] = []
     failed: list[dict] = []
     for i, entry in enumerate(lines, 1):

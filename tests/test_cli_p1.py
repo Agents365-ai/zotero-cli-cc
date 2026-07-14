@@ -8,7 +8,7 @@ WRITE_ENV = {"ZOT_LIBRARY_ID": "123", "ZOT_API_KEY": "abc"}
 
 
 @patch("zotero_cli_cc.commands.add.resolve_doi")
-@patch("zotero_cli_cc.commands.add.ZoteroWriter")
+@patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
 def test_add_by_doi(mock_writer_cls, mock_resolve):
     mock_resolve.return_value = {
         "title": "Resolved Title",
@@ -32,7 +32,7 @@ def test_add_by_doi(mock_writer_cls, mock_resolve):
 
 
 @patch("zotero_cli_cc.commands.add.resolve_doi")
-@patch("zotero_cli_cc.commands.add.ZoteroWriter")
+@patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
 def test_add_by_doi_no_resolve_skips_lookup(mock_writer_cls, mock_resolve):
     mock_writer = MagicMock()
     mock_writer_cls.return_value = mock_writer
@@ -46,7 +46,7 @@ def test_add_by_doi_no_resolve_skips_lookup(mock_writer_cls, mock_resolve):
 
 
 @patch("zotero_cli_cc.commands.add.resolve_doi")
-@patch("zotero_cli_cc.commands.add.ZoteroWriter")
+@patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
 def test_add_by_doi_resolver_404_falls_back(mock_writer_cls, mock_resolve):
     mock_resolve.return_value = None  # Crossref miss
     mock_writer = MagicMock()
@@ -63,7 +63,7 @@ def test_add_by_doi_resolver_404_falls_back(mock_writer_cls, mock_resolve):
 
 
 @patch("zotero_cli_cc.commands.add.resolve_doi")
-@patch("zotero_cli_cc.commands.add.ZoteroWriter")
+@patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
 def test_add_by_doi_resolver_network_error_falls_back(mock_writer_cls, mock_resolve):
     from zotero_cli_cc.core.metadata_resolver import MetadataResolveError
 
@@ -78,7 +78,7 @@ def test_add_by_doi_resolver_network_error_falls_back(mock_writer_cls, mock_reso
     assert mock_writer.add_item.call_args.kwargs["extra_fields"] is None
 
 
-@patch("zotero_cli_cc.commands.delete.ZoteroWriter")
+@patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
 def test_delete_with_confirm(mock_writer_cls):
     mock_writer = MagicMock()
     mock_writer_cls.return_value = mock_writer
@@ -89,7 +89,7 @@ def test_delete_with_confirm(mock_writer_cls):
     mock_writer.delete_item.assert_called_once_with("K1")
 
 
-@patch("zotero_cli_cc.commands.delete.ZoteroWriter")
+@patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
 def test_delete_without_confirm(mock_writer_cls):
     # Without --yes on non-tty stdin (CliRunner uses StringIO), `delete` refuses
     # the operation and exits EXIT_VALIDATION (3) — guards against unattended
@@ -100,7 +100,7 @@ def test_delete_without_confirm(mock_writer_cls):
     mock_writer_cls.return_value.delete_item.assert_not_called()
 
 
-@patch("zotero_cli_cc.commands.tag.ZoteroWriter")
+@patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
 def test_tag_add(mock_writer_cls):
     mock_writer = MagicMock()
     mock_writer_cls.return_value = mock_writer
@@ -111,7 +111,7 @@ def test_tag_add(mock_writer_cls):
     mock_writer.add_tags.assert_called_once_with("K1", ["newtag"])
 
 
-@patch("zotero_cli_cc.commands.tag.ZoteroWriter")
+@patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
 def test_tag_remove(mock_writer_cls):
     mock_writer = MagicMock()
     mock_writer_cls.return_value = mock_writer
@@ -122,7 +122,7 @@ def test_tag_remove(mock_writer_cls):
     mock_writer.remove_tags.assert_called_once_with("K1", ["oldtag"])
 
 
-@patch("zotero_cli_cc.commands.tag.ZoteroWriter")
+@patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
 def test_tag_dry_run(mock_writer_cls):
     runner = CliRunner()
     result = runner.invoke(main, ["tag", "K1", "--add", "t", "--dry-run"], env=WRITE_ENV)
@@ -153,7 +153,7 @@ def test_collection_list(test_db_path):
     assert "Machine Learning" in result.output
 
 
-@patch("zotero_cli_cc.commands.collection.ZoteroWriter")
+@patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
 def test_collection_create(mock_writer_cls):
     mock_writer = MagicMock()
     mock_writer_cls.return_value = mock_writer
@@ -164,7 +164,7 @@ def test_collection_create(mock_writer_cls):
     assert result.exit_code == 0
 
 
-@patch("zotero_cli_cc.commands.collection.ZoteroWriter")
+@patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
 def test_collection_move(mock_writer_cls):
     mock_writer = MagicMock()
     mock_writer_cls.return_value = mock_writer
@@ -175,7 +175,7 @@ def test_collection_move(mock_writer_cls):
     mock_writer.move_to_collection.assert_called_once_with("ITEM1", "COLKEY")
 
 
-@patch("zotero_cli_cc.commands.collection.ZoteroWriter")
+@patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
 def test_collection_delete_dry_run(mock_writer_cls):
     runner = CliRunner()
     result = runner.invoke(main, ["collection", "delete", "COLKEY", "--dry-run"], env=WRITE_ENV)
@@ -184,7 +184,7 @@ def test_collection_delete_dry_run(mock_writer_cls):
     mock_writer_cls.assert_not_called()
 
 
-@patch("zotero_cli_cc.commands.collection.ZoteroWriter")
+@patch("zotero_cli_cc.commands._helpers.ZoteroWriter")
 def test_collection_rename(mock_writer_cls):
     mock_writer = MagicMock()
     mock_writer_cls.return_value = mock_writer

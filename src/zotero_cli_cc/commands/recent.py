@@ -4,8 +4,8 @@ from datetime import datetime, timedelta, timezone
 
 import click
 
-from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
-from zotero_cli_cc.core.reader import ZoteroReader
+from zotero_cli_cc.commands._helpers import open_reader
+from zotero_cli_cc.config import load_config
 from zotero_cli_cc.formatter import format_items, stream_items
 
 
@@ -26,11 +26,7 @@ def recent_cmd(ctx: click.Context, days: int, modified: bool, limit: int | None,
       zot --json recent --days 14   JSON output
     """
     cfg = load_config(profile=ctx.obj.get("profile"))
-    data_dir = get_data_dir(cfg)
-    db_path = data_dir / "zotero.sqlite"
-    library_id = resolve_library_id(db_path, ctx.obj)
-    reader = ZoteroReader(db_path, library_id=library_id)
-    try:
+    with open_reader(ctx, cfg) as reader:
         limit = limit if limit is not None else ctx.obj.get("limit", cfg.default_limit)
         sort_field = "dateModified" if modified else "dateAdded"
         since = datetime.now(timezone.utc) - timedelta(days=days)
@@ -49,5 +45,3 @@ def recent_cmd(ctx: click.Context, days: int, modified: bool, limit: int | None,
                 click.echo(f"No items {'modified' if modified else 'added'} in the last {days} day(s).", err=True)
             return
         click.echo(format_items(items, output_json=json_out, detail=detail))
-    finally:
-        reader.close()
