@@ -7,6 +7,7 @@ import click
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.exit_codes import emit_error
+from zotero_cli_cc.formatter import envelope_ok
 
 
 @click.command("summarize")
@@ -50,7 +51,7 @@ def summarize_cmd(ctx: click.Context, key: str) -> None:
                 data["abstract"] = item.abstract
                 data["tags"] = item.tags
                 data["notes"] = [n.content[:500] for n in notes]
-            click.echo(json.dumps(data, indent=2, ensure_ascii=False))
+            click.echo(json.dumps(envelope_ok(data), indent=2, ensure_ascii=False))
         else:
             click.echo(f"Title: {item.title}")
             click.echo(f"Authors: {', '.join(c.full_name for c in item.creators)}")

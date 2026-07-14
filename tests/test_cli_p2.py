@@ -25,7 +25,8 @@ def test_summarize_json(test_db_path):
         env={"ZOT_DATA_DIR": str(test_db_path.parent), "ZOT_FORMAT": "table"},
     )
     data = json.loads(result.output)
-    assert data["title"] == "Attention Is All You Need"
+    assert data["ok"] is True
+    assert data["data"]["title"] == "Attention Is All You Need"
 
 
 def test_relate(test_db_path):

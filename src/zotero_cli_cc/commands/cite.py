@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 
@@ -8,6 +9,7 @@ import click
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
 from zotero_cli_cc.exit_codes import emit_error
+from zotero_cli_cc.formatter import envelope_ok
 from zotero_cli_cc.models import Item
 
 
@@ -220,11 +222,14 @@ def cite_cmd(ctx: click.Context, key: str, style: str, no_copy: bool) -> None:
             )
         formatter = STYLES[style]
         citation = formatter(item)
-        click.echo(citation)
-        if not no_copy:
-            if _copy_to_clipboard(citation):
-                click.echo("(copied to clipboard)")
-            else:
-                click.echo("(clipboard not available)")
+        if json_out:
+            click.echo(json.dumps(envelope_ok({"citation": citation, "style": style}), indent=2, ensure_ascii=False))
+        else:
+            click.echo(citation)
+            if not no_copy:
+                if _copy_to_clipboard(citation):
+                    click.echo("(copied to clipboard)")
+                else:
+                    click.echo("(clipboard not available)")
     finally:
         reader.close()

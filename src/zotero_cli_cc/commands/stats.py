@@ -6,6 +6,7 @@ import click
 
 from zotero_cli_cc.config import get_data_dir, load_config, resolve_library_id
 from zotero_cli_cc.core.reader import ZoteroReader
+from zotero_cli_cc.formatter import envelope_ok
 
 
 @click.command("stats")
@@ -27,7 +28,7 @@ def stats_cmd(ctx: click.Context) -> None:
     try:
         stats = reader.get_stats()
         if json_out:
-            click.echo(json.dumps(stats, indent=2, ensure_ascii=False))
+            click.echo(json.dumps(envelope_ok(stats), indent=2, ensure_ascii=False))
         else:
             click.echo(f"Total items: {stats['total_items']}")
             click.echo(f"PDF attachments: {stats['pdf_attachments']}")
