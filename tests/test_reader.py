@@ -72,6 +72,22 @@ class TestSearch:
         result = reader.search("", limit=1)
         assert len(result.items) == 1
 
+    def test_search_multi_word_cross_field(self, reader: ZoteroReader):
+        """Multi-word queries match across fields (title, creator, tags)."""
+        result = reader.search("Vaswani attention")
+        assert result.total > 0
+        assert any(i.key == "ATTN001" for i in result.items)
+
+    def test_search_multi_word_partial_miss(self, reader: ZoteroReader):
+        """When one word doesn't match anything, the item is excluded."""
+        result = reader.search("attention nonexistentword999")
+        assert result.total == 0
+
+    def test_search_single_word_still_works(self, reader: ZoteroReader):
+        """Single-word queries unchanged."""
+        result = reader.search("transformer")
+        assert result.total >= 2
+
 
 class TestNotes:
     def test_get_notes(self, reader: ZoteroReader):

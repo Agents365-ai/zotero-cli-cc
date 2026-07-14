@@ -215,8 +215,73 @@ class ZoteroReader:
         lib_sql, lib_params = self._library_filter()
 
         if query:
+            # Tokenize into words and match each word independently across
+            # all search dimensions, then intersect (AND).  This lets
+            # "Vaswani attention" match an item whose creator is Vaswani
+            # and whose title contains "attention" — the words live in
+            # different fields.  The original full-phrase LIKE is also kept
+            # as an OR contributor so exact phrase matches still rank.
+            words = query.split()
             like = f"%{query}%"
-            # Search titles and abstracts
+
+            # Per-word match sets for intersection
+            word_sets: list[set[int]] = []
+            for w in words:
+                pat = f"%{w}%"
+                w_ids: set[int] = set()
+
+                # Metadata (title / abstract)
+                rows = conn.execute(
+                    "SELECT DISTINCT i.itemID FROM items i "
+                    "JOIN itemData id ON i.itemID = id.itemID "
+                    "JOIN itemDataValues iv ON id.valueID = iv.valueID "
+                    f"WHERE iv.value LIKE ? AND i.itemTypeID {excl_sql} {lib_sql}",
+                    (pat, *excl_params, *lib_params),
+                ).fetchall()
+                w_ids.update(r["itemID"] for r in rows)
+
+                # Creators
+                rows = conn.execute(
+                    "SELECT DISTINCT ic.itemID FROM itemCreators ic "
+                    "JOIN creators c ON ic.creatorID = c.creatorID "
+                    "JOIN items i ON ic.itemID = i.itemID "
+                    "WHERE (c.firstName LIKE ? OR c.lastName LIKE ?) "
+                    f"AND i.itemTypeID {excl_sql} {lib_sql}",
+                    (pat, pat, *excl_params, *lib_params),
+                ).fetchall()
+                w_ids.update(r["itemID"] for r in rows)
+
+                # Tags
+                rows = conn.execute(
+                    "SELECT DISTINCT it.itemID FROM itemTags it "
+                    "JOIN tags t ON it.tagID = t.tagID "
+                    "JOIN items i ON it.itemID = i.itemID "
+                    f"WHERE t.name LIKE ? AND i.itemTypeID {excl_sql} {lib_sql}",
+                    (pat, *excl_params, *lib_params),
+                ).fetchall()
+                w_ids.update(r["itemID"] for r in rows)
+
+                # Fulltext
+                rows = conn.execute(
+                    "SELECT DISTINCT ia.parentItemID FROM fulltextItemWords fw "
+                    "JOIN fulltextWords w ON fw.wordID = w.wordID "
+                    "JOIN itemAttachments ia ON fw.itemID = ia.itemID "
+                    "JOIN items i ON ia.parentItemID = i.itemID "
+                    f"WHERE w.word LIKE ? AND ia.parentItemID IS NOT NULL AND i.itemTypeID {excl_sql} {lib_sql}",
+                    (pat, *excl_params, *lib_params),
+                ).fetchall()
+                w_ids.update(r["parentItemID"] for r in rows)
+
+                word_sets.append(w_ids)
+
+            # Intersect: an item must match every word somewhere
+            if word_sets:
+                item_ids = word_sets[0].copy()
+                for ws in word_sets[1:]:
+                    item_ids &= ws
+
+            # Also OR in the full-phrase match — exact phrase hits should
+            # always appear even if the tokenised intersection missed them.
             rows = conn.execute(
                 "SELECT DISTINCT i.itemID FROM items i "
                 "JOIN itemData id ON i.itemID = id.itemID "
@@ -225,38 +290,6 @@ class ZoteroReader:
                 (like, *excl_params, *lib_params),
             ).fetchall()
             item_ids.update(r["itemID"] for r in rows)
-
-            # Search creators
-            rows = conn.execute(
-                "SELECT DISTINCT ic.itemID FROM itemCreators ic "
-                "JOIN creators c ON ic.creatorID = c.creatorID "
-                "JOIN items i ON ic.itemID = i.itemID "
-                "WHERE (c.firstName LIKE ? OR c.lastName LIKE ?) "
-                f"AND i.itemTypeID {excl_sql} {lib_sql}",
-                (like, like, *excl_params, *lib_params),
-            ).fetchall()
-            item_ids.update(r["itemID"] for r in rows)
-
-            # Search tags
-            rows = conn.execute(
-                "SELECT DISTINCT it.itemID FROM itemTags it "
-                "JOIN tags t ON it.tagID = t.tagID "
-                "JOIN items i ON it.itemID = i.itemID "
-                f"WHERE t.name LIKE ? AND i.itemTypeID {excl_sql} {lib_sql}",
-                (like, *excl_params, *lib_params),
-            ).fetchall()
-            item_ids.update(r["itemID"] for r in rows)
-
-            # Search fulltext (with library filter)
-            rows = conn.execute(
-                "SELECT DISTINCT ia.parentItemID FROM fulltextItemWords fw "
-                "JOIN fulltextWords w ON fw.wordID = w.wordID "
-                "JOIN itemAttachments ia ON fw.itemID = ia.itemID "
-                "JOIN items i ON ia.parentItemID = i.itemID "
-                f"WHERE w.word LIKE ? AND ia.parentItemID IS NOT NULL AND i.itemTypeID {excl_sql} {lib_sql}",
-                (like, *excl_params, *lib_params),
-            ).fetchall()
-            item_ids.update(r["parentItemID"] for r in rows)
         else:
             rows = conn.execute(
                 f"SELECT itemID FROM items i WHERE itemTypeID {excl_sql} {lib_sql}",
