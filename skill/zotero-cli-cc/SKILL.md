@@ -10,10 +10,12 @@ description: Use when user mentions papers, references, citations, Zotero, liter
 ## Quick Start
 
 ```bash
-zot search "transformer attention"       # Search papers
-zot --json read ABC123                   # View paper details (JSON)
-zot export ABC123                        # BibTeX export
-zot workspace query "RLHF" --workspace my-ws  # RAG search
+zot search "transformer attention"                      # Search papers
+zot --detail minimal search "transformer attention"     # Search papers (minimal output)
+zot --detail full search "transformer attention"        # Search papers (full output)
+zot --json read ABC123                                  # View paper details (JSON)
+zot export ABC123                                       # Export BibTeX
+zot workspace query "RLHF" --workspace my-ws            # Workspace RAG search
 ```
 
 ## Critical Rules
