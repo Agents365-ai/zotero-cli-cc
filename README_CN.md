@@ -8,7 +8,7 @@
   <a href="https://pypi.org/project/zotero-cli-cc/"><img src="https://img.shields.io/pypi/v/zotero-cli-cc?color=blue" alt="PyPI version"></a>
   <a href="https://github.com/Agents365-ai/zotero-cli-cc/actions/workflows/ci.yml"><img src="https://github.com/Agents365-ai/zotero-cli-cc/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://pypi.org/project/zotero-cli-cc/"><img src="https://img.shields.io/pypi/pyversions/zotero-cli-cc" alt="Python versions"></a>
-  <a href="https://creativecommons.org/licenses/by-nc/4.0/"><img src="https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey" alt="License"></a>
+  <a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/license-AGPL--3.0%20%2B%20Commercial-blue" alt="License"></a>
   <a href="https://agents365-ai.github.io/zotero-cli-cc/zh/"><img src="https://img.shields.io/badge/文档-GitHub%20Pages-blue" alt="文档"></a>
 </p>
 
@@ -20,7 +20,7 @@
 - **写操作** — 通过 Zotero Web API 安全写入，Zotero 完全感知变更
 - **PDF + RAG** — 提取 PDF 全文并自动缓存；内置 BM25（可选向量）按主题工作空间检索
 - **Agent-native** — 稳定 JSON envelope、类型化退出码、`zot schema`、`--dry-run`、`--idempotency-key`、NDJSON 流
-- **MCP 服务器** — 通过 `zot mcp serve` 向 Claude Desktop / LM Studio / Cursor 暴露 45 个工具
+- **MCP 服务器** — 通过 `zot mcp serve` 向 Claude Desktop / LM Studio / Cursor 暴露 48 个工具
 
 ## 架构
 
@@ -132,4 +132,10 @@ cp -r skill/zotero-cli-cc ~/.claude/skills/
 
 ## 许可证
 
-[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) — 非商业使用免费。
+zotero-cli-cc 采用**双许可证**：
+
+- **开源：** [GNU AGPL-3.0-or-later](https://www.gnu.org/licenses/agpl-3.0)（见 [LICENSE](LICENSE)）。
+- **商业：** 如需在闭源或商业产品中使用而不受 AGPL 的 copyleft 义务约束，
+  可获取单独的商业许可证（见 [LICENSE-COMMERCIAL](LICENSE-COMMERCIAL)）。
+
+贡献代码需遵循项目的 [Developer Certificate of Origin](CONTRIBUTING.md)。

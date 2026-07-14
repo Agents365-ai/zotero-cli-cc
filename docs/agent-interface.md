@@ -9,14 +9,14 @@
 `zot schema` is the machine-discoverable source for the command surface:
 command names, nested subcommands, parameters, help text, and
 `safety_tier`. The runtime semantics documented below describe the
-execution-time contract agents should rely on for envelope-backed commands;
-remaining legacy/non-envelope cases are being normalized onto the same model.
+execution-time contract agents should rely on; envelope coverage is now
+standard across the documented commands.
 
 ## Channels
 
 | Channel | Primary audience | Contents |
 |---------|-----------------|----------|
-| `stdout` | machines / agents | standard JSON envelopes for envelope-backed commands; some documented commands use NDJSON/stream output, and a small number of legacy outputs are still being normalized |
+| `stdout` | machines / agents | standard JSON envelopes; some documented commands use NDJSON/stream output |
 | `stderr` | humans | prose diagnostics, progress events, `SYNC_REMINDER` |
 | exit code | orchestrators | distinct code per failure class |
 
@@ -31,7 +31,7 @@ ZOT_FORMAT=table zot search foo   # force table even when piped
 
 ## Envelope
 
-For envelope-backed commands, JSON mode uses the standard shapes below.
+In JSON mode, commands use the standard shapes below.
 
 ### Success
 
@@ -40,7 +40,7 @@ For envelope-backed commands, JSON mode uses the standard shapes below.
   "ok": true,
   "data": { "key": "ABC123", "title": "..." },
   "meta": {
-    "schema_version": "1.2.0",
+    "schema_version": "1.9.0",
     "cli_version": "0.3.0",
     "request_id": "a1b2c3d4e5f6",
     "latency_ms": 412
@@ -70,7 +70,7 @@ Mutating command envelopes may include `data.sync_required`; when present, it is
     "retryable": false,
     "hint": "Run 'zot search' to find valid item keys"
   },
-  "meta": { "request_id": "...", "schema_version": "1.2.0" }
+  "meta": { "request_id": "...", "schema_version": "1.9.0" }
 }
 ```
 
@@ -454,7 +454,7 @@ summarize the run. Missing credentials abort with `auth_missing` (2).
 
 ## `--idempotency-key`
 
-Mutating commands (`add`, `update`, `note --add`, `attach`, `delete`, `orphans clean`) accept `--idempotency-key <string>`:
+Mutating commands (`add`, `update`, `note --add`, `attach`, `delete`, `orphans clean`, `enrich`, `rename`, `tag`, `trash restore`, `collection create/delete/move/rename`, `update-status`) accept `--idempotency-key <string>`:
 
 ```bash
 zot add --doi "10.1/x" --idempotency-key "ingest-2026-04-15-001"
@@ -477,6 +477,8 @@ zot pdf KEY                        # full text
 zot pdf KEY --pages 1-5           # page range
 zot pdf KEY --outline             # numbered heading outline
 zot pdf KEY --section 3           # content under 3rd heading
+zot pdf KEY --references          # parsed reference list (requires a running GROBID service)
+zot pdf KEY --tables              # extract tables (requires the optional pdfplumber extractor)
 zot pdf KEY --extractor pymupdf   # force specific extractor
 ```
 
@@ -491,7 +493,7 @@ JSON output envelopes the extracted content:
     "text": "...",
     "meta": { "extractor": "pymupdf", "cached": true }
   },
-  "meta": { "schema_version": "1.2.0", ... }
+  "meta": { "schema_version": "1.9.0", ... }
 }
 ```
 
@@ -593,7 +595,7 @@ Query JSON output:
       { "rank": 2, "score": 0.8123, "item_key": "DEF456", "source": "metadata", "content": "..." }
     ]
   },
-  "meta": { "schema_version": "1.2.0", ... }
+  "meta": { "schema_version": "1.9.0", ... }
 }
 ```
 

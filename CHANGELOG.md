@@ -7,7 +7,7 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.9.0] - 2026-06-12
+## [0.9.0] - 2026-07-14
 
 ### Added
 
@@ -21,11 +21,34 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Default (no flag) behaviour is unchanged — still prints the first PDF's path.
 - New reader API `ZoteroReader.get_pdf_attachments(key)` returning all PDFs;
   `get_pdf_attachment` (first PDF) is now a thin wrapper over it.
+- **Tokenized multi-word search** — `zot search` splits multi-word queries into
+  independent word matches: each word may hit title, creator, tag, or full text
+  separately, and results are the intersection across words (#76).
+- **Group-library support for `zot attach --via-bridge`** — the bridge maps the
+  Web-API group id to the desktop's internal `libraryID`; requires bridge plugin
+  **v0.4.0** (the CLI checks the plugin version and fails with `bridge_missing`
+  rather than importing into the personal library) (#72).
+- **`zot attach` auto-detects the bridge** — imports through the running Zotero
+  desktop when reachable, otherwise falls back to the Web API; the cloud path
+  now reports an honest `data.result` (`created` vs `exists`) (#71).
+- **`--idempotency-key` on `zot enrich` and `zot rename`** so agent retries are
+  safe on those commands too (#79).
 
 ### Changed
 
 - Schema version bumped to `1.9.0` (additive: new `--all` option on
   `attachment path`).
+
+### Fixed
+
+- Migrated remaining `print_error` call sites to `emit_error` so failures exit
+  non-zero with typed codes; `cite`, `export`, `stats`, `summarize`, and `tag`
+  now emit proper JSON envelopes (#78).
+- MCP server no longer re-creates the writer connection per call (caching);
+  workspace-index errors are now logged instead of swallowed; `mineru` fallback
+  reports the underlying error; `save_config` preserves other profiles; removed
+  an N+1 query in `get_collection_items`; workspace search is tokenized;
+  duplicate detection scores all pairs (#77).
 
 ## [0.8.0] - 2026-06-03
 

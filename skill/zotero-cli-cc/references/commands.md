@@ -200,6 +200,8 @@ zot --json pdf ITEMKEY                      # Full text extraction
 zot --json pdf --outline ITEMKEY            # Numbered section headings
 zot --json pdf --section N ITEMKEY          # Extract content under the N-th heading
 zot pdf ITEMKEY --annotations               # PDF annotations
+zot --json pdf ITEMKEY --references         # parsed reference list (needs GROBID service)
+zot --json pdf ITEMKEY --tables             # extract tables (needs [pdfplumber] extra)
 zot --json summarize ITEMKEY
 zot summarize-all
 ```
