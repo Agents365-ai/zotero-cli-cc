@@ -20,3 +20,7 @@ my-docs/
 .sisyphus/
 .claude/
 .DS_Store
+# Local-only assets and notes (not part of the published repo)
+asserts/banner_cn.png
+asserts/banner_en.png
+goal-pdf-extraction-tiers.md

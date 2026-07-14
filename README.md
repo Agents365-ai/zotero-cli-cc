@@ -20,7 +20,7 @@
 - **Writes** — safe via Zotero Web API, Zotero stays in sync
 - **PDF + RAG** — extract full text with caching; built-in BM25 (+ optional embedding) search over per-topic workspaces
 - **Agent-native** — stable JSON envelope, typed exit codes, `zot schema`, `--dry-run`, `--idempotency-key`, NDJSON streaming
-- **MCP server** — exposes 45 tools to Claude Desktop / LM Studio / Cursor via `zot mcp serve`
+- **MCP server** — exposes 48 tools to Claude Desktop / LM Studio / Cursor via `zot mcp serve`
 
 ## Architecture
 

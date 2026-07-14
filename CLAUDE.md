@@ -75,7 +75,7 @@ Config lives at `~/.config/zot/config.toml` with multi-profile support (`[profil
 
 - Type hints are required (`disallow_untyped_defs = true`). mypy runs on `src/zotero_cli_cc/` only — tests are exempt.
 - Ruff: `target-version = py310`, `line-length = 120`, E501 ignored. `zotero_cli_cc` is configured as first-party for isort.
-- License is **dual: AGPL-3.0-or-later + a commercial license** (see `LICENSE`, `LICENSE-COMMERCIAL`). Preserve both the `license` field and the AGPL classifier when touching packaging metadata. Contributions come in under the DCO/relicense terms in `CONTRIBUTING.md`. Note: PyMuPDF (default PDF extractor) is itself AGPL-or-Artifex-commercial — a closed-source commercial build must satisfy that dependency separately.
+- License is **dual: AGPL-3.0-or-later + a commercial license** (see `LICENSE`, `LICENSE-COMMERCIAL`). Preserve both the `license` field and the AGPL classifier when touching packaging metadata. Contributions come in under the DCO/relicense terms in `CONTRIBUTING.md`. Note: PyMuPDF is an opt-in extra (`[pymupdf]`), not the default — the default `pdfium` backend is permissively licensed, so the base install ships no AGPL PDF code; a commercial build only needs to consider PyMuPDF's AGPL-or-Artifex-commercial licensing if the `[pymupdf]` extra is included.
 - Never run `git commit` or `git push` without explicit user instruction — the repo has CI, docs, and PyPI publish wired to `main`.
 
 ## Docs & skill
