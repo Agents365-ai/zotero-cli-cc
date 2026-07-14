@@ -245,11 +245,11 @@ def _add_from_pdf(
     resolve: bool = True,
 ) -> None:
     """Add item from PDF: extract DOI, create item, upload attachment."""
-    from zotero_cli_cc.core.pdf_extractor import extract_doi
+    from zotero_cli_cc.core.pdf_extractor import get_extractor
 
     doi = doi_override
     if not doi:
-        doi = extract_doi(pdf_path)
+        doi = get_extractor("pymupdf").extract_doi(pdf_path)
     if not doi:
         emit_error(
             "validation_error",

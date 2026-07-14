@@ -10,7 +10,7 @@ import pytest
 from click.testing import CliRunner
 
 from zotero_cli_cc.cli import main
-from zotero_cli_cc.core.pdf_extractor import PdfExtractionError, extract_text_from_pdf
+from zotero_cli_cc.core.pdf_extractor import PdfExtractionError, PdfiumExtractor
 from zotero_cli_cc.core.writer import SYNC_REMINDER, ZoteroWriteError, ZoteroWriter
 
 WRITE_ENV = {"ZOT_LIBRARY_ID": "123", "ZOT_API_KEY": "abc"}
@@ -162,7 +162,7 @@ class TestPdfExtractionError:
         bad_pdf = tmp_path / "bad.pdf"
         bad_pdf.write_bytes(b"not a real pdf file")
         with pytest.raises(PdfExtractionError, match="Cannot open PDF"):
-            extract_text_from_pdf(bad_pdf)
+            PdfiumExtractor().extract_text(bad_pdf)
 
     def test_page_range_exceeds_length(self):
         fixtures = Path(__file__).parent / "fixtures"
@@ -170,7 +170,7 @@ class TestPdfExtractionError:
         if not pdf.exists():
             pytest.skip("test.pdf fixture not found")
         with pytest.raises(PdfExtractionError, match="exceeds document length"):
-            extract_text_from_pdf(pdf, pages=(9999, 10000))
+            PdfiumExtractor().extract_text(pdf, pages=(9999, 10000))
 
     def test_pdf_extraction_error_is_catchable(self):
         """Verify PdfExtractionError can be caught as expected in commands."""

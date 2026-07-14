@@ -9,31 +9,23 @@ from zotero_cli_cc.core.providers.jina import JinaProvider
 
 
 class EmbeddingRouter:
+    """Holds the single embedding provider selected by config.provider."""
+
     def __init__(self, config: EmbeddingConfig):
         self.config = config
-        self.providers: dict[str, EmbeddingProvider] = {}
-        self._init_providers()
+        self.provider: EmbeddingProvider | None = None
 
-    def _init_providers(self) -> None:
-        api_key = self.config.api_key
-        model = self.config.model
-
+        api_key = config.api_key
         if not api_key:
             return
-
-        if self.config.provider == "jina":
-            jina_url = self.config.url if "jina" in self.config.url else "https://api.jina.ai/v1/embeddings"
-            self.providers["jina"] = JinaProvider(
+        if config.provider == "jina":
+            jina_url = config.url if "jina" in config.url else "https://api.jina.ai/v1/embeddings"
+            self.provider = JinaProvider(api_key=api_key, model=config.model, url=jina_url)
+        elif config.provider == "aliyun":
+            self.provider = AliyunProvider(
                 api_key=api_key,
-                model=model,
-                url=jina_url,
-            )
-        elif self.config.provider == "aliyun":
-            aliyun_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-            self.providers["aliyun"] = AliyunProvider(
-                api_key=api_key,
-                model=model,
-                base_url=aliyun_url,
+                model=config.model,
+                base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
             )
 
     def embed(
@@ -43,16 +35,6 @@ class EmbeddingRouter:
     ) -> list[list[float]]:
         if not texts:
             return []
-
-        provider = self._find_provider()
-        if provider:
-            return provider.embed(texts, progress_callback)
-
-        raise RuntimeError("No embedding provider configured")
-
-    def _find_provider(self) -> EmbeddingProvider | None:
-        priority = ["aliyun", "jina"]
-        for name in priority:
-            if name in self.providers:
-                return self.providers[name]
-        return None
+        if self.provider is None:
+            raise RuntimeError("No embedding provider configured")
+        return self.provider.embed(texts, progress_callback)

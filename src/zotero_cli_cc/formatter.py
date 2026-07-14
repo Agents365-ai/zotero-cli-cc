@@ -472,33 +472,6 @@ def stream_items(items: list[Item], detail: str = "standard") -> str:
     return "\n".join(lines)
 
 
-def print_error(error: str | ErrorInfo, output_json: bool = False) -> None:
-    """Emit a structured error to the correct channel.
-
-    JSON mode: envelope to stdout (parseable result for agents).
-    Text mode: human line(s) to stderr (human-facing diagnostic).
-
-    Does not exit. Use zotero_cli_cc.exit_codes.emit_error when you want to exit.
-    """
-    import sys as _sys
-
-    import click
-
-    rendered = format_error(error, output_json=output_json)
-    if output_json:
-        click.echo(rendered)
-    else:
-        click.echo(rendered, err=True)
-    _sys.stdout.flush() if output_json else _sys.stderr.flush()
-
-
-def format_success(data: Any, output_json: bool = False, human_text: str = "", meta: dict | None = None) -> str:
-    """Format a success result. JSON mode emits envelope; text mode emits `human_text`."""
-    if output_json:
-        return _dump(envelope_ok(data, meta=meta))
-    return human_text
-
-
 def _collection_to_dict(c: Collection) -> dict:
     return {
         "key": c.key,

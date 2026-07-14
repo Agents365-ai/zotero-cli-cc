@@ -4,32 +4,32 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from zotero_cli_cc.core.pdf_extractor import extract_doi
+from zotero_cli_cc.core.pdf_extractor import PyMuPdfExtractor
 
 
 class TestExtractDoi:
     def test_extract_doi_found(self, tmp_path):
-        with patch("zotero_cli_cc.core.pdf_extractor.extract_text_from_pdf") as mock_extract:
+        with patch.object(PyMuPdfExtractor, "extract_text") as mock_extract:
             mock_extract.return_value = "Some text with DOI 10.1038/s41586-023-06139-9 in it"
-            result = extract_doi(tmp_path / "dummy.pdf")
+            result = PyMuPdfExtractor().extract_doi(tmp_path / "dummy.pdf")
             assert result == "10.1038/s41586-023-06139-9"
 
     def test_extract_doi_not_found(self, tmp_path):
-        with patch("zotero_cli_cc.core.pdf_extractor.extract_text_from_pdf") as mock_extract:
+        with patch.object(PyMuPdfExtractor, "extract_text") as mock_extract:
             mock_extract.return_value = "No DOI in this text"
-            result = extract_doi(tmp_path / "dummy.pdf")
+            result = PyMuPdfExtractor().extract_doi(tmp_path / "dummy.pdf")
             assert result is None
 
     def test_extract_doi_strips_trailing_punctuation(self, tmp_path):
-        with patch("zotero_cli_cc.core.pdf_extractor.extract_text_from_pdf") as mock_extract:
+        with patch.object(PyMuPdfExtractor, "extract_text") as mock_extract:
             mock_extract.return_value = "DOI: 10.1234/test.paper)."
-            result = extract_doi(tmp_path / "dummy.pdf")
+            result = PyMuPdfExtractor().extract_doi(tmp_path / "dummy.pdf")
             assert result == "10.1234/test.paper"
 
     def test_extract_doi_multiple_returns_first(self, tmp_path):
-        with patch("zotero_cli_cc.core.pdf_extractor.extract_text_from_pdf") as mock_extract:
+        with patch.object(PyMuPdfExtractor, "extract_text") as mock_extract:
             mock_extract.return_value = "10.1234/first and 10.5678/second"
-            result = extract_doi(tmp_path / "dummy.pdf")
+            result = PyMuPdfExtractor().extract_doi(tmp_path / "dummy.pdf")
             assert result == "10.1234/first"
 
 
@@ -56,7 +56,7 @@ class TestAddPdfMCP:
 
         with (
             patch("zotero_cli_cc.mcp_server._get_writer"),
-            patch("zotero_cli_cc.core.pdf_extractor.extract_doi", return_value=None),
+            patch("zotero_cli_cc.core.pdf_extractor.PyMuPdfExtractor.extract_doi", return_value=None),
         ):
             result = _handle_add_from_pdf("/tmp/test.pdf")
             assert "error" in result
@@ -67,7 +67,7 @@ class TestAddPdfMCP:
 
         with (
             patch("zotero_cli_cc.mcp_server._get_writer") as mock_get,
-            patch("zotero_cli_cc.core.pdf_extractor.extract_doi", return_value="10.1234/test"),
+            patch("zotero_cli_cc.core.pdf_extractor.PyMuPdfExtractor.extract_doi", return_value="10.1234/test"),
             patch("zotero_cli_cc.core.metadata_resolver.resolve_doi", return_value=None),
         ):
             mock_writer = MagicMock()

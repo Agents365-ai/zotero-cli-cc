@@ -153,10 +153,9 @@ def pdf_cmd(
                 context="pdf",
             )
         if annotations:
-            from zotero_cli_cc.core.pdf_extractor import extract_annotations
-
+            # Annotation extraction is a pymupdf-only capability.
             try:
-                annots = extract_annotations(pdf_path)
+                annots = get_extractor("pymupdf").extract_annotations(pdf_path)
             except PdfExtractionError as e:
                 emit_error("runtime_error", str(e), output_json=json_out, context="pdf")
             if not annots:

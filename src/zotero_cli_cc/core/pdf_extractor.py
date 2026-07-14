@@ -5,7 +5,6 @@ import os
 import re
 import sys
 import time
-import warnings
 import xml.etree.ElementTree as ET
 import zipfile
 from abc import ABC, abstractmethod
@@ -201,9 +200,12 @@ class PyMuPdfExtractor(BasePdfExtractor):
         return annotations
 
     def extract_doi(self, pdf_path: Path) -> str | None:
+        # PdfExtractionError covers pymupdf not being installed; pymupdf raises
+        # RuntimeError subclasses (e.g. FileDataError) for corrupt files. Both
+        # mean "no DOI available", matching the pdfium/pdfplumber contract.
         try:
             text = self.extract_text(pdf_path, pages=(1, 2))
-        except (FileNotFoundError, OSError):
+        except (FileNotFoundError, OSError, PdfExtractionError, RuntimeError, ValueError):
             return None
         match = re.search(r"10\.\d{4,9}/[^\s]+", text)
         if match:
@@ -982,107 +984,3 @@ def get_extractor(name: str | None = None) -> BasePdfExtractor:
         cfg = load_pdf_config()
         return extractor_cls(cfg.grobid_url)  # type: ignore[call-arg]
     return extractor_cls()
-
-
-# ---------------------------------------------------------------------------
-# Deprecated functions (kept for backwards compatibility)
-# ---------------------------------------------------------------------------
-
-
-def extract_text_from_pdf(
-    pdf_path: Path,
-    pages: tuple[int, int] | None = None,
-) -> str:
-    warnings.warn(
-        "extract_text_from_pdf is deprecated, use PyMuPdfExtractor().extract_text or get_extractor('pymupdf')",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    if not pdf_path.exists():
-        raise FileNotFoundError(f"PDF not found: {pdf_path}")
-    pymupdf = _import_pymupdf()
-    try:
-        doc = pymupdf.open(str(pdf_path))
-    except Exception as e:
-        raise PdfExtractionError(f"Cannot open PDF: {e}") from e
-    try:
-        if pages:
-            start, end = pages
-            if start > len(doc):
-                raise PdfExtractionError(f"Start page {start} exceeds document length ({len(doc)} pages)")
-            page_range = range(start - 1, min(end, len(doc)))
-        else:
-            page_range = range(len(doc))
-        texts = []
-        for i in page_range:
-            texts.append(doc[i].get_text())
-        return "\n".join(texts)
-    except PdfExtractionError:
-        raise
-    except Exception as e:
-        raise PdfExtractionError(f"Failed to extract text: {e}") from e
-    finally:
-        doc.close()
-
-
-def extract_annotations(pdf_path: Path) -> list[dict]:
-    """Extract annotations (highlights, notes, comments) from a PDF.
-
-    Returns list of dicts with keys: type, page, content, quote (for highlights).
-    """
-    warnings.warn(
-        "extract_annotations is deprecated, use PyMuPdfExtractor().extract_annotations or get_extractor('pymupdf')",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    if not pdf_path.exists():
-        raise FileNotFoundError(f"PDF not found: {pdf_path}")
-    pymupdf = _import_pymupdf()
-    try:
-        doc = pymupdf.open(str(pdf_path))
-    except Exception as e:
-        raise PdfExtractionError(f"Cannot open PDF: {e}") from e
-    annotations: list[dict] = []
-    try:
-        for page_num, page in enumerate(doc, start=1):  # type: ignore[var-annotated,arg-type]
-            for annot in page.annots() or []:
-                entry: dict = {
-                    "type": annot.type[1],  # e.g. "Highlight", "Text", "Underline"
-                    "page": page_num,
-                    "content": annot.info.get("content", "") or "",
-                }
-                # For highlight/underline/squiggly/strikeout, extract quoted text
-                if annot.type[0] in (8, 9, 10, 11):
-                    try:
-                        quads = annot.vertices
-                        if quads:
-                            quad_points = [pymupdf.Quad(quads[i : i + 4]) for i in range(0, len(quads), 4)]
-                            text_parts = []
-                            for q in quad_points:
-                                text_parts.append(page.get_text("text", clip=q.rect).strip())
-                            quoted = " ".join(t for t in text_parts if t)
-                            if quoted:
-                                entry["quote"] = quoted
-                    except Exception:
-                        pass
-                annotations.append(entry)
-    finally:
-        doc.close()
-    return annotations
-
-
-def extract_doi(pdf_path: Path) -> str | None:
-    """Extract DOI from first 2 pages of a PDF. Returns first match or None."""
-    warnings.warn(
-        "extract_doi is deprecated, use PyMuPdfExtractor().extract_doi or get_extractor('pymupdf')",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    try:
-        text = extract_text_from_pdf(pdf_path, pages=(1, 2))
-    except (PdfExtractionError, FileNotFoundError):
-        return None
-    match = re.search(r"10\.\d{4,9}/[^\s]+", text)
-    if match:
-        return match.group(0).rstrip(".,;)]}>'\"")
-    return None

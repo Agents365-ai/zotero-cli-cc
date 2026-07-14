@@ -242,8 +242,6 @@ def _handle_pdf(key: str, pages: str | None, library: str = "user") -> dict:
 
 
 def _handle_annotations(key: str, library: str = "user") -> dict:
-    from zotero_cli_cc.core.pdf_extractor import extract_annotations
-
     reader = _get_reader(library)
     att = reader.get_pdf_attachment(key)
     if att is None:
@@ -251,7 +249,8 @@ def _handle_annotations(key: str, library: str = "user") -> dict:
     pdf_path = att.path
     if not pdf_path or not pdf_path.exists():
         return {"error": f"PDF file not found at {pdf_path or att.filename}"}
-    annots = extract_annotations(pdf_path)
+    # Annotation extraction is a pymupdf-only capability.
+    annots = get_extractor("pymupdf").extract_annotations(pdf_path)
     return {"key": key, "annotations": annots, "total": len(annots)}
 
 
@@ -666,11 +665,10 @@ def _handle_attach(parent_key: str, file_path: str, library: str = "user", via_b
 
 def _handle_add_from_pdf(file_path: str, doi_override: str | None = None, library: str = "user") -> dict:
     from zotero_cli_cc.core.metadata_resolver import MetadataResolveError, resolve_doi
-    from zotero_cli_cc.core.pdf_extractor import extract_doi
 
     doi = doi_override
     if not doi:
-        doi = extract_doi(Path(file_path))
+        doi = get_extractor("pymupdf").extract_doi(Path(file_path))
     if not doi:
         return {"error": "No DOI found in PDF. Use doi_override to specify manually."}
 

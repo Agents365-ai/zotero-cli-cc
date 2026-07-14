@@ -7,7 +7,11 @@ from pathlib import Path
 import pymupdf
 import pytest
 
-from zotero_cli_cc.core.pdf_extractor import extract_annotations
+from zotero_cli_cc.core.pdf_extractor import PyMuPdfExtractor
+
+
+def extract_annotations(pdf_path: Path) -> list[dict]:
+    return PyMuPdfExtractor().extract_annotations(pdf_path)
 
 
 @pytest.fixture
