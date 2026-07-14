@@ -36,6 +36,7 @@ _ABORT_CODES = {"not_reachable", "bridge_missing"}
 @click.option("--library-id", type=int, default=None, help="Override the Zotero library ID (default: user library)")
 @click.option("--force", is_flag=True, help="Overwrite if a file with the new name already exists")
 @click.option("--dry-run", is_flag=True, help="Preview the renames without changing any files")
+@click.option("--idempotency-key", default=None, help="Key so retries are safe; same key returns the original result")
 @click.pass_context
 def rename_cmd(
     ctx: click.Context,
@@ -47,6 +48,7 @@ def rename_cmd(
     library_id: int | None,
     force: bool,
     dry_run: bool,
+    idempotency_key: str | None,
 ) -> None:
     """Rename PDF attachment files from item metadata. MUTATES LIBRARY.
 
@@ -74,19 +76,31 @@ def rename_cmd(
                 output_json=json_out,
                 context="rename",
             )
+        from zotero_cli_cc.core.idempotency import get_cached, store_cached
+
+        cache_scope = f"rename_explicit:{attachment_key}:{explicit_name}"
         row: dict[str, object] = {"attachment_key": attachment_key, "new_name": explicit_name, "role": "explicit"}
         if dry_run:
             row["status"] = "dry-run"
-        else:
-            try:
-                res = rename_attachment(attachment_key, explicit_name, library_id=library_id, force=force)  # type: ignore[arg-type]
-            except LocalBridgeError as e:
-                emit_error(
-                    e.code, str(e), output_json=json_out, retryable=e.retryable, hint=_BRIDGE_HINT, context="rename"
-                )
-            row["old_name"] = res.get("old_name")
-            row["status"] = "renamed"
-        _emit(ctx, json_out, [{"key": None, "renames": [row]}], renamed=0 if dry_run else 1, dry_run=dry_run)
+            _emit(ctx, json_out, [{"key": None, "renames": [row]}], renamed=0, dry_run=dry_run)
+            return
+        if idempotency_key:
+            cached = get_cached(cache_scope, idempotency_key)
+            if cached is not None:
+                if json_out:
+                    click.echo(json.dumps(cached, indent=2, ensure_ascii=False))
+                else:
+                    click.echo(f"Attachment {attachment_key} -> {explicit_name} (cached).")
+                return
+        try:
+            res = rename_attachment(attachment_key, explicit_name, library_id=library_id, force=force)  # type: ignore[arg-type]
+        except LocalBridgeError as e:
+            emit_error(e.code, str(e), output_json=json_out, retryable=e.retryable, hint=_BRIDGE_HINT, context="rename")
+        row["old_name"] = res.get("old_name")
+        row["status"] = "renamed"
+        env = _emit(ctx, json_out, [{"key": None, "renames": [row]}], renamed=1, dry_run=dry_run)
+        if idempotency_key:
+            store_cached(cache_scope, idempotency_key, env)
         return
 
     if not item_keys:
@@ -96,6 +110,19 @@ def rename_cmd(
             output_json=json_out,
             context="rename",
         )
+
+    from zotero_cli_cc.core.idempotency import get_cached, store_cached
+
+    cache_scope = f"rename:{':'.join(sorted(item_keys))}"
+    if idempotency_key:
+        cached = get_cached(cache_scope, idempotency_key)
+        if cached is not None:
+            if json_out:
+                click.echo(json.dumps(cached, indent=2, ensure_ascii=False))
+            else:
+                n = cached.get("data", {}).get("renamed_count", 0)
+                click.echo(f"Renamed {n} attachment(s) (cached).")
+            return
 
     # Fail fast if the desktop / bridge is unreachable (skip for dry-run).
     if not dry_run:
@@ -158,15 +185,17 @@ def rename_cmd(
             renames.append(row)
         results.append({"key": key, "renames": renames})
 
-    _emit(ctx, json_out, results, renamed=renamed, dry_run=dry_run)
+    env = _emit(ctx, json_out, results, renamed=renamed, dry_run=dry_run)
+    if idempotency_key:
+        store_cached(cache_scope, idempotency_key, env)
 
 
-def _emit(ctx: click.Context, json_out: bool, results: list[dict], *, renamed: int, dry_run: bool) -> None:
+def _emit(ctx: click.Context, json_out: bool, results: list[dict], *, renamed: int, dry_run: bool) -> dict:
     data = {"results": results, "renamed_count": renamed, "sync_required": renamed > 0}
     env = envelope_ok(data, extra={"dry_run": True} if dry_run else None)
     if json_out:
         click.echo(json.dumps(env, indent=2, ensure_ascii=False))
-        return
+        return env
     for item in results:
         if item.get("key"):
             click.echo(f"{item['key']}:")
@@ -180,3 +209,4 @@ def _emit(ctx: click.Context, json_out: bool, results: list[dict], *, renamed: i
         click.echo("[dry-run] no files changed", err=True)
     elif renamed:
         click.echo(SYNC_REMINDER, err=True)
+    return env

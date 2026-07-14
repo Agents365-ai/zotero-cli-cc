@@ -33,6 +33,7 @@ _ABORT_CODES = {"auth_missing", "auth_invalid", "network_error"}
     help="TOML table of journal name -> {metric: value}; applied by the item's journal",
 )
 @click.option("--dry-run", is_flag=True, help="Preview the Extra changes without writing")
+@click.option("--idempotency-key", default=None, help="Key so retries are safe; same key returns the original result")
 @click.pass_context
 def enrich_cmd(
     ctx: click.Context,
@@ -40,6 +41,7 @@ def enrich_cmd(
     set_pairs: tuple[str, ...],
     map_path: Path | None,
     dry_run: bool,
+    idempotency_key: str | None,
 ) -> None:
     """Write journal metrics into an item's Extra field. MUTATES LIBRARY.
 
@@ -70,6 +72,19 @@ def enrich_cmd(
             output_json=json_out,
             context="enrich",
         )
+
+    from zotero_cli_cc.core.idempotency import get_cached, store_cached
+
+    cache_scope = f"enrich:{':'.join(sorted(item_keys))}"
+    if idempotency_key:
+        cached = get_cached(cache_scope, idempotency_key)
+        if cached is not None:
+            if json_out:
+                click.echo(json.dumps(cached, indent=2, ensure_ascii=False))
+            else:
+                updated_count = cached.get("data", {}).get("updated_count", 0)
+                click.echo(f"Enrich results (cached): {updated_count} item(s) updated.")
+            return
 
     cfg = load_config(profile=ctx.obj.get("profile"))
     db_path = get_data_dir(cfg) / "zotero.sqlite"
@@ -104,7 +119,9 @@ def enrich_cmd(
                 emit_error(e.code, str(e), output_json=json_out, retryable=e.retryable, context="enrich")
             results.append({"key": key, "status": "error", "error": str(e), "code": e.code})
 
-    _emit(json_out, results, updated=updated, dry_run=dry_run)
+    env = _emit(json_out, results, updated=updated, dry_run=dry_run)
+    if idempotency_key:
+        store_cached(cache_scope, idempotency_key, env)
 
 
 def _build_writer(ctx: click.Context, cfg: AppConfig, json_out: bool) -> ZoteroWriter:
@@ -124,12 +141,12 @@ def _build_writer(ctx: click.Context, cfg: AppConfig, json_out: bool) -> ZoteroW
     return ZoteroWriter(library_id=library_id, api_key=api_key, library_type=library_type)
 
 
-def _emit(json_out: bool, results: list[dict], *, updated: int, dry_run: bool) -> None:
+def _emit(json_out: bool, results: list[dict], *, updated: int, dry_run: bool) -> dict:
     data = {"results": results, "updated_count": updated, "sync_required": updated > 0}
     env = envelope_ok(data, extra={"dry_run": True} if dry_run else None)
     if json_out:
         click.echo(json.dumps(env, indent=2, ensure_ascii=False))
-        return
+        return env
     for item in results:
         click.echo(f"{item['key']}:")
         if item.get("error"):
@@ -144,3 +161,4 @@ def _emit(json_out: bool, results: list[dict], *, updated: int, dry_run: bool) -
         click.echo("[dry-run] no items changed", err=True)
     elif updated:
         click.echo(SYNC_REMINDER, err=True)
+    return env
