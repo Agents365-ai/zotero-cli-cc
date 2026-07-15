@@ -51,6 +51,19 @@ class TestRagIndex:
         finally:
             idx.close()
 
+    def test_get_bm25_terms_bulk_exceeds_sqlite_variable_limit(self, tmp_path):
+        # Regression for #83: >SQLITE_MAX_VARIABLE_NUMBER ids in one IN clause
+        idx = RagIndex(tmp_path / "test.idx.sqlite")
+        try:
+            chunk_id = idx.insert_chunk("ABC123", "metadata", "attention mechanism")
+            idx.insert_bm25_terms(chunk_id, {"attention": 1.0})
+            chunk_ids = [chunk_id] + list(range(100_000, 140_000))
+            result = idx.get_bm25_terms_bulk(chunk_ids)
+            assert result[chunk_id] == {"attention": 1.0}
+            assert len(result) == len(chunk_ids)
+        finally:
+            idx.close()
+
     def test_set_and_get_meta(self, tmp_path):
         idx = RagIndex(tmp_path / "test.idx.sqlite")
         try:

@@ -80,14 +80,18 @@ class RagIndex:
     def get_bm25_terms_bulk(self, chunk_ids: list[int]) -> dict[int, dict[str, float]]:
         if not chunk_ids:
             return {}
-        placeholders = ",".join("?" * len(chunk_ids))
-        rows = self._conn.execute(
-            f"SELECT chunk_id, term, tf FROM bm25_terms WHERE chunk_id IN ({placeholders})",
-            chunk_ids,
-        ).fetchall()
         result: dict[int, dict[str, float]] = {cid: {} for cid in chunk_ids}
-        for r in rows:
-            result[r["chunk_id"]][r["term"]] = r["tf"]
+        # SQLITE_MAX_VARIABLE_NUMBER can be as low as 999, so batch the IN clause
+        batch_size = 900
+        for i in range(0, len(chunk_ids), batch_size):
+            batch = chunk_ids[i : i + batch_size]
+            placeholders = ",".join("?" * len(batch))
+            rows = self._conn.execute(
+                f"SELECT chunk_id, term, tf FROM bm25_terms WHERE chunk_id IN ({placeholders})",
+                batch,
+            ).fetchall()
+            for r in rows:
+                result[r["chunk_id"]][r["term"]] = r["tf"]
         return result
 
     def get_indexed_keys(self) -> set[str]:
