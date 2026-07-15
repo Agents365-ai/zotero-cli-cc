@@ -7,6 +7,26 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-15
+
+### Added
+
+- **OpenAI-compatible embedding endpoints** — new `provider = "openai"`
+  (`ZOT_EMBEDDING_PROVIDER=openai`) routes any OpenAI-compatible
+  `/v1/embeddings` endpoint (Aliyun Bailian workspace URLs, LiteLLM, Ollama,
+  vLLM, ...) with configurable base URL, API key, and model. The `aliyun`
+  provider now also honors `ZOT_EMBEDDING_URL` / `[embedding] url` as a custom
+  base URL — needed since Bailian moved to per-workspace endpoints — and falls
+  back to the dashscope default when unset. Both base URLs and full
+  `.../embeddings` URLs are accepted (#84, #86).
+
+### Fixed
+
+- **`zot workspace query` crashed on large indices** with
+  `sqlite3.OperationalError: too many SQL variables` — BM25 term lookup bound
+  every chunk id into a single `IN (...)` clause, exceeding SQLite's
+  `SQLITE_MAX_VARIABLE_NUMBER`. Now queried in batches of 900 ids (#83, #85).
+
 ## [0.9.0] - 2026-07-14
 
 ### Added
