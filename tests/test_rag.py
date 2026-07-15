@@ -8,6 +8,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from zotero_cli_cc.config import EmbeddingConfig
+from zotero_cli_cc.core.embedding_router import EmbeddingRouter
+from zotero_cli_cc.core.providers.aliyun import AliyunProvider
 from zotero_cli_cc.core.rag import (
     bm25_score_chunks,
     build_metadata_chunk,
@@ -220,6 +222,40 @@ class TestEmbedding:
         assert result is None
         captured = capsys.readouterr()
         assert captured.err == ""
+
+
+class TestEmbeddingRouter:
+    def test_aliyun_default_url(self):
+        cfg = EmbeddingConfig(api_key="key", provider="aliyun")
+        router = EmbeddingRouter(cfg)
+        assert isinstance(router.provider, AliyunProvider)
+        assert router.provider.base_url == "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+    def test_aliyun_custom_base_url(self):
+        cfg = EmbeddingConfig(
+            url="https://ws-123.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+            api_key="key",
+            provider="aliyun",
+        )
+        router = EmbeddingRouter(cfg)
+        assert router.provider.base_url == "https://ws-123.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+
+    def test_openai_compatible_provider(self):
+        cfg = EmbeddingConfig(url="http://localhost:11434/v1", api_key="key", model="nomic-embed", provider="openai")
+        router = EmbeddingRouter(cfg)
+        assert isinstance(router.provider, AliyunProvider)
+        assert router.provider.base_url == "http://localhost:11434/v1"
+        assert router.provider.model == "nomic-embed"
+
+    def test_openai_full_embeddings_url_stripped(self):
+        cfg = EmbeddingConfig(url="http://localhost:4000/v1/embeddings", api_key="key", provider="openai")
+        router = EmbeddingRouter(cfg)
+        assert router.provider.base_url == "http://localhost:4000/v1"
+
+    def test_no_api_key_no_provider(self):
+        cfg = EmbeddingConfig(api_key="", provider="openai")
+        router = EmbeddingRouter(cfg)
+        assert router.provider is None
 
 
 class TestRRF:

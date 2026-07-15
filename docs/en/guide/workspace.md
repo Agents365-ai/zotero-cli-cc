@@ -75,6 +75,15 @@ zot workspace index llm-safety --force      # Rebuild with embeddings
 zot workspace query "reward hacking" --workspace llm-safety --mode hybrid
 ```
 
+Any OpenAI-compatible `/v1/embeddings` endpoint also works (Aliyun Bailian workspace URLs, LiteLLM, Ollama, vLLM, ...):
+
+```bash
+export ZOT_EMBEDDING_PROVIDER="openai"
+export ZOT_EMBEDDING_URL="https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+export ZOT_EMBEDDING_KEY="your-key"
+export ZOT_EMBEDDING_MODEL="text-embedding-v3"
+```
+
 ## Manage
 
 ```bash

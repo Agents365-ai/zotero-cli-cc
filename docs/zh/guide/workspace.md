@@ -75,6 +75,15 @@ zot workspace index llm-safety --force      # 重建索引（含 embeddings）
 zot workspace query "reward hacking" --workspace llm-safety --mode hybrid
 ```
 
+也支持任意 OpenAI 兼容的 `/v1/embeddings` 端点（阿里云百炼工作空间专属地址、LiteLLM、Ollama、vLLM 等）：
+
+```bash
+export ZOT_EMBEDDING_PROVIDER="openai"
+export ZOT_EMBEDDING_URL="https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+export ZOT_EMBEDDING_KEY="your-key"
+export ZOT_EMBEDDING_MODEL="text-embedding-v3"
+```
+
 ## 管理
 
 ```bash

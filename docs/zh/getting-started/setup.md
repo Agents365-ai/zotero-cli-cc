@@ -79,6 +79,7 @@ default_style = "bibtex"
 | `ZOT_EMBEDDING_URL` | Embedding API 端点（默认：Jina AI） |
 | `ZOT_EMBEDDING_KEY` | Embedding API 密钥（启用语义工作区搜索） |
 | `ZOT_EMBEDDING_MODEL` | Embedding 模型名称（默认：`jina-embeddings-v3`） |
+| `ZOT_EMBEDDING_PROVIDER` | Embedding 提供商：`jina`（默认）、`aliyun` 或 `openai`（任意 OpenAI 兼容 `/v1/embeddings` 端点，将 `ZOT_EMBEDDING_URL` 设为其 base URL） |
 
 ## 多配置文件
 
